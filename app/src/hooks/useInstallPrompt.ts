@@ -16,6 +16,10 @@ function detectIos(): boolean {
   return /iphone|ipad|ipod/i.test(ua) || (ua.includes("Macintosh") && "ontouchend" in document);
 }
 
+function detectAndroid(): boolean {
+  return /android/i.test(window.navigator.userAgent);
+}
+
 /**
  * Chrome/Android exponen `beforeinstallprompt` para poder disparar la
  * instalación desde un botón propio en vez de depender del ícono/heurística
@@ -29,6 +33,7 @@ export function useInstallPrompt() {
   const [deferredEvent, setDeferredEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(isStandaloneDisplay());
   const isIos = detectIos();
+  const isAndroid = detectAndroid();
 
   useEffect(() => {
     function onBeforeInstallPrompt(e: Event) {
@@ -59,9 +64,7 @@ export function useInstallPrompt() {
     installed,
     canPrompt: !!deferredEvent,
     isIos,
-    // En iOS no hay evento que disparar, pero igual vale la pena mostrar
-    // instrucciones si todavía no está instalada.
-    showIosInstructions: isIos && !installed,
+    isAndroid,
     promptInstall
   };
 }
