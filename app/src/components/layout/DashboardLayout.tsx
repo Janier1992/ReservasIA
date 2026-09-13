@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { InstallAppButton } from "@/components/InstallAppButton";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Inicio", icon: LayoutDashboard, end: true },
@@ -95,6 +96,7 @@ export function DashboardLayout() {
       </nav>
 
       <div className="border-t border-border p-3">
+        <InstallAppButton className="mb-2 w-full" />
         <div className="mb-2 truncate text-xs text-muted-foreground">{user?.email}</div>
         <button
           onClick={() => signOut()}
@@ -136,7 +138,8 @@ export function DashboardLayout() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <span className="font-semibold">Reservas AI</span>
+          <span className="flex-1 font-semibold">Reservas AI</span>
+          <InstallAppButton />
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
