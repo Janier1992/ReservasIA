@@ -6,10 +6,14 @@
     <meta name="description" content="Gestioná reservas, conversaciones y clientes de tu negocio desde el celular." />
     <meta name="theme-color" content="#B4513A" />
 
-    <!-- iOS no lee el manifest.json para el modo "app instalada": necesita estas etiquetas explícitas. -->
+    <!-- iOS no lee el manifest.json para el modo "app instalada": necesita estas etiquetas explícitas.
+         mobile-web-app-capable es el reemplazo estándar que ahora también pide Chrome/Android; se
+         mantienen ambas porque Safari en iOS todavía sólo reconoce la de "apple-". -->
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Reservas AI" />
+    <link rel="icon" href="/icons/icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 
     <title>Reservas AI — Panel de negocio</title>
