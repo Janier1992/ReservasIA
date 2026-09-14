@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -20,20 +20,32 @@ function detectAndroid(): boolean {
   return /android/i.test(window.navigator.userAgent);
 }
 
+interface InstallPromptContextValue {
+  installed: boolean;
+  canPrompt: boolean;
+  isIos: boolean;
+  isAndroid: boolean;
+  promptInstall: () => Promise<void>;
+}
+
+const InstallPromptContext = createContext<InstallPromptContextValue | null>(null);
+
 /**
- * Chrome/Android exponen `beforeinstallprompt` para poder disparar la
- * instalación desde un botón propio en vez de depender del ícono/heurística
- * automática del navegador (que en Android no siempre aparece, y en
- * desktop puede pasar desapercibida). iOS Safari NUNCA dispara este evento
- * ni tiene una API equivalente: ahí sólo queda mostrar instrucciones para
- * "Compartir → Agregar a pantalla de inicio", es una limitación de Apple,
- * no de esta app.
+ * El navegador dispara `beforeinstallprompt` UNA SOLA VEZ por carga de
+ * página, en el momento que él decide (no nosotros). Si nadie está
+ * escuchando en ESE instante, el evento se pierde para siempre — no vuelve
+ * a dispararse aunque el usuario navegue a otra pantalla dentro de la SPA.
+ *
+ * Por eso este listener se registra acá, envolviendo TODA la app en
+ * App.tsx (se monta una única vez y nunca se desmonta durante la sesión),
+ * en vez de adentro de cada layout (Auth/Dashboard) que se monta y
+ * desmonta con cada navegación. Así, sin importar en qué pantalla esté el
+ * usuario cuando el navegador decide ofrecer la instalación, el evento
+ * queda capturado acá y disponible para cualquier botón de la app.
  */
-export function useInstallPrompt() {
+export function InstallPromptProvider({ children }: { children: ReactNode }) {
   const [deferredEvent, setDeferredEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(isStandaloneDisplay());
-  const isIos = detectIos();
-  const isAndroid = detectAndroid();
 
   useEffect(() => {
     function onBeforeInstallPrompt(e: Event) {
@@ -60,11 +72,19 @@ export function useInstallPrompt() {
     setDeferredEvent(null);
   }
 
-  return {
+  const value: InstallPromptContextValue = {
     installed,
     canPrompt: !!deferredEvent,
-    isIos,
-    isAndroid,
+    isIos: detectIos(),
+    isAndroid: detectAndroid(),
     promptInstall
   };
+
+  return <InstallPromptContext.Provider value={value}>{children}</InstallPromptContext.Provider>;
+}
+
+export function useInstallPrompt(): InstallPromptContextValue {
+  const ctx = useContext(InstallPromptContext);
+  if (!ctx) throw new Error("useInstallPrompt debe usarse dentro de <InstallPromptProvider>");
+  return ctx;
 }

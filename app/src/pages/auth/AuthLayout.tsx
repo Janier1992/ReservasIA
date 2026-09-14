@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { CalendarClock } from "lucide-react";
+import { InstallAppButton } from "@/components/InstallAppButton";
 
 export function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
@@ -13,6 +14,9 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-6 shadow-sm">{children}</div>
+        <div className="flex justify-center">
+          <InstallAppButton />
+        </div>
       </div>
     </div>
   );
