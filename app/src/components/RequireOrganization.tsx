@@ -15,7 +15,7 @@ export function RequireOrganization() {
 
   if (isLoading || invitesLoading) return <FullscreenLoader />;
 
-  if (memberships.length === 0 || !currentOrganizationId) {
+  if (memberships.length === 0) {
     if (pendingInvites.length > 0) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -31,6 +31,14 @@ export function RequireOrganization() {
     }
     return <Navigate to="/onboarding" replace />;
   }
+
+  // El usuario SÍ tiene organizaciones: si currentOrganizationId todavía no se
+  // sincronizó (por ejemplo, primera carga en un navegador/sesión nuevos,
+  // donde localStorage arranca vacío hasta que el efecto de
+  // OrganizationProvider elige la primera membership), es un instante de
+  // carga, no una señal de "hay que crear un negocio" — nunca hay que mandar
+  // a un usuario con negocio ya creado de vuelta al onboarding.
+  if (!currentOrganizationId) return <FullscreenLoader />;
 
   return <Outlet />;
 }

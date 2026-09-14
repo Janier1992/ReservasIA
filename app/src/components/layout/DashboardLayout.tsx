@@ -107,7 +107,7 @@ export function DashboardLayout() {
   );
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-dvh bg-background">
       {/* Sidebar: drawer deslizable en mobile, fija en desktop (lg+) */}
       <aside
         className={cn(
@@ -126,8 +126,11 @@ export function DashboardLayout() {
         />
       )}
 
-      <div className="flex min-h-screen flex-1 flex-col overflow-hidden">
-        {/* Barra superior: sólo visible en mobile, para abrir el menú (la sidebar ya está siempre visible en desktop) */}
+      <div className="flex h-dvh flex-1 flex-col overflow-hidden">
+        {/* Barra superior: sólo visible en mobile, para abrir el menú (la sidebar ya está siempre visible en desktop).
+            shrink-0 + el contenedor padre con overflow-hidden y altura fija (h-dvh) es lo que la mantiene
+            estática: sin una altura fija acá, el navegador scrollea toda la página en vez de sólo <main>,
+            y esta barra se desplaza con el resto en vez de quedar fija arriba. */}
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4 lg:hidden">
           <button
             className="rounded-md p-1.5 text-foreground/70 hover:bg-muted"
