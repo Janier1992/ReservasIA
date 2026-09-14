@@ -3,6 +3,7 @@ import { logger } from "../../lib/logger.js";
 import { AppError, ErrorCodes, mapPostgresErrorMessage } from "../../utils/AppError.js";
 import type { Reservation } from "../../types/domain.js";
 import { createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from "../google/googleService.js";
+import { notifyNewReservation } from "../notifications/pushService.js";
 
 function translateRpcError(error: { message: string }): never {
   const mapped = mapPostgresErrorMessage(error.message);
@@ -58,6 +59,15 @@ export async function createReservation(input: CreateReservationInput): Promise<
       { organizationId: input.organizationId, reservationId: reservation.id, err: googleError },
       "google_calendar_sync_failed_on_create"
     );
+  }
+
+  // Push al negocio: igual que Google Calendar, best-effort — el dueño se
+  // entera al instante de que el agente cerró una reserva por su cuenta,
+  // sin que eso pueda bloquear ni fallar la creación de la reserva en sí.
+  try {
+    await notifyNewReservation(reservation);
+  } catch (pushError) {
+    logger.warn({ organizationId: input.organizationId, reservationId: reservation.id, err: pushError }, "push_notify_failed");
   }
 
   return reservation;

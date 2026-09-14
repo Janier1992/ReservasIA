@@ -25,6 +25,7 @@ interfaz es responsiva.
 - [Configurar Google Calendar](#configurar-google-calendar)
 - [Moneda y localización](#moneda-y-localización)
 - [PWA — instalación en celular/escritorio](#pwa--instalación-en-celularescritorio)
+- [Notificaciones push](#notificaciones-push)
 - [Desarrollo local](#desarrollo-local)
 - [Tests](#tests)
 - [Build y producción](#build-y-producción)
@@ -88,6 +89,10 @@ conexión de canales — todo antes de llegar al dashboard.
 ### Equipo
 - Invitar usuarios por email con rol `admin` o `staff`, cambiar roles, revocar acceso. La organización siempre
   conserva al menos un `owner`.
+
+### Notificaciones push
+- El negocio recibe una notificación con sonido en el celular apenas el agente confirma una reserva por
+  Telegram/WhatsApp, sin necesidad de tener la app abierta. Se activan desde **Configuración**, por dispositivo.
 
 ### Configuración del negocio
 - Datos de contacto, moneda (COP por defecto, cualquier otra editable), duración/intervalo de turnos, capacidad,
@@ -340,10 +345,18 @@ La app es instalable como Progressive Web App:
   ```bash
   node app/scripts/generate-icons.mjs
   ```
-- **Service worker**: precachea sólo el shell de la app (HTML/JS/CSS/íconos) para que abra instantáneo; los datos
-  del negocio (reservas, conversaciones) siempre se piden en vivo a InsForge, nunca se sirven desde caché.
+- **Service worker propio** (`app/src/sw.ts`, modo `injectManifest` de `vite-plugin-pwa`): precachea el shell de la
+  app (HTML/JS/CSS/íconos) para que abra instantáneo, y además escucha los eventos `push`/`notificationclick` (ver
+  [Notificaciones push](#notificaciones-push)). Los datos del negocio (reservas, conversaciones) siempre se piden
+  en vivo a InsForge, nunca se sirven desde caché.
 - **Actualizaciones**: cuando se publica una versión nueva, el usuario ve un aviso ("Hay una nueva versión
   disponible") con un botón para actualizar al toque.
+- **Botón "Instalar app"** propio (visible en la pantalla de login, `app/src/components/InstallAppButton.tsx`): en
+  Android/Chrome dispara la instalación de un clic usando el evento `beforeinstallprompt`, capturado globalmente en
+  `app/src/hooks/useInstallPrompt.tsx` (un React Context montado una única vez en `App.tsx`, para que el evento —
+  que el navegador dispara sólo una vez por sesión — no se pierda si llega mientras el usuario está en otra
+  pantalla). Si el navegador no ofrece ese evento (o en iOS, que no lo tiene), el botón muestra instrucciones
+  manuales según la plataforma detectada.
 - El service worker **no se activa en modo desarrollo** (`npm run dev`), es el comportamiento esperado. Para
   probar la instalación real:
   ```bash
@@ -351,12 +364,44 @@ La app es instalable como Progressive Web App:
   npm run build
   npm run preview
   ```
-  y abrí la URL que imprime desde el navegador del celular (misma red) o desde Chrome/Edge en desktop — debería
-  aparecer la opción "Instalar app" en la barra de direcciones o en el menú del navegador.
+  y abrí la URL que imprime desde el navegador del celular (misma red) o desde Chrome/Edge en desktop.
 
-Todo el dashboard es responsivo: el menú lateral se convierte en un drawer con botón de hamburguesa en mobile, y el
-Inbox (que en desktop muestra 3 columnas) pasa a navegación por paneles (lista → conversación, con la info del
-cliente en un diálogo).
+Todo el dashboard es responsivo: el menú lateral se convierte en un drawer con botón de hamburguesa en mobile (con
+altura fija al viewport para que esa barra nunca se desplace al scrollear el contenido), y el Inbox (que en desktop
+muestra 3 columnas) pasa a navegación por paneles (lista → conversación, con la info del cliente en un diálogo).
+
+---
+
+## Notificaciones push
+
+Cuando el agente de IA confirma una reserva nueva (por Telegram/WhatsApp), el negocio recibe una notificación push
+con sonido en el celular — sin necesidad de tener la app abierta.
+
+- **Web Push + VAPID** (estándar, sin depender de Firebase/OneSignal ni de ningún servicio de terceros de pago).
+- El service worker (`app/src/sw.ts`) escucha el evento `push` y muestra la notificación; al tocarla, enfoca la
+  pestaña de la app ya abierta o abre una nueva en `/dashboard/reservations`.
+- Cada dispositivo/navegador donde un miembro del negocio activa las notificaciones (desde **Configuración** →
+  "Notificaciones push") guarda su suscripción en `push_subscriptions`, aislada por organización con RLS.
+- El compute service (`server/src/services/notifications/pushService.ts`) manda el push, en paralelo a todas las
+  suscripciones de esa organización, cuando se crea una reserva vía el agente
+  (`server/src/services/reservations/reservationsService.ts`). Es best-effort — igual que la sincronización con
+  Google Calendar: si falla el envío, la reserva ya quedó creada de todas formas. Las reservas creadas manualmente
+  desde el dashboard no disparan push (quien las crea ya está mirando el dashboard).
+
+### Configurar VAPID
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Completá con el par que te devuelva:
+- `.env`: `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY` (compute service) + `VITE_VAPID_PUBLIC_KEY` (frontend, **mismo
+  valor** que `VAPID_PUBLIC_KEY`).
+- Como secretos de InsForge sólo hace falta si algún día una Edge Function necesita mandar push directamente; hoy
+  sólo los usa el compute service, así que alcanza con el `.env` de `server/` en el host donde lo despliegues.
+
+Sin estas variables, la funcionalidad queda deshabilitada automáticamente (el botón de Configuración explica que el
+navegador/dispositivo no la soporta) — el resto de la app sigue funcionando igual.
 
 ---
 
@@ -433,6 +478,7 @@ npm run build
       agente (con preview), integraciones, equipo, configuración.
 - [x] Moneda configurable por negocio (COP por defecto).
 - [x] PWA instalable, responsiva en mobile y desktop.
+- [x] Notificaciones push (Web Push + VAPID) al negocio cuando el agente confirma una reserva nueva.
 - [x] Logging estructurado sin secretos, rate limiting, protección de costos de IA, validaciones con Zod.
 
 ## Simplificaciones conocidas / próximos pasos

@@ -9,6 +9,13 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icons/apple-touch-icon.png"],
+      // injectManifest (en vez de generateSW): las notificaciones push
+      // necesitan un service worker propio que escuche los eventos "push" y
+      // "notificationclick" (ver src/sw.ts) — generateSW arma un SW
+      // automático que no permite agregar ese código.
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       manifest: {
         name: "Reservas AI — Panel de negocio",
         short_name: "Reservas AI",
@@ -25,7 +32,7 @@ export default defineConfig({
           { src: "/icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
         ]
       },
-      workbox: {
+      injectManifest: {
         // Sólo se precachea el shell de la app (HTML/JS/CSS/íconos) para que
         // abra instantáneo/offline como shell. No se agrega runtime caching:
         // los datos del negocio (reservas, conversaciones) van siempre a

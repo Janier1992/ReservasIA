@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CURRENCY_OPTIONS } from "@/lib/currency";
+import { PushNotificationsCard } from "@/components/PushNotificationsCard";
 import type { BusinessHourPeriod, BusinessProfile } from "@/types/domain";
 
 const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -200,6 +201,8 @@ export function SettingsPage() {
           {!readOnly && <Button onClick={saveProfile}>Guardar</Button>}
         </CardContent>
       </Card>
+
+      {currentOrganizationId && <PushNotificationsCard organizationId={currentOrganizationId} />}
 
       <Card>
         <CardHeader>
