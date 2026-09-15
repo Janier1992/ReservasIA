@@ -3,6 +3,45 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --color-primary: 180 81 58; /* #B4513A */
+    --color-primary-foreground: 255 255 255;
+    --color-secondary: 198 138 59; /* #C68A3B */
+    --color-secondary-foreground: 42 37 34;
+    --color-success: 107 127 63; /* #6B7F3F */
+    --color-success-foreground: 255 255 255;
+    --color-background: 247 241 229; /* #F7F1E5 */
+    --color-foreground: 42 37 34; /* #2A2522 */
+    --color-border: 228 217 196; /* #E4D9C4 */
+    --color-muted: 239 230 211; /* #EFE6D3 */
+    --color-muted-foreground: 107 99 85; /* #6B6355 */
+    --color-card: 255 255 255;
+    --color-card-foreground: 42 37 34;
+    --color-destructive: 179 38 30; /* #B3261E */
+    --color-destructive-foreground: 255 255 255;
+  }
+
+  /* Misma paleta cálida, reajustada para fondos oscuros: los colores de
+     acento se aclaran para mantener contraste sobre superficies oscuras,
+     en vez de reusar los mismos tonos que en el tema claro. */
+  .dark {
+    --color-primary: 217 119 87; /* #D97757 */
+    --color-primary-foreground: 255 255 255;
+    --color-secondary: 217 162 75; /* #D9A24B */
+    --color-secondary-foreground: 32 27 22;
+    --color-success: 138 161 87; /* #8AA157 */
+    --color-success-foreground: 26 23 20;
+    --color-background: 27 24 21; /* #1B1815 */
+    --color-foreground: 242 236 224; /* #F2ECE0 */
+    --color-border: 58 51 44; /* #3A332C */
+    --color-muted: 38 34 29; /* #26221D */
+    --color-muted-foreground: 167 156 140; /* #A79C8C */
+    --color-card: 33 29 25; /* #211D19 */
+    --color-card-foreground: 242 236 224;
+    --color-destructive: 229 83 75; /* #E5534B */
+    --color-destructive-foreground: 255 255 255;
+  }
+
   html {
     @apply antialiased;
   }
@@ -13,7 +52,7 @@
 
 @layer components {
   .input-base {
-    @apply w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply w-full rounded-md border border-border bg-card px-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50;
   }
 }
 

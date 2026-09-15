@@ -7,31 +7,31 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: "#B4513A",
-          foreground: "#FFFFFF"
+          DEFAULT: "rgb(var(--color-primary) / <alpha-value>)",
+          foreground: "rgb(var(--color-primary-foreground) / <alpha-value>)"
         },
         secondary: {
-          DEFAULT: "#C68A3B",
-          foreground: "#2A2522"
+          DEFAULT: "rgb(var(--color-secondary) / <alpha-value>)",
+          foreground: "rgb(var(--color-secondary-foreground) / <alpha-value>)"
         },
         success: {
-          DEFAULT: "#6B7F3F",
-          foreground: "#FFFFFF"
+          DEFAULT: "rgb(var(--color-success) / <alpha-value>)",
+          foreground: "rgb(var(--color-success-foreground) / <alpha-value>)"
         },
-        background: "#F7F1E5",
-        foreground: "#2A2522",
-        border: "#E4D9C4",
+        background: "rgb(var(--color-background) / <alpha-value>)",
+        foreground: "rgb(var(--color-foreground) / <alpha-value>)",
+        border: "rgb(var(--color-border) / <alpha-value>)",
         muted: {
-          DEFAULT: "#EFE6D3",
-          foreground: "#6B6355"
+          DEFAULT: "rgb(var(--color-muted) / <alpha-value>)",
+          foreground: "rgb(var(--color-muted-foreground) / <alpha-value>)"
         },
         card: {
-          DEFAULT: "#FFFFFF",
-          foreground: "#2A2522"
+          DEFAULT: "rgb(var(--color-card) / <alpha-value>)",
+          foreground: "rgb(var(--color-card-foreground) / <alpha-value>)"
         },
         destructive: {
-          DEFAULT: "#B3261E",
-          foreground: "#FFFFFF"
+          DEFAULT: "rgb(var(--color-destructive) / <alpha-value>)",
+          foreground: "rgb(var(--color-destructive-foreground) / <alpha-value>)"
         }
       },
       borderRadius: {

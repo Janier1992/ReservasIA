@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Inicio", icon: LayoutDashboard, end: true },
@@ -49,8 +50,9 @@ export function DashboardLayout() {
           <CalendarClock className="h-4 w-4" />
         </div>
         <span className="font-semibold">Reservas AI</span>
+        <ThemeToggle className="ml-auto" />
         <button
-          className="ml-auto rounded-md p-1.5 text-foreground/60 hover:bg-muted lg:hidden"
+          className="rounded-md p-1.5 text-foreground/60 hover:bg-muted lg:hidden"
           onClick={() => setMobileNavOpen(false)}
           aria-label="Cerrar menú"
         >
@@ -140,6 +142,7 @@ export function DashboardLayout() {
             <Menu className="h-5 w-5" />
           </button>
           <span className="flex-1 font-semibold">Reservas AI</span>
+          <ThemeToggle />
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">

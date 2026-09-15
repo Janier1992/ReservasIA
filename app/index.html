@@ -17,6 +17,19 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 
     <title>Reservas AI — Panel de negocio</title>
+
+    <!-- Aplica el tema guardado (o la preferencia del sistema) ANTES de que
+         React monte: evita el flash de tema claro cuando el usuario ya
+         eligió oscuro. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme");
+          var dark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+          if (dark) document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
