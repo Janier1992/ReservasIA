@@ -25,7 +25,14 @@
      acento se aclaran para mantener contraste sobre superficies oscuras,
      en vez de reusar los mismos tonos que en el tema claro. */
   .dark {
-    --color-primary: 193 99 63; /* #C1633F */
+    /* En modo oscuro el acento principal deja de ser el naranja de marca y
+       pasa a un azul: es la familia de color más distinguible para personas
+       con daltonismo (los tipos más comunes, protanopia/deuteranopia,
+       afectan la distinción rojo-verde, no el azul) — y acá ya usamos verde
+       para "éxito" y rojo para "destructivo", así que el azul se mantiene
+       claramente diferenciable de ambos. Contraste con texto blanco ~5.1:1
+       (WCAG AA). El naranja de marca se conserva sin cambios en modo claro. */
+    --color-primary: 76 111 165; /* #4C6FA5 */
     --color-primary-foreground: 255 255 255;
     --color-secondary: 217 162 75; /* #D9A24B */
     --color-secondary-foreground: 32 27 22;
