@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { QueryErrorState } from "@/components/QueryErrorState";
+import { isValidEmail } from "@/lib/validation";
 import type { OrganizationRole } from "@/types/domain";
 
 interface TeamMemberRow {
@@ -35,7 +37,12 @@ export function TeamPage() {
   const [invite, setInvite] = useState({ email: "", role: "staff" as "admin" | "staff" });
   const canManage = currentRole === "owner" || currentRole === "admin";
 
-  const { data: members = [] } = useQuery({
+  const {
+    data: members = [],
+    isError,
+    isLoading,
+    refetch
+  } = useQuery({
     queryKey: ["team-members", currentOrganizationId],
     enabled: !!currentOrganizationId,
     queryFn: async () => {
@@ -79,6 +86,10 @@ export function TeamPage() {
 
   async function sendInvite() {
     if (!invite.email.trim() || !currentOrganizationId) return;
+    if (!isValidEmail(invite.email)) {
+      toast.error("El email no tiene un formato válido.");
+      return;
+    }
     try {
       const { data: userResult } = await insforge.auth.getCurrentUser();
       const { error } = await insforge.database.from("organization_invites").insert([
@@ -140,6 +151,9 @@ export function TeamPage() {
         )}
       </div>
 
+      {isError ? (
+        <QueryErrorState onRetry={() => refetch()} message="No se pudo cargar el equipo." />
+      ) : (
       <div className="overflow-x-auto rounded-lg border border-border bg-card">
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-muted/50 text-left text-xs uppercase text-muted-foreground">
@@ -150,6 +164,13 @@ export function TeamPage() {
             </tr>
           </thead>
           <tbody>
+            {isLoading && (
+              <tr>
+                <td colSpan={canManage ? 3 : 2} className="px-4 py-8 text-center text-muted-foreground">
+                  Cargando...
+                </td>
+              </tr>
+            )}
             {members.map((m) => (
               <tr key={m.id} className="border-b border-border last:border-0">
                 <td className="px-4 py-3">{m.fullName || "Sin nombre"}</td>
@@ -184,6 +205,7 @@ export function TeamPage() {
           </tbody>
         </table>
       </div>
+      )}
 
       {canManage && invites.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-4">
@@ -194,7 +216,7 @@ export function TeamPage() {
                 <span>
                   {i.email} · <span className="capitalize text-muted-foreground">{i.role}</span>
                 </span>
-                <Button variant="ghost" size="icon" onClick={() => revokeInvite(i.id)}>
+                <Button variant="ghost" size="icon" onClick={() => revokeInvite(i.id)} title="Revocar invitación" aria-label="Revocar invitación">
                   <X className="h-4 w-4 text-destructive" />
                 </Button>
               </div>

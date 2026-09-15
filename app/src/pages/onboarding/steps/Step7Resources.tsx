@@ -39,7 +39,13 @@ export function Step7Resources({
               value={r.capacity}
               onChange={(e) => update(i, { capacity: Number(e.target.value) })}
             />
-            <Button type="button" variant="ghost" size="icon" onClick={() => setResources((prev) => prev.filter((_, idx) => idx !== i))}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setResources((prev) => prev.filter((_, idx) => idx !== i))}
+              aria-label="Quitar recurso"
+            >
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
           </div>

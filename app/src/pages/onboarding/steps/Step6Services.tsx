@@ -63,6 +63,7 @@ export function Step6Services({
               variant="ghost"
               size="icon"
               onClick={() => setServices((prev) => prev.filter((_, idx) => idx !== i))}
+              aria-label="Quitar servicio"
             >
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>

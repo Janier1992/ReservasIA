@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import * as XLSX from "xlsx";
+import type * as XLSXType from "xlsx";
 import { toast } from "sonner";
 import { UploadCloud, Download } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
@@ -40,7 +40,7 @@ function findColumn(headers: string[], candidates: string[]): number {
   return -1;
 }
 
-function parseWorkbook(buffer: ArrayBuffer, defaultCurrency: string): { rows: ParsedRow[]; errors: RowError[] } {
+function parseWorkbook(XLSX: typeof XLSXType, buffer: ArrayBuffer, defaultCurrency: string): { rows: ParsedRow[]; errors: RowError[] } {
   const workbook = XLSX.read(buffer, { type: "array" });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const raw: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
@@ -117,7 +117,8 @@ export function BulkUploadServicesDialog({
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<{ rows: ParsedRow[]; errors: RowError[] } | null>(null);
 
-  function downloadTemplate() {
+  async function downloadTemplate() {
+    const XLSX = await import("xlsx");
     const worksheet = XLSX.utils.aoa_to_sheet([
       TEMPLATE_HEADERS,
       ["Corte de cabello", 30, 35000, DEFAULT_CURRENCY],
@@ -132,8 +133,8 @@ export function BulkUploadServicesDialog({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const buffer = await file.arrayBuffer();
-      const parsed = parseWorkbook(buffer, defaultCurrency);
+      const [XLSX, buffer] = await Promise.all([import("xlsx"), file.arrayBuffer()]);
+      const parsed = parseWorkbook(XLSX, buffer, defaultCurrency);
       setPreview(parsed);
     } catch {
       toast.error("No se pudo leer el archivo. Verificá que sea un .xlsx válido.");

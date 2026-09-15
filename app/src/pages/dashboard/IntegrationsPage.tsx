@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorState } from "@/components/QueryErrorState";
 
 interface IntegrationRow {
   provider: "twilio" | "google_calendar" | "telegram";
@@ -26,7 +28,12 @@ export function IntegrationsPage() {
   const [twilioForm, setTwilioForm] = useState({ accountSid: "", authToken: "", whatsappNumber: "" });
   const [telegramToken, setTelegramToken] = useState("");
 
-  const { data: integrations = [], isLoading } = useQuery({
+  const {
+    data: integrations = [],
+    isLoading,
+    isError,
+    refetch
+  } = useQuery({
     queryKey: ["integrations-status", currentOrganizationId],
     enabled: !!currentOrganizationId,
     queryFn: async () => {
@@ -126,7 +133,20 @@ export function IntegrationsPage() {
     }
   }
 
-  if (isLoading) return null;
+  if (isError) {
+    return <QueryErrorState onRetry={() => refetch()} message="No se pudo cargar el estado de las integraciones." />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

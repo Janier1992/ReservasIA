@@ -8,23 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ReservationFormDialog } from "./reservations/ReservationFormDialog";
+import { EmptyTableRow } from "@/components/EmptyTableRow";
+import { QueryErrorState } from "@/components/QueryErrorState";
+import { RESERVATION_STATUS_LABEL, reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
 import type { Reservation } from "@/types/domain";
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Pendiente",
-  confirmed: "Confirmada",
-  cancelled: "Cancelada",
-  completed: "Completada",
-  no_show: "No asistió"
-};
-
-const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "destructive" | "muted"> = {
-  pending: "warning",
-  confirmed: "success",
-  cancelled: "destructive",
-  completed: "muted",
-  no_show: "destructive"
-};
 
 export function ReservationsPage() {
   const { currentOrganizationId, memberships } = useOrganization();
@@ -51,7 +38,12 @@ export function ReservationsPage() {
     }
   });
 
-  const { data: reservations = [], refetch } = useQuery({
+  const {
+    data: reservations = [],
+    refetch,
+    isError,
+    isLoading
+  } = useQuery({
     queryKey: ["reservations", currentOrganizationId, statusFilter],
     enabled: !!currentOrganizationId,
     queryFn: async () => {
@@ -117,7 +109,7 @@ export function ReservationsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los estados</SelectItem>
-            {Object.entries(STATUS_LABEL).map(([value, label]) => (
+            {Object.entries(RESERVATION_STATUS_LABEL).map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
               </SelectItem>
@@ -126,60 +118,58 @@ export function ReservationsPage() {
         </Select>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-card">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Fecha</th>
-              <th className="px-4 py-3">Cliente</th>
-              <th className="px-4 py-3">Servicio</th>
-              <th className="px-4 py-3">Recurso</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {upcoming.map((r) => (
-              <tr key={r.id} className="border-b border-border last:border-0">
-                <td className="px-4 py-3">{new Date(r.start_at).toLocaleString()}</td>
-                <td className="px-4 py-3">{r.customer_name || r.customers?.name || r.customers?.phone}</td>
-                <td className="px-4 py-3">{r.services?.name ?? "—"}</td>
-                <td className="px-4 py-3">{r.resources?.name ?? "—"}</td>
-                <td className="px-4 py-3">
-                  <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABEL[r.status]}</Badge>
-                </td>
-                <td className="space-x-1 px-4 py-3">
-                  {(r.status === "pending" || r.status === "confirmed") && (
-                    <>
-                      <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, "completed")}>
-                        Completar
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, "no_show")}>
-                        No-show
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => cancel(r.id)}>
-                        Cancelar
-                      </Button>
-                    </>
-                  )}
-                  {(r.status === "cancelled" || r.status === "completed" || r.status === "no_show") && (
-                    <Button size="sm" variant="ghost" onClick={() => remove(r.id)} title="Eliminar reserva">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {upcoming.length === 0 && (
+      {isError ? (
+        <QueryErrorState onRetry={() => refetch()} message="No se pudieron cargar las reservas." />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                  No hay reservas para este filtro.
-                </td>
+                <th className="px-4 py-3">Fecha</th>
+                <th className="px-4 py-3">Cliente</th>
+                <th className="px-4 py-3">Servicio</th>
+                <th className="px-4 py-3">Recurso</th>
+                <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3">Acciones</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {upcoming.map((r) => (
+                <tr key={r.id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-3">{new Date(r.start_at).toLocaleString()}</td>
+                  <td className="px-4 py-3">{r.customer_name || r.customers?.name || r.customers?.phone}</td>
+                  <td className="px-4 py-3">{r.services?.name ?? "—"}</td>
+                  <td className="px-4 py-3">{r.resources?.name ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant={reservationStatusVariant(r.status)}>{reservationStatusLabel(r.status)}</Badge>
+                  </td>
+                  <td className="space-x-1 px-4 py-3">
+                    {(r.status === "pending" || r.status === "confirmed") && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, "completed")}>
+                          Completar
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, "no_show")}>
+                          No-show
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => cancel(r.id)}>
+                          Cancelar
+                        </Button>
+                      </>
+                    )}
+                    {(r.status === "cancelled" || r.status === "completed" || r.status === "no_show") && (
+                      <Button size="sm" variant="ghost" onClick={() => remove(r.id)} title="Eliminar reserva" aria-label="Eliminar reserva">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!isLoading && upcoming.length === 0 && <EmptyTableRow colSpan={6} message="No hay reservas para este filtro." />}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {currentOrganizationId && (
         <ReservationFormDialog

@@ -12,6 +12,9 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CURRENCY_OPTIONS } from "@/lib/currency";
 import { PushNotificationsCard } from "@/components/PushNotificationsCard";
+import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorState } from "@/components/QueryErrorState";
+import { isNonNegativeNumber, isPositiveInteger } from "@/lib/validation";
 import type { BusinessHourPeriod, BusinessProfile } from "@/types/domain";
 
 const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -23,7 +26,11 @@ export function SettingsPage() {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [hours, setHours] = useState<BusinessHourPeriod[]>([]);
 
-  const { data: profileData } = useQuery({
+  const {
+    data: profileData,
+    isError: profileError,
+    refetch: refetchProfile
+  } = useQuery({
     queryKey: ["business-profile", currentOrganizationId],
     enabled: !!currentOrganizationId,
     queryFn: async () => {
@@ -52,6 +59,16 @@ export function SettingsPage() {
 
   async function saveProfile() {
     if (!profile) return;
+    if (
+      !isPositiveInteger(profile.reservation_duration_minutes) ||
+      !isPositiveInteger(profile.slot_interval_minutes) ||
+      !isNonNegativeNumber(profile.advance_booking_hours) ||
+      !isPositiveInteger(profile.max_booking_days) ||
+      (profile.capacity_total !== null && !isPositiveInteger(profile.capacity_total))
+    ) {
+      toast.error("Revisá los campos numéricos: deben ser números válidos mayores a 0.");
+      return;
+    }
     const { error } = await insforge.database
       .from("business_profiles")
       .update({
@@ -91,7 +108,19 @@ export function SettingsPage() {
     queryClient.invalidateQueries({ queryKey: ["business-hours", currentOrganizationId] });
   }
 
-  if (!profile) return null;
+  if (profileError) {
+    return <QueryErrorState onRetry={() => refetchProfile()} message="No se pudo cargar la configuración del negocio." />;
+  }
+
+  if (!profile) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-80 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

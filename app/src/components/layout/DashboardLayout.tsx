@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Inicio", icon: LayoutDashboard, end: true },
@@ -146,7 +147,12 @@ export function DashboardLayout() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <Outlet />
+          {/* `key` fuerza a remontar el boundary al cambiar de ruta, así que
+              navegar a otra sección "limpia" el error en vez de quedar
+              atascado en el fallback de la pantalla anterior. */}
+          <ErrorBoundary key={location.pathname} title="No se pudo cargar esta sección.">
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

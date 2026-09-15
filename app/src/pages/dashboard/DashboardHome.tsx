@@ -4,16 +4,28 @@ import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorState } from "@/components/QueryErrorState";
 
-function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | number }) {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  loading
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  loading?: boolean;
+}) {
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-5">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />
         </div>
-        <div>
-          <p className="text-2xl font-semibold">{value}</p>
+        <div className="flex-1">
+          {loading ? <Skeleton className="h-7 w-12" /> : <p className="text-2xl font-semibold">{value}</p>}
           <p className="text-sm text-muted-foreground">{label}</p>
         </div>
       </CardContent>
@@ -24,7 +36,12 @@ function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label
 export function DashboardHome() {
   const { currentOrganizationId, currentRole } = useOrganization();
 
-  const { data: stats } = useQuery({
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    isError: statsError,
+    refetch: refetchStats
+  } = useQuery({
     queryKey: ["dashboard-stats", currentOrganizationId],
     enabled: !!currentOrganizationId,
     queryFn: async () => {
@@ -97,12 +114,16 @@ export function DashboardHome() {
         <p className="text-sm text-muted-foreground">Estado general de tu negocio.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={CalendarCheck} label="Reservas de hoy" value={stats?.today ?? "—"} />
-        <StatCard icon={CalendarCheck} label="Reservas próximas" value={stats?.upcoming ?? "—"} />
-        <StatCard icon={MessageSquare} label="Conversaciones activas" value={stats?.pendingConversations ?? "—"} />
-        <StatCard icon={UserPlus} label="Clientes nuevos (7 días)" value={stats?.newCustomers ?? "—"} />
-      </div>
+      {statsError ? (
+        <QueryErrorState onRetry={() => refetchStats()} message="No se pudieron cargar las estadísticas." />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard icon={CalendarCheck} label="Reservas de hoy" value={stats?.today ?? 0} loading={statsLoading} />
+          <StatCard icon={CalendarCheck} label="Reservas próximas" value={stats?.upcoming ?? 0} loading={statsLoading} />
+          <StatCard icon={MessageSquare} label="Conversaciones activas" value={stats?.pendingConversations ?? 0} loading={statsLoading} />
+          <StatCard icon={UserPlus} label="Clientes nuevos (7 días)" value={stats?.newCustomers ?? 0} loading={statsLoading} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
