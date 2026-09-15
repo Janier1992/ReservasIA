@@ -7,7 +7,9 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReservationFormDialog } from "./reservations/ReservationFormDialog";
+import { ReservationsCalendarView } from "./reservations/ReservationsCalendarView";
 import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { RESERVATION_STATUS_LABEL, reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
@@ -18,6 +20,7 @@ export function ReservationsPage() {
   const timezone = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations.timezone ?? "UTC";
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [view, setView] = useState<"list" | "calendar">("list");
   const queryClient = useQueryClient();
 
   const { data: services = [] } = useQuery({
@@ -102,7 +105,7 @@ export function ReservationsPage() {
         </Button>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-48">
             <SelectValue />
@@ -116,10 +119,25 @@ export function ReservationsPage() {
             ))}
           </SelectContent>
         </Select>
+
+        <Tabs value={view} onValueChange={(v) => setView(v as "list" | "calendar")}>
+          <TabsList>
+            <TabsTrigger value="list">Lista</TabsTrigger>
+            <TabsTrigger value="calendar">Calendario</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {isError ? (
         <QueryErrorState onRetry={() => refetch()} message="No se pudieron cargar las reservas." />
+      ) : view === "calendar" ? (
+        <ReservationsCalendarView
+          reservations={upcoming}
+          onComplete={(id) => updateStatus(id, "completed")}
+          onNoShow={(id) => updateStatus(id, "no_show")}
+          onCancel={cancel}
+          onRemove={remove}
+        />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
           <table className="w-full text-sm">
