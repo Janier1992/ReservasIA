@@ -33,19 +33,33 @@ async function removeSubscription(id: string): Promise<void> {
   await insforgeAdmin.database.from("push_subscriptions").delete().eq("id", id);
 }
 
-async function sendToSubscription(sub: PushSubscriptionRow, payload: string): Promise<void> {
+interface WebPushError {
+  statusCode?: number;
+  body?: string;
+  headers?: Record<string, string>;
+}
+
+async function sendToSubscription(sub: PushSubscriptionRow, payload: string): Promise<boolean> {
   try {
     await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
+    return true;
   } catch (err: unknown) {
-    const statusCode = (err as { statusCode?: number }).statusCode;
+    const { statusCode, body, headers } = err as WebPushError;
     // 404/410: el navegador invalidó ese endpoint (desinstaló la app, borró
     // datos del sitio, etc.) — limpiamos la suscripción muerta para no
     // seguir intentando mandarle push por siempre.
     if (statusCode === 404 || statusCode === 410) {
       await removeSubscription(sub.id);
-      return;
+      logger.warn({ subscriptionId: sub.id }, "push_subscription_expired_removed");
+      return false;
     }
-    logger.warn({ subscriptionId: sub.id, statusCode, err }, "push_send_failed");
+    // `body` es el motivo real que devuelve el servicio de push del
+    // navegador (FCM/Mozilla/etc.) — por ejemplo "VAPID credential
+    // mismatch" cuando la clave pública del frontend y la privada del
+    // servidor no son del mismo par. statusCode solo no alcanza para
+    // diagnosticar, por eso se loguea completo.
+    logger.warn({ subscriptionId: sub.id, statusCode, body, headers }, "push_send_failed");
+    return false;
   }
 }
 
@@ -56,10 +70,16 @@ async function sendToSubscription(sub: PushSubscriptionRow, payload: string): Pr
  * con Google Calendar).
  */
 export async function notifyNewReservation(reservation: Reservation): Promise<void> {
-  if (!vapidConfigured) return;
+  if (!vapidConfigured) {
+    logger.warn({ organizationId: reservation.organization_id }, "push_skipped_vapid_not_configured");
+    return;
+  }
 
   const subscriptions = await loadSubscriptions(reservation.organization_id);
-  if (subscriptions.length === 0) return;
+  if (subscriptions.length === 0) {
+    logger.info({ organizationId: reservation.organization_id }, "push_skipped_no_subscriptions");
+    return;
+  }
 
   const payload = JSON.stringify({
     title: "Nueva reserva confirmada",
@@ -70,5 +90,10 @@ export async function notifyNewReservation(reservation: Reservation): Promise<vo
     tag: `reservation-${reservation.id}`
   });
 
-  await Promise.all(subscriptions.map((sub) => sendToSubscription(sub, payload)));
+  const results = await Promise.all(subscriptions.map((sub) => sendToSubscription(sub, payload)));
+  const sent = results.filter(Boolean).length;
+  logger.info(
+    { organizationId: reservation.organization_id, reservationId: reservation.id, sent, total: subscriptions.length },
+    "push_notify_new_reservation_done"
+  );
 }
