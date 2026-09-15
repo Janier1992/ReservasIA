@@ -25,7 +25,7 @@
      acento se aclaran para mantener contraste sobre superficies oscuras,
      en vez de reusar los mismos tonos que en el tema claro. */
   .dark {
-    --color-primary: 217 119 87; /* #D97757 */
+    --color-primary: 193 99 63; /* #C1633F */
     --color-primary-foreground: 255 255 255;
     --color-secondary: 217 162 75; /* #D9A24B */
     --color-secondary-foreground: 32 27 22;
