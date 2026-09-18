@@ -58,6 +58,38 @@ export async function findOrCreateCustomerByPhone(
   throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudo crear el cliente.", 500);
 }
 
+/**
+ * Completa nombre/email del cliente que ya está resuelto por la
+ * conversación (`ctx.customerId`), sin pisar datos ya guardados. Se usa al
+ * crear una reserva en vez de buscar/crear un cliente por el teléfono que
+ * el cliente tipeó en el chat: para Telegram ese teléfono real es distinto
+ * del identificador de la conversación (`telegram:<chat_id>`), así que
+ * buscar por ese valor crearía un cliente duplicado, desconectado del que
+ * aparece en el Inbox y de sus reservas anteriores.
+ */
+export async function ensureCustomerDetails(
+  organizationId: string,
+  customerId: string,
+  name?: string,
+  email?: string
+): Promise<Customer> {
+  const { data: existing, error } = await insforgeAdmin.database
+    .from("customers")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("id", customerId)
+    .maybeSingle();
+
+  if (error || !existing) throw new AppError(ErrorCodes.CUSTOMER_NOT_FOUND, "No se encontró el cliente de la conversación.", 404);
+
+  const patch: Partial<Pick<Customer, "name" | "email">> = {};
+  if (name && !existing.name) patch.name = name;
+  if (email && !existing.email) patch.email = email;
+  if (Object.keys(patch).length === 0) return existing as Customer;
+
+  return updateCustomer(organizationId, customerId, patch);
+}
+
 export async function updateCustomer(
   organizationId: string,
   customerId: string,

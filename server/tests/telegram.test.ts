@@ -47,7 +47,8 @@ describe("telegramPollingManager.processUpdate", () => {
       externalIdentity: "telegram:999",
       externalConversationId: "999",
       content: "Hola, quiero reservar",
-      externalMessageId: "7"
+      externalMessageId: "7",
+      customerName: "Camila"
     });
 
     expect(runAgentTurnMock).toHaveBeenCalledWith(
@@ -64,6 +65,35 @@ describe("telegramPollingManager.processUpdate", () => {
     // que el cliente sepa que el bot está procesando (el agente puede tardar
     // varios segundos en responder).
     expect(sendTelegramTypingActionMock).toHaveBeenCalledWith("bot-token-abc", 999);
+  });
+
+  it("joins first_name and last_name into a single customerName", async () => {
+    await processUpdate("org-1", "bot-token-abc", {
+      update_id: 45,
+      message: {
+        message_id: 10,
+        date: 1234567890,
+        chat: { id: 999, type: "private" },
+        from: { id: 999, first_name: "Ferley", last_name: "Gómez" },
+        text: "Hola"
+      }
+    });
+
+    expect(handleInboundMessageMock).toHaveBeenCalledWith(expect.objectContaining({ customerName: "Ferley Gómez" }));
+  });
+
+  it("leaves customerName undefined when Telegram doesn't send sender info", async () => {
+    await processUpdate("org-1", "bot-token-abc", {
+      update_id: 46,
+      message: {
+        message_id: 11,
+        date: 1234567890,
+        chat: { id: 999, type: "private" },
+        text: "Hola"
+      }
+    });
+
+    expect(handleInboundMessageMock).toHaveBeenCalledWith(expect.objectContaining({ customerName: undefined }));
   });
 
   it("skips updates without a text message (e.g. photos, stickers) without touching the agent", async () => {

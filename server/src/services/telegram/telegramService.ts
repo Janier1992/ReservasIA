@@ -76,7 +76,7 @@ export interface TelegramUpdate {
     message_id: number;
     date: number;
     chat: { id: number; type: string };
-    from?: { id: number; first_name?: string; username?: string };
+    from?: { id: number; first_name?: string; last_name?: string; username?: string };
     text?: string;
     photo?: TelegramPhotoSize[];
   };

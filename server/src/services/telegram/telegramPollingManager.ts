@@ -65,6 +65,12 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+function telegramDisplayName(from: NonNullable<TelegramUpdate["message"]>["from"]): string | undefined {
+  if (!from) return undefined;
+  const fullName = [from.first_name, from.last_name].filter(Boolean).join(" ").trim();
+  return fullName || undefined;
+}
+
 async function processPhotoMessage(
   organizationId: string,
   botToken: string,
@@ -80,7 +86,8 @@ async function processPhotoMessage(
     externalConversationId: String(chatId),
     content: "[Foto de comprobante de pago]",
     externalMessageId: String(message.message_id),
-    messageType: "image"
+    messageType: "image",
+    customerName: telegramDisplayName(message.from)
   });
 
   try {
@@ -141,7 +148,8 @@ export async function processUpdate(organizationId: string, botToken: string, up
     externalIdentity,
     externalConversationId: String(chatId),
     content: message.text,
-    externalMessageId: String(message.message_id)
+    externalMessageId: String(message.message_id),
+    customerName: telegramDisplayName(message.from)
   });
 
   const result = await withTypingIndicator(

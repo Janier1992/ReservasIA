@@ -14,7 +14,8 @@ const twilioPayloadSchema = z.object({
   From: z.string().min(1, "From es requerido"),
   To: z.string().min(1, "To es requerido"),
   Body: z.string().min(1, "Body es requerido"),
-  MessageSid: z.string().optional()
+  MessageSid: z.string().optional(),
+  ProfileName: z.string().optional()
 });
 
 function stripWhatsappPrefix(value: string): string {
@@ -36,7 +37,7 @@ webhooksRouter.post(
       if (!parsed.success) {
         throw new AppError(ErrorCodes.WEBHOOK_INVALID_PAYLOAD, "Payload de Twilio inválido o incompleto.", 400);
       }
-      const { From, To, Body, MessageSid } = parsed.data;
+      const { From, To, Body, MessageSid, ProfileName } = parsed.data;
 
       const routing = await resolveOrganizationForIncomingNumber(To);
       if (!routing) {
@@ -57,7 +58,8 @@ webhooksRouter.post(
         externalIdentity: fromPhone,
         externalConversationId: fromPhone,
         content: Body,
-        externalMessageId: MessageSid
+        externalMessageId: MessageSid,
+        customerName: ProfileName
       });
 
       // Respondemos de inmediato a Twilio (< 15s) y procesamos el agente de

@@ -3,7 +3,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { AppError } from "../../utils/AppError.js";
 import { getAvailableSlots } from "../availability/availabilityService.js";
-import { findOrCreateCustomerByPhone, getCustomerActiveReservations } from "../customers/customersService.js";
+import { ensureCustomerDetails, findOrCreateCustomerByPhone, getCustomerActiveReservations } from "../customers/customersService.js";
 import { createReservation, cancelReservation, getReservationById, rescheduleReservation } from "../reservations/reservationsService.js";
 import {
   ToolName,
@@ -142,12 +142,14 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
     const startAt = fromZonedTime(`${args.fecha}T${args.hora}:00`, ctx.timezone);
     const endAt = addMinutes(startAt, durationMinutes);
 
-    const customer = await findOrCreateCustomerByPhone(
-      ctx.organizationId,
-      args.telefono_cliente,
-      args.nombre_cliente,
-      args.email_cliente
-    );
+    // El cliente de la reserva es siempre el que ya identificó la
+    // conversación (ctx.customerId) — nunca uno nuevo buscado por el
+    // teléfono que el cliente tipeó en el chat, que en Telegram es un
+    // número real distinto del identificador sintético de la conversación
+    // y crearía un cliente duplicado, desconectado del Inbox.
+    const customer = ctx.customerId
+      ? await ensureCustomerDetails(ctx.organizationId, ctx.customerId, args.nombre_cliente, args.email_cliente)
+      : await findOrCreateCustomerByPhone(ctx.organizationId, args.telefono_cliente, args.nombre_cliente, args.email_cliente);
 
     const reservation = await createReservation({
       organizationId: ctx.organizationId,
