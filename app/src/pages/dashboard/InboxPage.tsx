@@ -14,6 +14,18 @@ import { cn } from "@/lib/utils";
 import { reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
 import type { Conversation, Message, Reservation } from "@/types/domain";
 
+function ReceiptImageMessage({ organizationId, messageId }: { organizationId: string; messageId: string }) {
+  const { data, isError } = useQuery({
+    queryKey: ["receipt-url", messageId],
+    queryFn: () => functionsClient.get<{ url: string }>("get-receipt-url", { organization_id: organizationId, message_id: messageId }),
+    staleTime: 60_000
+  });
+
+  if (isError) return <p className="text-xs text-destructive">No se pudo cargar el comprobante.</p>;
+  if (!data) return <p className="text-xs text-muted-foreground">Cargando comprobante...</p>;
+  return <img src={data.url} alt="Comprobante de pago" className="max-w-[220px] rounded-md" />;
+}
+
 export function InboxPage() {
   const { currentOrganizationId } = useOrganization();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -189,7 +201,11 @@ export function InboxPage() {
                         m.role === "user" ? "bg-muted" : "bg-primary text-primary-foreground"
                       )}
                     >
-                      {m.content}
+                      {m.message_type === "image" && currentOrganizationId ? (
+                        <ReceiptImageMessage organizationId={currentOrganizationId} messageId={m.id} />
+                      ) : (
+                        m.content
+                      )}
                     </div>
                   </div>
                 ))}

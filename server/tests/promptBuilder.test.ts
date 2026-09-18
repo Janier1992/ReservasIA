@@ -37,7 +37,11 @@ function makeData(overrides: Partial<AgentPromptData> = {}): AgentPromptData {
       advance_booking_hours: 1,
       max_booking_days: 45,
       cancellation_policy: null,
-      special_instructions: null
+      special_instructions: null,
+      nequi_phone: null,
+      deposit_enabled: false,
+      deposit_mandatory: false,
+      deposit_percentage: null
     },
     services: [],
     resources: [],
@@ -91,5 +95,45 @@ describe("buildSystemPrompt", () => {
     );
     expect(prompt).toContain("Sos Sofía, el asistente virtual de La Buena Mesa.");
     expect(prompt).toContain("Tipo de negocio: restaurant");
+  });
+});
+
+describe("buildSystemPrompt payment policy section", () => {
+  it("tells the agent not to mention advance payments when deposits are disabled", () => {
+    const prompt = buildSystemPrompt(makeData(), new Date("2026-09-07T15:00:00Z"));
+    expect(prompt).toContain("Este negocio no pide anticipo. No menciones pagos por adelantado.");
+  });
+
+  it("describes a mandatory deposit with the Nequi number, without inventing an amount", () => {
+    const prompt = buildSystemPrompt(
+      makeData({
+        businessProfile: {
+          ...makeData().businessProfile,
+          deposit_enabled: true,
+          deposit_mandatory: true,
+          deposit_percentage: 50,
+          nequi_phone: "3001234567"
+        }
+      }),
+      new Date("2026-09-07T15:00:00Z")
+    );
+    expect(prompt).toContain("Anticipo OBLIGATORIO del 50% del precio del servicio, a pagar por Nequi al número 3001234567.");
+    expect(prompt).toContain("nunca los calcules ni los repitas de memoria");
+  });
+
+  it("describes an optional deposit distinctly from a mandatory one", () => {
+    const prompt = buildSystemPrompt(
+      makeData({
+        businessProfile: {
+          ...makeData().businessProfile,
+          deposit_enabled: true,
+          deposit_mandatory: false,
+          deposit_percentage: 30,
+          nequi_phone: "3009876543"
+        }
+      }),
+      new Date("2026-09-07T15:00:00Z")
+    );
+    expect(prompt).toContain("Anticipo opcional (dejale elegir al cliente) del 30%");
   });
 });

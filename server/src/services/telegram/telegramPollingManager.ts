@@ -1,7 +1,17 @@
 import { logger } from "../../lib/logger.js";
+import { insforgeAdmin } from "../../lib/insforge.js";
 import { handleInboundMessage } from "../conversations/inboundMessageHandler.js";
 import { runAgentTurn } from "../agent/agentRuntime.js";
-import { getTelegramUpdates, listConnectedTelegramBots, sendTelegramMessage, type TelegramUpdate } from "./telegramService.js";
+import { markAwaitingPaymentAsAwaitingConfirmation } from "../reservations/reservationsService.js";
+import { notifyPaymentReceiptReceived } from "../notifications/pushService.js";
+import { uploadPaymentReceipt } from "../storage/receiptsService.js";
+import {
+  downloadTelegramPhoto,
+  getTelegramUpdates,
+  listConnectedTelegramBots,
+  sendTelegramMessage,
+  type TelegramUpdate
+} from "./telegramService.js";
 
 const REFRESH_INTERVAL_MS = 30_000;
 const LONG_POLL_TIMEOUT_SECONDS = 25;
@@ -35,11 +45,74 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+async function processPhotoMessage(
+  organizationId: string,
+  botToken: string,
+  chatId: number,
+  message: NonNullable<TelegramUpdate["message"]>
+): Promise<void> {
+  const externalIdentity = `telegram:${chatId}`;
+
+  const { conversationId, customerId } = await handleInboundMessage({
+    organizationId,
+    channel: "telegram",
+    externalIdentity,
+    externalConversationId: String(chatId),
+    content: "[Foto de comprobante de pago]",
+    externalMessageId: String(message.message_id),
+    messageType: "image"
+  });
+
+  try {
+    const { bytes, mimeType } = await downloadTelegramPhoto(botToken, message.photo!);
+    const storagePath = await uploadPaymentReceipt(organizationId, conversationId, bytes, mimeType);
+    await insforgeAdmin.database
+      .from("messages")
+      .update({ metadata: { storage_path: storagePath, mime_type: mimeType } })
+      .eq("conversation_id", conversationId)
+      .eq("external_message_id", String(message.message_id));
+
+    const reservation = await markAwaitingPaymentAsAwaitingConfirmation(organizationId, customerId);
+    if (reservation) {
+      await notifyPaymentReceiptReceived(organizationId, reservation.customer_name);
+      await sendTelegramMessage(
+        botToken,
+        chatId,
+        "¡Gracias! Recibimos tu comprobante de pago. Alguien del negocio lo va a revisar en breve para confirmar tu reserva."
+      );
+    } else {
+      await sendTelegramMessage(
+        botToken,
+        chatId,
+        "Recibimos tu foto, pero no encontramos una reserva esperando el pago. Si crees que es un error, contactá directamente al negocio."
+      );
+    }
+  } catch (err) {
+    logger.error({ organizationId, chatId, err }, "telegram_receipt_photo_processing_failed");
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      "No pudimos procesar la foto del comprobante. Por favor intentá enviarla de nuevo."
+    );
+  }
+}
+
 export async function processUpdate(organizationId: string, botToken: string, update: TelegramUpdate): Promise<void> {
   const message = update.message;
-  if (!message?.text || !message.chat?.id) return;
+  if (!message?.chat?.id) return;
 
   const chatId = message.chat.id;
+
+  // Una foto de comprobante de pago nunca pasa por el agente: la ingesta y
+  // el cambio de estado de la reserva son deterministas (punto 27 de las
+  // reglas del agente — solo un humano confirma el pago).
+  if (message.photo && message.photo.length > 0) {
+    await processPhotoMessage(organizationId, botToken, chatId, message);
+    return;
+  }
+
+  if (!message.text) return;
+
   const externalIdentity = `telegram:${chatId}`;
 
   const { conversationId, customerId } = await handleInboundMessage({

@@ -119,6 +119,41 @@ export async function rescheduleReservation(
   return reservation;
 }
 
+/**
+ * Cuando el cliente manda la foto del comprobante, buscamos su reserva más
+ * próxima que esté esperando ese pago y la pasamos a "awaiting_confirmation"
+ * (esperando que un humano del negocio la revise). Nunca la pasamos
+ * directamente a "paid": eso solo lo hace el staff desde el dashboard
+ * (punto 27 de las reglas del agente).
+ */
+export async function markAwaitingPaymentAsAwaitingConfirmation(
+  organizationId: string,
+  customerId: string
+): Promise<Reservation | null> {
+  const { data: candidate } = await insforgeAdmin.database
+    .from("reservations")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("customer_id", customerId)
+    .eq("payment_status", "awaiting_payment")
+    .in("status", ["pending", "confirmed"])
+    .order("start_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!candidate) return null;
+
+  const { data: updated, error } = await insforgeAdmin.database
+    .from("reservations")
+    .update({ payment_status: "awaiting_confirmation" })
+    .eq("id", candidate.id)
+    .select("*")
+    .single();
+
+  if (error || !updated) return null;
+  return updated as Reservation;
+}
+
 export async function getReservationById(organizationId: string, reservationId: string): Promise<Reservation> {
   const { data, error } = await insforgeAdmin.database
     .from("reservations")

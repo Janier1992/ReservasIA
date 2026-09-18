@@ -31,6 +31,10 @@ export interface BusinessProfile {
   max_booking_days: number;
   cancellation_policy: string | null;
   special_instructions: string | null;
+  nequi_phone: string | null;
+  deposit_enabled: boolean;
+  deposit_mandatory: boolean;
+  deposit_percentage: number | null;
 }
 
 export interface BusinessHourPeriod {
@@ -98,6 +102,7 @@ export interface Message {
 }
 
 export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+export type PaymentStatus = "not_required" | "awaiting_payment" | "awaiting_confirmation" | "paid";
 
 export interface Reservation {
   id: string;
@@ -116,6 +121,8 @@ export interface Reservation {
   external_reference: string | null;
   google_event_id: string | null;
   internal_notes: string | null;
+  payment_status: PaymentStatus;
+  deposit_amount: number | null;
 }
 
 export interface AgentConfig {

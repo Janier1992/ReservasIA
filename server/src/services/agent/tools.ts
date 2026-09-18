@@ -46,7 +46,8 @@ export const crearReservaSchema = z.object({
   cantidad_personas: z.number().int().positive().max(100).optional(),
   service_id: z.string().uuid().optional(),
   resource_id: z.string().uuid().optional(),
-  notas: z.string().max(1000).optional()
+  notas: z.string().max(1000).optional(),
+  metodo_pago: z.enum(["anticipado", "en_sitio"]).optional()
 });
 
 export const cancelarReservaSchema = z.object({
@@ -129,7 +130,13 @@ const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCom
           cantidad_personas: { type: "number" },
           service_id: { type: "string" },
           resource_id: { type: "string" },
-          notas: { type: "string" }
+          notas: { type: "string" },
+          metodo_pago: {
+            type: "string",
+            enum: ["anticipado", "en_sitio"],
+            description:
+              "Solo si la sección PAGOS indica que el negocio pide anticipo. 'anticipado' si el cliente va a pagar por Nequi antes del turno, 'en_sitio' si prefiere pagar presencialmente. Si el anticipo es obligatorio, siempre 'anticipado'."
+          }
         },
         required: ["fecha", "hora", "nombre_cliente", "telefono_cliente"]
       }

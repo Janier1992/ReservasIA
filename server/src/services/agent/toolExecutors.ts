@@ -67,7 +67,7 @@ async function executeObtenerInfoNegocio(_rawArgs: unknown, ctx: AgentExecutionC
     const { data, error } = await insforgeAdmin.database
       .from("business_profiles")
       .select(
-        "name, description, address, phone, email, website, currency, cancellation_policy, special_instructions"
+        "name, description, address, phone, email, website, currency, cancellation_policy, special_instructions, deposit_enabled, deposit_mandatory, deposit_percentage, nequi_phone"
       )
       .eq("organization_id", ctx.organizationId)
       .maybeSingle();
@@ -116,21 +116,27 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
   const args = crearReservaSchema.parse(rawArgs);
   return toResult(async () => {
     let durationMinutes = 60;
+    let servicePrice: number | null = null;
+
+    const { data: profile } = await insforgeAdmin.database
+      .from("business_profiles")
+      .select("reservation_duration_minutes, deposit_enabled, deposit_mandatory, deposit_percentage, nequi_phone")
+      .eq("organization_id", ctx.organizationId)
+      .maybeSingle();
+
     if (args.service_id) {
       const { data: service } = await insforgeAdmin.database
         .from("services")
-        .select("duration_minutes")
+        .select("duration_minutes, price")
         .eq("organization_id", ctx.organizationId)
         .eq("id", args.service_id)
         .maybeSingle();
-      if (service) durationMinutes = service.duration_minutes;
-    } else {
-      const { data: profile } = await insforgeAdmin.database
-        .from("business_profiles")
-        .select("reservation_duration_minutes")
-        .eq("organization_id", ctx.organizationId)
-        .maybeSingle();
-      if (profile) durationMinutes = profile.reservation_duration_minutes;
+      if (service) {
+        durationMinutes = service.duration_minutes;
+        servicePrice = service.price;
+      }
+    } else if (profile) {
+      durationMinutes = profile.reservation_duration_minutes;
     }
 
     const startAt = fromZonedTime(`${args.fecha}T${args.hora}:00`, ctx.timezone);
@@ -157,11 +163,43 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
       source: "whatsapp"
     });
 
+    // El anticipo se resuelve DESPUÉS de crear la reserva (nunca antes, para
+    // no bloquear la reserva en sí si algo de esto falla) y siempre lo
+    // calcula el servidor con el precio real del servicio — el agente nunca
+    // recibe el permiso de inventar ni de calcular este monto (punto 25 de
+    // las reglas del agente).
+    const depositApplies =
+      profile?.deposit_enabled && profile.deposit_percentage && (profile.deposit_mandatory || args.metodo_pago === "anticipado");
+
+    if (depositApplies && profile) {
+      const depositAmount = servicePrice !== null ? Math.round((servicePrice * profile.deposit_percentage!) / 100) : null;
+      try {
+        await insforgeAdmin.database
+          .from("reservations")
+          .update({ payment_status: "awaiting_payment", deposit_amount: depositAmount })
+          .eq("id", reservation.id);
+      } catch {
+        // Best-effort: si esto falla, la reserva ya quedó creada; el negocio
+        // puede resolver el cobro manualmente. No queremos que un anticipo
+        // fallido tumbe la reserva completa.
+      }
+      return {
+        id: reservation.id,
+        start_at: reservation.start_at,
+        end_at: reservation.end_at,
+        status: reservation.status,
+        payment_status: "awaiting_payment" as const,
+        deposit_amount: depositAmount,
+        nequi_phone: profile.nequi_phone
+      };
+    }
+
     return {
       id: reservation.id,
       start_at: reservation.start_at,
       end_at: reservation.end_at,
-      status: reservation.status
+      status: reservation.status,
+      payment_status: "not_required" as const
     };
   });
 }

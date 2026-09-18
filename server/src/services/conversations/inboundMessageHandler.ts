@@ -76,6 +76,8 @@ export interface InboundMessageInput {
   externalConversationId: string;
   content: string;
   externalMessageId?: string;
+  messageType?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface InboundMessageResult {
@@ -99,7 +101,9 @@ export async function handleInboundMessage(input: InboundMessageInput): Promise<
       conversation_id: conversation.id,
       role: "user",
       content,
-      external_message_id: input.externalMessageId ?? null
+      external_message_id: input.externalMessageId ?? null,
+      message_type: input.messageType ?? "text",
+      metadata: input.metadata ?? {}
     }
   ]);
 

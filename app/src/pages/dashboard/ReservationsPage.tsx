@@ -13,6 +13,7 @@ import { ReservationsCalendarView } from "./reservations/ReservationsCalendarVie
 import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { RESERVATION_STATUS_LABEL, reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
+import { paymentStatusLabel, paymentStatusVariant } from "@/lib/paymentStatus";
 import type { Reservation } from "@/types/domain";
 
 export function ReservationsPage() {
@@ -83,6 +84,16 @@ export function ReservationsPage() {
     refetch();
   }
 
+  async function confirmPayment(id: string) {
+    const { error } = await insforge.database.from("reservations").update({ payment_status: "paid" }).eq("id", id);
+    if (error) {
+      toast.error("No se pudo confirmar el pago.");
+      return;
+    }
+    toast.success("Pago confirmado.");
+    refetch();
+  }
+
   async function remove(id: string) {
     const { error } = await insforge.database.from("reservations").delete().eq("id", id);
     if (error) {
@@ -137,6 +148,7 @@ export function ReservationsPage() {
           onNoShow={(id) => updateStatus(id, "no_show")}
           onCancel={cancel}
           onRemove={remove}
+          onConfirmPayment={confirmPayment}
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
@@ -148,6 +160,7 @@ export function ReservationsPage() {
                 <th className="px-4 py-3">Servicio</th>
                 <th className="px-4 py-3">Recurso</th>
                 <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3">Pago</th>
                 <th className="px-4 py-3">Acciones</th>
               </tr>
             </thead>
@@ -161,7 +174,19 @@ export function ReservationsPage() {
                   <td className="px-4 py-3">
                     <Badge variant={reservationStatusVariant(r.status)}>{reservationStatusLabel(r.status)}</Badge>
                   </td>
+                  <td className="px-4 py-3">
+                    {r.payment_status !== "not_required" ? (
+                      <Badge variant={paymentStatusVariant(r.payment_status)}>{paymentStatusLabel(r.payment_status)}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="space-x-1 px-4 py-3">
+                    {r.payment_status === "awaiting_confirmation" && (
+                      <Button size="sm" onClick={() => confirmPayment(r.id)}>
+                        Confirmar pago
+                      </Button>
+                    )}
                     {(r.status === "pending" || r.status === "confirmed") && (
                       <>
                         <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, "completed")}>
@@ -183,7 +208,7 @@ export function ReservationsPage() {
                   </td>
                 </tr>
               ))}
-              {!isLoading && upcoming.length === 0 && <EmptyTableRow colSpan={6} message="No hay reservas para este filtro." />}
+              {!isLoading && upcoming.length === 0 && <EmptyTableRow colSpan={7} message="No hay reservas para este filtro." />}
             </tbody>
           </table>
         </div>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
+import { paymentStatusLabel, paymentStatusVariant } from "@/lib/paymentStatus";
 import { layoutOverlapping } from "@/lib/calendarLayout";
 import type { Reservation } from "@/types/domain";
 
@@ -36,13 +37,15 @@ export function ReservationsCalendarView({
   onComplete,
   onNoShow,
   onCancel,
-  onRemove
+  onRemove,
+  onConfirmPayment
 }: {
   reservations: Reservation[];
   onComplete: (id: string) => void;
   onNoShow: (id: string) => void;
   onCancel: (id: string) => void;
   onRemove: (id: string) => void;
+  onConfirmPayment: (id: string) => void;
 }) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selected, setSelected] = useState<Reservation | null>(null);
@@ -178,13 +181,30 @@ export function ReservationsCalendarView({
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">{new Date(selected.start_at).toLocaleString()}</span>
-                  <Badge variant={reservationStatusVariant(selected.status)}>{reservationStatusLabel(selected.status)}</Badge>
+                  <div className="flex gap-1.5">
+                    <Badge variant={reservationStatusVariant(selected.status)}>{reservationStatusLabel(selected.status)}</Badge>
+                    {selected.payment_status !== "not_required" && (
+                      <Badge variant={paymentStatusVariant(selected.payment_status)}>{paymentStatusLabel(selected.payment_status)}</Badge>
+                    )}
+                  </div>
                 </div>
                 {selected.services?.name && <p>Servicio: {selected.services.name}</p>}
                 {selected.resources?.name && <p>Recurso: {selected.resources.name}</p>}
                 {selected.special_requests && <p className="text-muted-foreground">Notas: {selected.special_requests}</p>}
+                {selected.deposit_amount !== null && <p>Anticipo: {selected.deposit_amount}</p>}
 
                 <div className="flex flex-wrap gap-2 pt-2">
+                  {selected.payment_status === "awaiting_confirmation" && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        onConfirmPayment(selected.id);
+                        setSelected(null);
+                      }}
+                    >
+                      Confirmar pago
+                    </Button>
+                  )}
                   {(selected.status === "pending" || selected.status === "confirmed") && (
                     <>
                       <Button

@@ -38,6 +38,30 @@ describe("agent tool argument validation", () => {
       })
     ).not.toThrow();
   });
+
+  it("accepts crear_reserva with a valid metodo_pago", () => {
+    expect(() =>
+      crearReservaSchema.parse({
+        fecha: "2026-09-07",
+        hora: "10:00",
+        nombre_cliente: "Camila",
+        telefono_cliente: "+573001112233",
+        metodo_pago: "anticipado"
+      })
+    ).not.toThrow();
+  });
+
+  it("rejects crear_reserva with an invalid metodo_pago", () => {
+    expect(() =>
+      crearReservaSchema.parse({
+        fecha: "2026-09-07",
+        hora: "10:00",
+        nombre_cliente: "Camila",
+        telefono_cliente: "+573001112233",
+        metodo_pago: "efectivo"
+      })
+    ).toThrow();
+  });
 });
 
 describe("getToolDefinitionsForAgent", () => {
