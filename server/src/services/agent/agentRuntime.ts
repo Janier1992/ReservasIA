@@ -79,7 +79,7 @@ export interface RunAgentTurnResult {
  * que el mensaje del usuario YA fue persistido por el llamador antes de
  * invocar esta función (para que quede en el historial que se recupera acá).
  */
-export async function runAgentTurn(params: RunAgentTurnParams): Promise<RunAgentTurnResult> {
+async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgentTurnResult> {
   const { organizationId, conversationId, customerId, customerPhone, requestId, previewMode } = params;
   const logCtx = { organizationId, conversationId, requestId };
 
@@ -201,4 +201,33 @@ export async function runAgentTurn(params: RunAgentTurnParams): Promise<RunAgent
   logAgentEvent(logCtx, { scope: "agent", result: "error", message: "max_tool_rounds_exceeded" });
   await persistMessage({ organizationId, conversationId, role: "assistant", content: FALLBACK_REPLY });
   return { reply: FALLBACK_REPLY, roundsUsed: MAX_TOOL_ROUNDS };
+}
+
+// El webhook de Twilio dispara el turno del agente en segundo plano sin
+// esperarlo (para responderle a Twilio en <15s), así que si el cliente manda
+// dos mensajes seguidos por WhatsApp se pueden disparar dos turnos en
+// paralelo para la misma conversación: ambos cargan el historial antes de
+// que el primero guarde su respuesta, y el que responda más rápido le llega
+// al cliente primero, generando respuestas fuera de orden y sin contexto
+// entre sí. Esta cola por conversationId obliga a que un turno termine (y
+// persista su respuesta) antes de que arranque el siguiente para la misma
+// conversación, sin bloquear turnos de otras conversaciones.
+const conversationLocks = new Map<string, Promise<void>>();
+
+export function runAgentTurn(params: RunAgentTurnParams): Promise<RunAgentTurnResult> {
+  const previous = conversationLocks.get(params.conversationId) ?? Promise.resolve();
+  const result = previous.then(() => runAgentTurnInternal(params));
+
+  const lock = result.then(
+    () => undefined,
+    () => undefined
+  );
+  conversationLocks.set(params.conversationId, lock);
+  lock.then(() => {
+    if (conversationLocks.get(params.conversationId) === lock) {
+      conversationLocks.delete(params.conversationId);
+    }
+  });
+
+  return result;
 }
