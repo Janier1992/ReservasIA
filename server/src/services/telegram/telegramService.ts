@@ -43,6 +43,25 @@ export async function sendTelegramMessage(botToken: string, chatId: string | num
   }
 }
 
+/**
+ * Manda el indicador de "escribiendo..." (best-effort, nunca bloquea el
+ * flujo si falla). El agente puede tardar varios segundos en responder
+ * (modelo lento + varias rondas de tool-calling), y sin este indicador el
+ * cliente no tiene ninguna señal de que el mensaje llegó y se está
+ * procesando.
+ */
+export async function sendTelegramTypingAction(botToken: string, chatId: string | number): Promise<void> {
+  try {
+    await fetch(`${TELEGRAM_API_BASE}/bot${botToken}/sendChatAction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action: "typing" })
+    });
+  } catch {
+    // best-effort
+  }
+}
+
 export interface TelegramPhotoSize {
   file_id: string;
   file_unique_id: string;

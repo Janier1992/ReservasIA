@@ -10,8 +10,28 @@ import {
   getTelegramUpdates,
   listConnectedTelegramBots,
   sendTelegramMessage,
+  sendTelegramTypingAction,
   type TelegramUpdate
 } from "./telegramService.js";
+
+// El indicador de "escribiendo..." de Telegram desaparece solo a los pocos
+// segundos, así que hay que refrescarlo mientras el turno del agente siga
+// corriendo (puede tardar bastante con el modelo actual) — si no, el
+// cliente ve el indicador un instante y después nada, dando la misma
+// sensación de "no responde" que veníamos arreglando.
+const TYPING_REFRESH_MS = 4_000;
+
+async function withTypingIndicator<T>(botToken: string, chatId: number, task: Promise<T>): Promise<T> {
+  void sendTelegramTypingAction(botToken, chatId);
+  const interval = setInterval(() => {
+    void sendTelegramTypingAction(botToken, chatId);
+  }, TYPING_REFRESH_MS);
+  try {
+    return await task;
+  } finally {
+    clearInterval(interval);
+  }
+}
 
 const REFRESH_INTERVAL_MS = 30_000;
 const LONG_POLL_TIMEOUT_SECONDS = 25;
@@ -124,13 +144,17 @@ export async function processUpdate(organizationId: string, botToken: string, up
     externalMessageId: String(message.message_id)
   });
 
-  const result = await runAgentTurn({
-    organizationId,
-    conversationId,
-    customerId,
-    customerPhone: externalIdentity,
-    requestId: `telegram:${update.update_id}`
-  });
+  const result = await withTypingIndicator(
+    botToken,
+    chatId,
+    runAgentTurn({
+      organizationId,
+      conversationId,
+      customerId,
+      customerPhone: externalIdentity,
+      requestId: `telegram:${update.update_id}`
+    })
+  );
 
   if (result.reply) {
     await sendTelegramMessage(botToken, chatId, result.reply);
