@@ -21,6 +21,7 @@ export interface BusinessProfile {
   id: string;
   organization_id: string;
   name: string;
+  logo_url: string | null;
   description: string | null;
   address: string | null;
   phone: string | null;

@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useBusinessBranding } from "@/hooks/useBusinessBranding";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const NAV_ITEMS = [
@@ -36,6 +37,8 @@ const NAV_ITEMS = [
 export function DashboardLayout() {
   const { user, signOut } = useAuth();
   const { memberships, currentOrganizationId, setCurrentOrganizationId } = useOrganization();
+  const branding = useBusinessBranding();
+  const brandName = branding?.name || "Reservas AI";
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const location = useLocation();
 
@@ -45,10 +48,18 @@ export function DashboardLayout() {
   const sidebarContent = (
     <>
       <div className="flex h-16 items-center gap-2 border-b border-border px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <CalendarClock className="h-4 w-4" />
-        </div>
-        <span className="font-semibold">Reservas AI</span>
+        {branding?.logo_url ? (
+          <img
+            src={branding.logo_url}
+            alt={brandName}
+            className="h-8 w-8 shrink-0 rounded-lg object-cover"
+          />
+        ) : (
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <CalendarClock className="h-4 w-4" />
+          </div>
+        )}
+        <span className="truncate font-semibold">{brandName}</span>
         <button
           className="ml-auto rounded-md p-1.5 text-foreground/60 hover:bg-muted lg:hidden"
           onClick={() => setMobileNavOpen(false)}
@@ -139,7 +150,7 @@ export function DashboardLayout() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <span className="flex-1 font-semibold">Reservas AI</span>
+          <span className="flex-1 truncate font-semibold">{brandName}</span>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">

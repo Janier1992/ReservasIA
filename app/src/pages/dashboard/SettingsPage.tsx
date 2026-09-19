@@ -22,6 +22,7 @@ export function SettingsPage() {
   const readOnly = currentRole === "staff";
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [hours, setHours] = useState<BusinessHourPeriod[]>([]);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const { data: profileData } = useQuery({
     queryKey: ["business-profile", currentOrganizationId],
@@ -79,6 +80,50 @@ export function SettingsPage() {
     queryClient.invalidateQueries({ queryKey: ["business-profile", currentOrganizationId] });
   }
 
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permite volver a elegir el mismo archivo si hace falta reintentar
+    if (!file || !currentOrganizationId) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("El logo debe ser una imagen.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("La imagen no puede superar 2 MB.");
+      return;
+    }
+
+    setUploadingLogo(true);
+    // Key fijo por organización (sin extensión): cada subida reemplaza la
+    // anterior en vez de ir acumulando archivos huérfanos en el bucket.
+    const { data: uploadData, error: uploadError } = await insforge.storage
+      .from("business-logos")
+      .upload(`${currentOrganizationId}/logo`, file);
+
+    if (uploadError || !uploadData) {
+      toast.error(uploadError?.message ?? "No se pudo subir el logo.");
+      setUploadingLogo(false);
+      return;
+    }
+
+    const { error: updateError } = await insforge.database
+      .from("business_profiles")
+      .update({ logo_url: uploadData.url })
+      .eq("organization_id", currentOrganizationId);
+
+    setUploadingLogo(false);
+    if (updateError) {
+      toast.error(updateError.message);
+      return;
+    }
+
+    setProfile((prev) => (prev ? { ...prev, logo_url: uploadData.url } : prev));
+    queryClient.invalidateQueries({ queryKey: ["business-profile", currentOrganizationId] });
+    queryClient.invalidateQueries({ queryKey: ["business-branding", currentOrganizationId] });
+    toast.success("Logo actualizado.");
+  }
+
   async function saveHours() {
     if (!currentOrganizationId) return;
     for (const h of hours) {
@@ -105,6 +150,30 @@ export function SettingsPage() {
           <CardTitle>Información general</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+              {profile.logo_url ? (
+                <img src={profile.logo_url} alt={profile.name} className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-center text-[10px] leading-tight text-muted-foreground">Sin logo</span>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="logo-upload">Logo del negocio</Label>
+              <input
+                id="logo-upload"
+                type="file"
+                accept="image/*"
+                disabled={readOnly || uploadingLogo}
+                onChange={handleLogoChange}
+                className="block text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground file:hover:opacity-90 disabled:opacity-60"
+              />
+              <p className="text-xs text-muted-foreground">
+                Reemplaza el ícono y el nombre "Reservas AI" del menú por el logo y el nombre de tu negocio. PNG o JPG,
+                máx. 2&nbsp;MB.
+              </p>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Nombre</Label>
