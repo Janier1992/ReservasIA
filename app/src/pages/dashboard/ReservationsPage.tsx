@@ -7,30 +7,21 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReservationFormDialog } from "./reservations/ReservationFormDialog";
+import { ReservationsCalendarView } from "./reservations/ReservationsCalendarView";
+import { EmptyTableRow } from "@/components/EmptyTableRow";
+import { QueryErrorState } from "@/components/QueryErrorState";
+import { RESERVATION_STATUS_LABEL, reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
+import { paymentStatusLabel, paymentStatusVariant } from "@/lib/paymentStatus";
 import type { Reservation } from "@/types/domain";
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Pendiente",
-  confirmed: "Confirmada",
-  cancelled: "Cancelada",
-  completed: "Completada",
-  no_show: "No asistió"
-};
-
-const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "destructive" | "muted"> = {
-  pending: "warning",
-  confirmed: "success",
-  cancelled: "destructive",
-  completed: "muted",
-  no_show: "destructive"
-};
 
 export function ReservationsPage() {
   const { currentOrganizationId, memberships } = useOrganization();
   const timezone = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations.timezone ?? "UTC";
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [view, setView] = useState<"list" | "calendar">("list");
   const queryClient = useQueryClient();
 
   const { data: services = [] } = useQuery({
@@ -51,7 +42,12 @@ export function ReservationsPage() {
     }
   });
 
-  const { data: reservations = [], refetch } = useQuery({
+  const {
+    data: reservations = [],
+    refetch,
+    isError,
+    isLoading
+  } = useQuery({
     queryKey: ["reservations", currentOrganizationId, statusFilter],
     enabled: !!currentOrganizationId,
     queryFn: async () => {
@@ -88,6 +84,16 @@ export function ReservationsPage() {
     refetch();
   }
 
+  async function confirmPayment(id: string) {
+    const { error } = await insforge.database.from("reservations").update({ payment_status: "paid" }).eq("id", id);
+    if (error) {
+      toast.error("No se pudo confirmar el pago.");
+      return;
+    }
+    toast.success("Pago confirmado.");
+    refetch();
+  }
+
   async function remove(id: string) {
     const { error } = await insforge.database.from("reservations").delete().eq("id", id);
     if (error) {
@@ -110,76 +116,103 @@ export function ReservationsPage() {
         </Button>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-48">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los estados</SelectItem>
-            {Object.entries(STATUS_LABEL).map(([value, label]) => (
+            {Object.entries(RESERVATION_STATUS_LABEL).map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+
+        <Tabs value={view} onValueChange={(v) => setView(v as "list" | "calendar")}>
+          <TabsList>
+            <TabsTrigger value="list">Lista</TabsTrigger>
+            <TabsTrigger value="calendar">Calendario</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-card">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Fecha</th>
-              <th className="px-4 py-3">Cliente</th>
-              <th className="px-4 py-3">Servicio</th>
-              <th className="px-4 py-3">Recurso</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {upcoming.map((r) => (
-              <tr key={r.id} className="border-b border-border last:border-0">
-                <td className="px-4 py-3">{new Date(r.start_at).toLocaleString()}</td>
-                <td className="px-4 py-3">{r.customer_name || r.customers?.name || r.customers?.phone}</td>
-                <td className="px-4 py-3">{r.services?.name ?? "—"}</td>
-                <td className="px-4 py-3">{r.resources?.name ?? "—"}</td>
-                <td className="px-4 py-3">
-                  <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABEL[r.status]}</Badge>
-                </td>
-                <td className="space-x-1 px-4 py-3">
-                  {(r.status === "pending" || r.status === "confirmed") && (
-                    <>
-                      <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, "completed")}>
-                        Completar
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, "no_show")}>
-                        No-show
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => cancel(r.id)}>
-                        Cancelar
-                      </Button>
-                    </>
-                  )}
-                  {(r.status === "cancelled" || r.status === "completed" || r.status === "no_show") && (
-                    <Button size="sm" variant="ghost" onClick={() => remove(r.id)} title="Eliminar reserva">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {upcoming.length === 0 && (
+      {isError ? (
+        <QueryErrorState onRetry={() => refetch()} message="No se pudieron cargar las reservas." />
+      ) : view === "calendar" ? (
+        <ReservationsCalendarView
+          reservations={upcoming}
+          onComplete={(id) => updateStatus(id, "completed")}
+          onNoShow={(id) => updateStatus(id, "no_show")}
+          onCancel={cancel}
+          onRemove={remove}
+          onConfirmPayment={confirmPayment}
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                  No hay reservas para este filtro.
-                </td>
+                <th className="px-4 py-3">Fecha</th>
+                <th className="px-4 py-3">Cliente</th>
+                <th className="px-4 py-3">Servicio</th>
+                <th className="px-4 py-3">Recurso</th>
+                <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3">Pago</th>
+                <th className="px-4 py-3">Acciones</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {upcoming.map((r) => (
+                <tr key={r.id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-3">{new Date(r.start_at).toLocaleString()}</td>
+                  <td className="px-4 py-3">{r.customer_name || r.customers?.name || r.customers?.phone}</td>
+                  <td className="px-4 py-3">{r.services?.name ?? "—"}</td>
+                  <td className="px-4 py-3">{r.resources?.name ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant={reservationStatusVariant(r.status)}>{reservationStatusLabel(r.status)}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.payment_status !== "not_required" ? (
+                      <Badge variant={paymentStatusVariant(r.payment_status)}>{paymentStatusLabel(r.payment_status)}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="space-x-1 px-4 py-3">
+                    {r.payment_status === "awaiting_confirmation" && (
+                      <Button size="sm" onClick={() => confirmPayment(r.id)}>
+                        Confirmar pago
+                      </Button>
+                    )}
+                    {(r.status === "pending" || r.status === "confirmed") && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, "completed")}>
+                          Completar
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, "no_show")}>
+                          No-show
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => cancel(r.id)}>
+                          Cancelar
+                        </Button>
+                      </>
+                    )}
+                    {(r.status === "cancelled" || r.status === "completed" || r.status === "no_show") && (
+                      <Button size="sm" variant="ghost" onClick={() => remove(r.id)} title="Eliminar reserva" aria-label="Eliminar reserva">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!isLoading && upcoming.length === 0 && <EmptyTableRow colSpan={7} message="No hay reservas para este filtro." />}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {currentOrganizationId && (
         <ReservationFormDialog

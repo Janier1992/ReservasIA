@@ -10,6 +10,9 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CURRENCY_OPTIONS, DEFAULT_CURRENCY, formatCurrency } from "@/lib/currency";
 import { BulkUploadServicesDialog } from "./services/BulkUploadServicesDialog";
+import { EmptyTableRow } from "@/components/EmptyTableRow";
+import { QueryErrorState } from "@/components/QueryErrorState";
+import { isNonNegativeNumber, isPositiveInteger } from "@/lib/validation";
 import type { Service } from "@/types/domain";
 
 export function ServicesPage() {
@@ -20,7 +23,12 @@ export function ServicesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: "", duration_minutes: 60, price: "", currency: DEFAULT_CURRENCY });
 
-  const { data: services = [] } = useQuery({
+  const {
+    data: services = [],
+    isError,
+    isLoading,
+    refetch
+  } = useQuery({
     queryKey: ["services-page", currentOrganizationId],
     enabled: !!currentOrganizationId,
     queryFn: async () => {
@@ -38,6 +46,14 @@ export function ServicesPage() {
 
   async function addService() {
     if (!form.name.trim() || !currentOrganizationId) return;
+    if (!isPositiveInteger(form.duration_minutes)) {
+      toast.error("La duración debe ser un número entero mayor a 0.");
+      return;
+    }
+    if (form.price && !isNonNegativeNumber(Number(form.price))) {
+      toast.error("El precio debe ser un número mayor o igual a 0.");
+      return;
+    }
     const { error } = await insforge.database.from("services").insert([
       {
         organization_id: currentOrganizationId,
@@ -77,6 +93,14 @@ export function ServicesPage() {
 
   async function saveEdit(id: string) {
     if (!editForm.name.trim()) return;
+    if (!isPositiveInteger(editForm.duration_minutes)) {
+      toast.error("La duración debe ser un número entero mayor a 0.");
+      return;
+    }
+    if (editForm.price && !isNonNegativeNumber(Number(editForm.price))) {
+      toast.error("El precio debe ser un número mayor o igual a 0.");
+      return;
+    }
     const { error } = await insforge.database
       .from("services")
       .update({
@@ -137,6 +161,9 @@ export function ServicesPage() {
         </Button>
       </div>
 
+      {isError ? (
+        <QueryErrorState onRetry={() => refetch()} message="No se pudieron cargar los servicios." />
+      ) : (
       <div className="overflow-x-auto rounded-lg border border-border bg-card">
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-muted/50 text-left text-xs uppercase text-muted-foreground">
@@ -189,10 +216,10 @@ export function ServicesPage() {
                     <Switch checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
                   </td>
                   <td className="space-x-1 px-4 py-3">
-                    <Button variant="ghost" size="icon" onClick={() => saveEdit(s.id)} title="Guardar">
+                    <Button variant="ghost" size="icon" onClick={() => saveEdit(s.id)} title="Guardar" aria-label="Guardar">
                       <Check className="h-4 w-4 text-success" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setEditingId(null)} title="Cancelar">
+                    <Button variant="ghost" size="icon" onClick={() => setEditingId(null)} title="Cancelar" aria-label="Cancelar">
                       <X className="h-4 w-4" />
                     </Button>
                   </td>
@@ -206,19 +233,21 @@ export function ServicesPage() {
                     <Switch checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
                   </td>
                   <td className="space-x-1 px-4 py-3">
-                    <Button variant="ghost" size="icon" onClick={() => startEdit(s)} title="Editar">
+                    <Button variant="ghost" size="icon" onClick={() => startEdit(s)} title="Editar" aria-label="Editar">
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => remove(s)} title="Eliminar">
+                    <Button variant="ghost" size="icon" onClick={() => remove(s)} title="Eliminar" aria-label="Eliminar">
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </td>
                 </tr>
               )
             )}
+            {!isLoading && services.length === 0 && <EmptyTableRow colSpan={5} message="Todavía no cargaste ningún servicio." />}
           </tbody>
         </table>
       </div>
+      )}
 
       {currentOrganizationId && (
         <BulkUploadServicesDialog

@@ -44,6 +44,14 @@ function formatResources(resources: Resource[]): string {
   return resources.map((r) => `- ${r.name}${r.resource_type ? ` (${r.resource_type})` : ""}`).join("\n");
 }
 
+function formatPaymentPolicy(profile: BusinessProfile): string {
+  if (!profile.deposit_enabled || !profile.nequi_phone || !profile.deposit_percentage) {
+    return "Este negocio no pide anticipo. No menciones pagos por adelantado.";
+  }
+  const kind = profile.deposit_mandatory ? "OBLIGATORIO" : "opcional (dejale elegir al cliente)";
+  return `Anticipo ${kind} del ${profile.deposit_percentage}% del precio del servicio, a pagar por Nequi al número ${profile.nequi_phone}. El monto exacto y el número te los devuelve la herramienta crear_reserva, nunca los calcules ni los repitas de memoria.`;
+}
+
 function formatAgentRules(rules: AgentRule[]): string {
   const enabled = rules.filter((r) => r.enabled).sort((a, b) => a.priority - b.priority);
   if (enabled.length === 0) return "Sin reglas adicionales.";
@@ -145,6 +153,8 @@ ${formatServices(data.services)}
 
 RECURSOS:
 ${formatResources(data.resources)}
+
+PAGOS: ${formatPaymentPolicy(businessProfile)}
 
 INTEGRACIÓN DE CALENDARIO: ${
     data.googleCalendarConnected

@@ -51,5 +51,29 @@ export default defineConfig({
   },
   server: {
     port: 5173
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Separa las librerías grandes del código de la app en sus propios
+        // chunks: cambian mucho menos seguido que las páginas, así que el
+        // navegador los cachea por más tiempo entre deploys, y evita el
+        // chunk único de >500kB que mezclaba todo el vendor code.
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-query": ["@tanstack/react-query"],
+          "vendor-radix": [
+            "@radix-ui/react-avatar",
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-label",
+            "@radix-ui/react-select",
+            "@radix-ui/react-switch",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-toast"
+          ]
+        }
+      }
+    }
   }
 });

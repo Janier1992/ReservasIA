@@ -44,10 +44,11 @@ export async function sendTelegramMessage(botToken: string, chatId: string | num
 }
 
 /**
- * Indicador nativo "escribiendo..." de Telegram. Dura ~5s del lado del
- * cliente, así que hay que reenviarlo mientras el turno del agente siga en
- * curso. Es best-effort: si falla, no debe interrumpir el procesamiento del
- * mensaje real.
+ * Manda el indicador de "escribiendo..." (best-effort, nunca bloquea el
+ * flujo si falla). El agente puede tardar varios segundos en responder
+ * (modelo lento + varias rondas de tool-calling), y sin este indicador el
+ * cliente no tiene ninguna señal de que el mensaje llegó y se está
+ * procesando.
  */
 export async function sendTelegramTypingAction(botToken: string, chatId: string | number): Promise<void> {
   try {
@@ -57,8 +58,16 @@ export async function sendTelegramTypingAction(botToken: string, chatId: string 
       body: JSON.stringify({ chat_id: chatId, action: "typing" })
     });
   } catch {
-    // best-effort, no bloquea el flujo principal
+    // best-effort
   }
+}
+
+export interface TelegramPhotoSize {
+  file_id: string;
+  file_unique_id: string;
+  width: number;
+  height: number;
+  file_size?: number;
 }
 
 export interface TelegramUpdate {
@@ -67,8 +76,9 @@ export interface TelegramUpdate {
     message_id: number;
     date: number;
     chat: { id: number; type: string };
-    from?: { id: number; first_name?: string; username?: string };
+    from?: { id: number; first_name?: string; last_name?: string; username?: string };
     text?: string;
+    photo?: TelegramPhotoSize[];
   };
 }
 
@@ -86,4 +96,36 @@ export async function getTelegramUpdates(botToken: string, offset: number, timeo
   }
 
   return data.result ?? [];
+}
+
+/**
+ * Descarga la variante de mayor resolución de una foto enviada por Telegram
+ * (el array `photo` viene ordenado de menor a mayor tamaño). Usa el flujo
+ * oficial de dos pasos: getFile para resolver la ruta interna, y luego el
+ * endpoint estático de archivos para bajar los bytes.
+ */
+export async function downloadTelegramPhoto(
+  botToken: string,
+  photoSizes: TelegramPhotoSize[]
+): Promise<{ bytes: Uint8Array; mimeType: string }> {
+  const largest = photoSizes[photoSizes.length - 1];
+
+  const fileRes = await fetch(`${TELEGRAM_API_BASE}/bot${botToken}/getFile?file_id=${largest.file_id}`);
+  if (!fileRes.ok) {
+    throw new AppError(ErrorCodes.INTERNAL_ERROR, `getFile falló con status ${fileRes.status}`, 502);
+  }
+  const fileData = (await fileRes.json()) as { ok: boolean; result?: { file_path?: string }; description?: string };
+  if (!fileData.ok || !fileData.result?.file_path) {
+    throw new AppError(ErrorCodes.INTERNAL_ERROR, fileData.description ?? "getFile no devolvió file_path", 502);
+  }
+
+  const downloadRes = await fetch(`${TELEGRAM_API_BASE}/file/bot${botToken}/${fileData.result.file_path}`);
+  if (!downloadRes.ok) {
+    throw new AppError(ErrorCodes.INTERNAL_ERROR, `Descarga de archivo de Telegram falló con status ${downloadRes.status}`, 502);
+  }
+
+  const buffer = await downloadRes.arrayBuffer();
+  const extension = fileData.result.file_path.split(".").pop()?.toLowerCase();
+  const mimeType = extension === "png" ? "image/png" : "image/jpeg";
+  return { bytes: new Uint8Array(buffer), mimeType };
 }

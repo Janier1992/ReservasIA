@@ -64,36 +64,65 @@ async function sendToSubscription(sub: PushSubscriptionRow, payload: string): Pr
 }
 
 /**
- * Best-effort, nunca bloquea ni revienta el flujo de reservas: si no hay
- * VAPID configurado, o no hay suscripciones, o falla el envío, la reserva
- * ya quedó creada de todas formas (mismo criterio que la sincronización
- * con Google Calendar).
+ * Best-effort, nunca bloquea ni revienta el flujo de reservas/mensajes: si no
+ * hay VAPID configurado, o no hay suscripciones, o falla el envío, el resto
+ * del flujo ya se completó de todas formas (mismo criterio que la
+ * sincronización con Google Calendar).
  */
-export async function notifyNewReservation(reservation: Reservation): Promise<void> {
+async function notifyOrganization(
+  organizationId: string,
+  payload: { title: string; body: string; url: string; tag: string },
+  skippedLogKey: string,
+  doneLogKey: string
+): Promise<void> {
   if (!vapidConfigured) {
-    logger.warn({ organizationId: reservation.organization_id }, "push_skipped_vapid_not_configured");
+    logger.warn({ organizationId }, "push_skipped_vapid_not_configured");
     return;
   }
 
-  const subscriptions = await loadSubscriptions(reservation.organization_id);
+  const subscriptions = await loadSubscriptions(organizationId);
   if (subscriptions.length === 0) {
-    logger.info({ organizationId: reservation.organization_id }, "push_skipped_no_subscriptions");
+    logger.info({ organizationId }, skippedLogKey);
     return;
   }
 
-  const payload = JSON.stringify({
-    title: "Nueva reserva confirmada",
-    body: reservation.customer_name
-      ? `${reservation.customer_name} reservó para ${new Date(reservation.start_at).toLocaleString("es-CO")}`
-      : `Reserva confirmada para ${new Date(reservation.start_at).toLocaleString("es-CO")}`,
-    url: "/dashboard/reservations",
-    tag: `reservation-${reservation.id}`
-  });
-
-  const results = await Promise.all(subscriptions.map((sub) => sendToSubscription(sub, payload)));
+  const serialized = JSON.stringify(payload);
+  const results = await Promise.all(subscriptions.map((sub) => sendToSubscription(sub, serialized)));
   const sent = results.filter(Boolean).length;
-  logger.info(
-    { organizationId: reservation.organization_id, reservationId: reservation.id, sent, total: subscriptions.length },
+  logger.info({ organizationId, sent, total: subscriptions.length }, doneLogKey);
+}
+
+export async function notifyNewReservation(reservation: Reservation): Promise<void> {
+  await notifyOrganization(
+    reservation.organization_id,
+    {
+      title: "Nueva reserva confirmada",
+      body: reservation.customer_name
+        ? `${reservation.customer_name} reservó para ${new Date(reservation.start_at).toLocaleString("es-CO")}`
+        : `Reserva confirmada para ${new Date(reservation.start_at).toLocaleString("es-CO")}`,
+      url: "/dashboard/reservations",
+      tag: `reservation-${reservation.id}`
+    },
+    "push_skipped_no_subscriptions",
     "push_notify_new_reservation_done"
+  );
+}
+
+/**
+ * Avisa al negocio que un cliente mandó una foto de comprobante de pago, para
+ * que alguien del staff entre al dashboard a revisarla y confirmar el pago
+ * manualmente (el agente nunca confirma pagos por sí solo).
+ */
+export async function notifyPaymentReceiptReceived(organizationId: string, customerName: string | null): Promise<void> {
+  await notifyOrganization(
+    organizationId,
+    {
+      title: "Comprobante de pago recibido",
+      body: customerName ? `${customerName} envió un comprobante de pago para revisar.` : "Un cliente envió un comprobante de pago para revisar.",
+      url: "/dashboard/inbox",
+      tag: `payment-receipt-${organizationId}-${Date.now()}`
+    },
+    "push_skipped_no_subscriptions",
+    "push_notify_payment_receipt_done"
   );
 }

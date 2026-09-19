@@ -10,6 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { EmptyTableRow } from "@/components/EmptyTableRow";
+import { QueryErrorState } from "@/components/QueryErrorState";
+import { reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
+import { isValidEmail } from "@/lib/validation";
 import type { Customer, Reservation } from "@/types/domain";
 
 export function CustomersPage() {
@@ -23,7 +27,12 @@ export function CustomersPage() {
     if (selected) setEditForm({ name: selected.name ?? "", email: selected.email ?? "", notes: selected.notes ?? "" });
   }, [selected]);
 
-  const { data: customers = [] } = useQuery({
+  const {
+    data: customers = [],
+    isError,
+    isLoading,
+    refetch
+  } = useQuery({
     queryKey: ["customers", currentOrganizationId, search],
     enabled: !!currentOrganizationId,
     queryFn: async () => {
@@ -66,6 +75,10 @@ export function CustomersPage() {
 
   async function saveCustomerDetails() {
     if (!selected) return;
+    if (editForm.email.trim() && !isValidEmail(editForm.email)) {
+      toast.error("El email no tiene un formato válido.");
+      return;
+    }
     const { error } = await insforge.database
       .from("customers")
       .update({
@@ -91,49 +104,48 @@ export function CustomersPage() {
 
       <Input placeholder="Buscar por nombre o teléfono..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-card">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">Teléfono</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Notas</th>
-              <th className="px-4 py-3">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {customers.map((c) => (
-              <tr key={c.id} className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/50" onClick={() => setSelected(c)}>
-                <td className="px-4 py-3 font-medium">{c.name || "Sin nombre"}</td>
-                <td className="px-4 py-3">{c.phone}</td>
-                <td className="px-4 py-3">{c.email || "—"}</td>
-                <td className="px-4 py-3 text-muted-foreground">{c.notes || "—"}</td>
-                <td className="px-4 py-3">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Eliminar cliente"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeCustomer(c);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
-            {customers.length === 0 && (
+      {isError ? (
+        <QueryErrorState onRetry={() => refetch()} message="No se pudieron cargar los clientes." />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                  No hay clientes todavía.
-                </td>
+                <th className="px-4 py-3">Nombre</th>
+                <th className="px-4 py-3">Teléfono</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Notas</th>
+                <th className="px-4 py-3">Acciones</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {customers.map((c) => (
+                <tr key={c.id} className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/50" onClick={() => setSelected(c)}>
+                  <td className="px-4 py-3 font-medium">{c.name || "Sin nombre"}</td>
+                  <td className="px-4 py-3">{c.phone}</td>
+                  <td className="px-4 py-3">{c.email || "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{c.notes || "—"}</td>
+                  <td className="px-4 py-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Eliminar cliente"
+                      aria-label="Eliminar cliente"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeCustomer(c);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+              {!isLoading && customers.length === 0 && <EmptyTableRow colSpan={5} message="No hay clientes todavía." />}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
         <DialogContent>
@@ -175,7 +187,7 @@ export function CustomersPage() {
                 {customerReservations.map((r) => (
                   <div key={r.id} className="flex items-center justify-between rounded-md border border-border p-2">
                     <span>{new Date(r.start_at).toLocaleString()}</span>
-                    <Badge variant={r.status === "confirmed" ? "success" : "muted"}>{r.status}</Badge>
+                    <Badge variant={reservationStatusVariant(r.status)}>{reservationStatusLabel(r.status)}</Badge>
                   </div>
                 ))}
                 {customerReservations.length === 0 && <p className="text-muted-foreground">Sin reservas.</p>}

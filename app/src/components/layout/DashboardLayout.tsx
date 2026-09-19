@@ -20,6 +20,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useBusinessBranding } from "@/hooks/useBusinessBranding";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Inicio", icon: LayoutDashboard, end: true },
@@ -60,8 +62,9 @@ export function DashboardLayout() {
           </div>
         )}
         <span className="truncate font-semibold">{brandName}</span>
+        <ThemeToggle className="ml-auto" />
         <button
-          className="ml-auto rounded-md p-1.5 text-foreground/60 hover:bg-muted lg:hidden"
+          className="rounded-md p-1.5 text-foreground/60 hover:bg-muted lg:hidden"
           onClick={() => setMobileNavOpen(false)}
           aria-label="Cerrar menú"
         >
@@ -151,10 +154,16 @@ export function DashboardLayout() {
             <Menu className="h-5 w-5" />
           </button>
           <span className="flex-1 truncate font-semibold">{brandName}</span>
+          <ThemeToggle />
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <Outlet />
+          {/* `key` fuerza a remontar el boundary al cambiar de ruta, así que
+              navegar a otra sección "limpia" el error en vez de quedar
+              atascado en el fallback de la pantalla anterior. */}
+          <ErrorBoundary key={location.pathname} title="No se pudo cargar esta sección.">
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

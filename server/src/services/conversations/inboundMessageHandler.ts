@@ -76,6 +76,17 @@ export interface InboundMessageInput {
   externalConversationId: string;
   content: string;
   externalMessageId?: string;
+  messageType?: string;
+  metadata?: Record<string, unknown>;
+  /**
+   * Nombre visible del cliente en el canal (first_name/last_name de
+   * Telegram, ProfileName de WhatsApp), si el canal lo provee. Para
+   * Telegram, `externalIdentity` es un `telegram:<chat_id>` sintético (la
+   * API no comparte el teléfono real), así que sin esto el cliente queda
+   * sin nombre hasta que el agente lo capture en una reserva — y el Inbox
+   * termina mostrando ese id críptico en vez de un nombre.
+   */
+  customerName?: string;
 }
 
 export interface InboundMessageResult {
@@ -84,7 +95,7 @@ export interface InboundMessageResult {
 }
 
 export async function handleInboundMessage(input: InboundMessageInput): Promise<InboundMessageResult> {
-  const customer = await findOrCreateCustomerByPhone(input.organizationId, input.externalIdentity);
+  const customer = await findOrCreateCustomerByPhone(input.organizationId, input.externalIdentity, input.customerName);
   const conversation = await findOrCreateActiveConversation(
     input.organizationId,
     customer.id,
@@ -99,7 +110,9 @@ export async function handleInboundMessage(input: InboundMessageInput): Promise<
       conversation_id: conversation.id,
       role: "user",
       content,
-      external_message_id: input.externalMessageId ?? null
+      external_message_id: input.externalMessageId ?? null,
+      message_type: input.messageType ?? "text",
+      metadata: input.metadata ?? {}
     }
   ]);
 

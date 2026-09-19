@@ -1,19 +1,41 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarCheck, MessageSquare, UserPlus, Bot, MessageCircle, CalendarDays, Send } from "lucide-react";
+import { CalendarCheck, MessageSquare, UserPlus, Bot, MessageCircle, CalendarDays, Send, TrendingUp } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorState } from "@/components/QueryErrorState";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatCurrency } from "@/lib/currency";
+import {
+  computeNoShowRate,
+  computeOccupancyByHour,
+  computeRevenueByCurrency,
+  computeTopService,
+  type ReportReservationRow
+} from "@/lib/businessReport";
 
-function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | number }) {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  loading
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  loading?: boolean;
+}) {
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-5">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />
         </div>
-        <div>
-          <p className="text-2xl font-semibold">{value}</p>
+        <div className="flex-1">
+          {loading ? <Skeleton className="h-7 w-12" /> : <p className="text-2xl font-semibold">{value}</p>}
           <p className="text-sm text-muted-foreground">{label}</p>
         </div>
       </CardContent>
@@ -21,10 +43,22 @@ function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label
   );
 }
 
+const PERIOD_OPTIONS = [
+  { value: "7", label: "7 días" },
+  { value: "30", label: "30 días" },
+  { value: "90", label: "90 días" }
+];
+
 export function DashboardHome() {
   const { currentOrganizationId, currentRole } = useOrganization();
+  const [periodDays, setPeriodDays] = useState("30");
 
-  const { data: stats } = useQuery({
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    isError: statsError,
+    refetch: refetchStats
+  } = useQuery({
     queryKey: ["dashboard-stats", currentOrganizationId],
     enabled: !!currentOrganizationId,
     queryFn: async () => {
@@ -90,6 +124,32 @@ export function DashboardHome() {
     retry: false
   });
 
+  const {
+    data: reportRows,
+    isLoading: reportLoading,
+    isError: reportError,
+    refetch: refetchReport
+  } = useQuery({
+    queryKey: ["dashboard-report", currentOrganizationId, periodDays],
+    enabled: !!currentOrganizationId,
+    queryFn: async () => {
+      const since = new Date(Date.now() - Number(periodDays) * 24 * 60 * 60 * 1000);
+      const { data, error } = await insforge.database
+        .from("reservations")
+        .select("status, start_at, services(name, price, currency)")
+        .eq("organization_id", currentOrganizationId)
+        .gte("start_at", since.toISOString());
+      if (error) throw error;
+      return data as unknown as ReportReservationRow[];
+    }
+  });
+
+  const revenueByCurrency = reportRows ? computeRevenueByCurrency(reportRows) : {};
+  const topService = reportRows ? computeTopService(reportRows) : null;
+  const noShowRate = reportRows ? computeNoShowRate(reportRows) : 0;
+  const occupancyByHour = reportRows ? computeOccupancyByHour(reportRows) : [];
+  const maxOccupancy = occupancyByHour[0]?.count ?? 0;
+
   return (
     <div className="space-y-6">
       <div>
@@ -97,12 +157,16 @@ export function DashboardHome() {
         <p className="text-sm text-muted-foreground">Estado general de tu negocio.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={CalendarCheck} label="Reservas de hoy" value={stats?.today ?? "—"} />
-        <StatCard icon={CalendarCheck} label="Reservas próximas" value={stats?.upcoming ?? "—"} />
-        <StatCard icon={MessageSquare} label="Conversaciones activas" value={stats?.pendingConversations ?? "—"} />
-        <StatCard icon={UserPlus} label="Clientes nuevos (7 días)" value={stats?.newCustomers ?? "—"} />
-      </div>
+      {statsError ? (
+        <QueryErrorState onRetry={() => refetchStats()} message="No se pudieron cargar las estadísticas." />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard icon={CalendarCheck} label="Reservas de hoy" value={stats?.today ?? 0} loading={statsLoading} />
+          <StatCard icon={CalendarCheck} label="Reservas próximas" value={stats?.upcoming ?? 0} loading={statsLoading} />
+          <StatCard icon={MessageSquare} label="Conversaciones activas" value={stats?.pendingConversations ?? 0} loading={statsLoading} />
+          <StatCard icon={UserPlus} label="Clientes nuevos (7 días)" value={stats?.newCustomers ?? 0} loading={statsLoading} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -147,6 +211,110 @@ export function DashboardHome() {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">Sincronización de reservas</CardContent>
         </Card>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Reportes</h2>
+          <Tabs value={periodDays} onValueChange={setPeriodDays}>
+            <TabsList>
+              {PERIOD_OPTIONS.map((opt) => (
+                <TabsTrigger key={opt.value} value={opt.value}>
+                  {opt.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {reportError ? (
+          <QueryErrorState onRetry={() => refetchReport()} message="No se pudieron cargar los reportes." />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <TrendingUp className="h-4 w-4" /> Ingresos (completadas)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {reportLoading ? (
+                  <Skeleton className="h-7 w-32" />
+                ) : Object.keys(revenueByCurrency).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Sin reservas completadas en este período.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {Object.entries(revenueByCurrency).map(([currency, amount]) => (
+                      <p key={currency} className="text-xl font-semibold">
+                        {formatCurrency(amount, currency)}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Servicio más vendido</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {reportLoading ? (
+                  <Skeleton className="h-7 w-32" />
+                ) : topService ? (
+                  <p className="text-sm">
+                    <span className="text-xl font-semibold">{topService.name}</span>
+                    <span className="text-muted-foreground"> · {topService.count} reserva(s)</span>
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Sin datos suficientes todavía.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Tasa de no-show</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {reportLoading ? (
+                  <Skeleton className="h-7 w-16" />
+                ) : (
+                  <p className="text-xl font-semibold">{noShowRate.toFixed(0)}%</p>
+                )}
+                <p className="text-xs text-muted-foreground">Sobre reservas completadas + no asistió.</p>
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-3">
+              <CardHeader>
+                <CardTitle className="text-base">Franjas horarias con más reservas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {reportLoading ? (
+                  <Skeleton className="h-24 w-full" />
+                ) : occupancyByHour.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Sin reservas en este período.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {occupancyByHour.map((slot) => (
+                      <div key={slot.hour} className="flex items-center gap-3 text-sm">
+                        <span className="w-14 shrink-0 text-muted-foreground">{String(slot.hour).padStart(2, "0")}:00</span>
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${maxOccupancy ? (slot.count / maxOccupancy) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <span className="w-6 shrink-0 text-right font-medium">{slot.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

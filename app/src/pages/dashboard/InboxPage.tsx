@@ -9,8 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { QueryErrorState } from "@/components/QueryErrorState";
 import { cn } from "@/lib/utils";
+import { reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
 import type { Conversation, Message, Reservation } from "@/types/domain";
+
+function ReceiptImageMessage({ organizationId, messageId }: { organizationId: string; messageId: string }) {
+  const { data, isError } = useQuery({
+    queryKey: ["receipt-url", messageId],
+    queryFn: () => functionsClient.get<{ url: string }>("get-receipt-url", { organization_id: organizationId, message_id: messageId }),
+    staleTime: 60_000
+  });
+
+  if (isError) return <p className="text-xs text-destructive">No se pudo cargar el comprobante.</p>;
+  if (!data) return <p className="text-xs text-muted-foreground">Cargando comprobante...</p>;
+  return <img src={data.url} alt="Comprobante de pago" className="max-w-[220px] rounded-md" />;
+}
 
 export function InboxPage() {
   const { currentOrganizationId } = useOrganization();
@@ -20,7 +34,11 @@ export function InboxPage() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: conversations = [] } = useQuery({
+  const {
+    data: conversations = [],
+    isError: conversationsError,
+    refetch: refetchConversations
+  } = useQuery({
     queryKey: ["conversations", currentOrganizationId],
     enabled: !!currentOrganizationId,
     refetchInterval: 10_000,
@@ -97,9 +115,7 @@ export function InboxPage() {
             <div key={r.id} className="rounded-md border border-border p-2 text-xs">
               <div className="flex items-center justify-between">
                 <span>{new Date(r.start_at).toLocaleString()}</span>
-                <Badge variant={r.status === "confirmed" ? "success" : r.status === "cancelled" ? "destructive" : "muted"}>
-                  {r.status}
-                </Badge>
+                <Badge variant={reservationStatusVariant(r.status)}>{reservationStatusLabel(r.status)}</Badge>
               </div>
               {r.services?.name && <p className="text-muted-foreground">{r.services.name}</p>}
             </div>
@@ -119,23 +135,31 @@ export function InboxPage() {
           mobilePane === "thread" ? "hidden lg:block" : "block"
         )}
       >
-        {conversations.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => {
-              setSelectedId(c.id);
-              setMobilePane("thread");
-            }}
-            className={cn(
-              "flex w-full flex-col gap-0.5 border-b border-border px-4 py-3 text-left hover:bg-muted",
-              activeConversation?.id === c.id && "bg-primary/10"
-            )}
-          >
-            <span className="text-sm font-medium">{c.customers?.name || c.customers?.phone || "Cliente"}</span>
-            <span className="text-xs capitalize text-muted-foreground">{c.channel}</span>
-          </button>
-        ))}
-        {conversations.length === 0 && <p className="p-4 text-sm text-muted-foreground">Sin conversaciones todavía.</p>}
+        {conversationsError ? (
+          <div className="p-3">
+            <QueryErrorState onRetry={() => refetchConversations()} message="No se pudieron cargar las conversaciones." />
+          </div>
+        ) : (
+          <>
+            {conversations.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => {
+                  setSelectedId(c.id);
+                  setMobilePane("thread");
+                }}
+                className={cn(
+                  "flex w-full flex-col gap-0.5 border-b border-border px-4 py-3 text-left hover:bg-muted",
+                  activeConversation?.id === c.id && "bg-primary/10"
+                )}
+              >
+                <span className="text-sm font-medium">{c.customers?.name || c.customers?.phone || "Cliente"}</span>
+                <span className="text-xs capitalize text-muted-foreground">{c.channel}</span>
+              </button>
+            ))}
+            {conversations.length === 0 && <p className="p-4 text-sm text-muted-foreground">Sin conversaciones todavía.</p>}
+          </>
+        )}
       </div>
 
       {/* Hilo activo: panel propio en mobile (con volver/info), columna central en desktop */}
@@ -177,7 +201,11 @@ export function InboxPage() {
                         m.role === "user" ? "bg-muted" : "bg-primary text-primary-foreground"
                       )}
                     >
-                      {m.content}
+                      {m.message_type === "image" && currentOrganizationId ? (
+                        <ReceiptImageMessage organizationId={currentOrganizationId} messageId={m.id} />
+                      ) : (
+                        m.content
+                      )}
                     </div>
                   </div>
                 ))}
@@ -189,7 +217,7 @@ export function InboxPage() {
                 placeholder="Escribí una respuesta manual..."
                 onKeyDown={(e) => e.key === "Enter" && sendReply()}
               />
-              <Button onClick={sendReply}>
+              <Button onClick={sendReply} aria-label="Enviar respuesta">
                 <Send className="h-4 w-4" />
               </Button>
             </div>

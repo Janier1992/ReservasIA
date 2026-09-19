@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 import { CalendarClock } from "lucide-react";
 import { InstallAppButton } from "@/components/InstallAppButton";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
+      <ThemeToggle className="absolute right-4 top-4" />
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">

@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { QueryErrorState } from "@/components/QueryErrorState";
 import type { AgentConfig, AgentRule } from "@/types/domain";
 
 export function AgentPage() {
@@ -23,7 +25,11 @@ export function AgentPage() {
   const [chatLog, setChatLog] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [sending, setSending] = useState(false);
 
-  const { data: config } = useQuery({
+  const {
+    data: config,
+    isError: configError,
+    refetch: refetchConfig
+  } = useQuery({
     queryKey: ["agent-config", currentOrganizationId],
     enabled: !!currentOrganizationId,
     queryFn: async () => {
@@ -114,7 +120,19 @@ export function AgentPage() {
     }
   }
 
-  if (!draftConfig) return null;
+  if (configError) {
+    return <QueryErrorState onRetry={() => refetchConfig()} message="No se pudo cargar la configuración del agente." />;
+  }
+
+  if (!draftConfig) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -202,7 +220,7 @@ export function AgentPage() {
                   <p className="text-sm font-medium">{r.name}</p>
                   <p className="text-xs text-muted-foreground">{r.instruction}</p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => removeRule(r.id)}>
+                <Button variant="ghost" size="icon" onClick={() => removeRule(r.id)} title="Eliminar regla" aria-label="Eliminar regla">
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
@@ -250,7 +268,7 @@ export function AgentPage() {
                 placeholder="Escribí como si fueras un cliente..."
                 disabled={sending}
               />
-              <Button onClick={sendPreviewMessage} disabled={sending}>
+              <Button onClick={sendPreviewMessage} disabled={sending} aria-label="Enviar mensaje de prueba">
                 <Send className="h-4 w-4" />
               </Button>
             </div>

@@ -7,6 +7,9 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { EmptyTableRow } from "@/components/EmptyTableRow";
+import { QueryErrorState } from "@/components/QueryErrorState";
+import { isPositiveInteger } from "@/lib/validation";
 import type { Resource } from "@/types/domain";
 
 export function ResourcesPage() {
@@ -14,7 +17,12 @@ export function ResourcesPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", resource_type: "", capacity: 1 });
 
-  const { data: resources = [] } = useQuery({
+  const {
+    data: resources = [],
+    isError,
+    isLoading,
+    refetch
+  } = useQuery({
     queryKey: ["resources-page", currentOrganizationId],
     enabled: !!currentOrganizationId,
     queryFn: async () => {
@@ -32,6 +40,10 @@ export function ResourcesPage() {
 
   async function addResource() {
     if (!form.name.trim() || !currentOrganizationId) return;
+    if (!isPositiveInteger(form.capacity)) {
+      toast.error("La capacidad debe ser un número entero mayor a 0.");
+      return;
+    }
     const { error } = await insforge.database.from("resources").insert([
       {
         organization_id: currentOrganizationId,
@@ -83,36 +95,41 @@ export function ResourcesPage() {
         </Button>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-card">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">Tipo</th>
-              <th className="px-4 py-3">Capacidad</th>
-              <th className="px-4 py-3">Activo</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {resources.map((r) => (
-              <tr key={r.id} className="border-b border-border last:border-0">
-                <td className="px-4 py-3 font-medium">{r.name}</td>
-                <td className="px-4 py-3">{r.resource_type || "—"}</td>
-                <td className="px-4 py-3">{r.capacity}</td>
-                <td className="px-4 py-3">
-                  <Switch checked={r.is_active} onCheckedChange={() => toggleActive(r)} />
-                </td>
-                <td className="px-4 py-3">
-                  <Button variant="ghost" size="icon" onClick={() => remove(r)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </td>
+      {isError ? (
+        <QueryErrorState onRetry={() => refetch()} message="No se pudieron cargar los recursos." />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Nombre</th>
+                <th className="px-4 py-3">Tipo</th>
+                <th className="px-4 py-3">Capacidad</th>
+                <th className="px-4 py-3">Activo</th>
+                <th className="px-4 py-3" />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {resources.map((r) => (
+                <tr key={r.id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-3 font-medium">{r.name}</td>
+                  <td className="px-4 py-3">{r.resource_type || "—"}</td>
+                  <td className="px-4 py-3">{r.capacity}</td>
+                  <td className="px-4 py-3">
+                    <Switch checked={r.is_active} onCheckedChange={() => toggleActive(r)} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Button variant="ghost" size="icon" onClick={() => remove(r)} title="Eliminar" aria-label="Eliminar recurso">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+              {!isLoading && resources.length === 0 && <EmptyTableRow colSpan={5} message="Todavía no cargaste ningún recurso." />}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
