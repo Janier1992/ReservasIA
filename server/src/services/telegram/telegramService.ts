@@ -43,6 +43,24 @@ export async function sendTelegramMessage(botToken: string, chatId: string | num
   }
 }
 
+/**
+ * Indicador nativo "escribiendo..." de Telegram. Dura ~5s del lado del
+ * cliente, así que hay que reenviarlo mientras el turno del agente siga en
+ * curso. Es best-effort: si falla, no debe interrumpir el procesamiento del
+ * mensaje real.
+ */
+export async function sendTelegramTypingAction(botToken: string, chatId: string | number): Promise<void> {
+  try {
+    await fetch(`${TELEGRAM_API_BASE}/bot${botToken}/sendChatAction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action: "typing" })
+    });
+  } catch {
+    // best-effort, no bloquea el flujo principal
+  }
+}
+
 export interface TelegramUpdate {
   update_id: number;
   message?: {

@@ -31,6 +31,10 @@ export const CORE_AGENT_RULES = `REGLAS DE RESERVAS (OBLIGATORIAS, NO NEGOCIABLE
 20. Si el negocio utiliza español rioplatense, utilizá "vos", "querés", "podés", etc.
 21. Si el negocio tiene servicios y/o recursos configurados (ver SERVICIOS DISPONIBLES y RECURSOS más abajo), usá consultar_servicios para conocer el service_id real y los "availableResourceIds" que devuelve consultar_disponibilidad para conocer el resource_id real; confirmá con el cliente cuál desea ANTES de llamar a crear_reserva. Nunca inventes ni adivines un service_id o resource_id.
 22. Si la sección INTEGRACIÓN DE CALENDARIO indica que Google Calendar está conectado, antes de confirmar la reserva preguntá amablemente si el cliente quiere recibir la confirmación en su propio Google Calendar y, si acepta, pedile su email (dato opcional: si no lo da o prefiere no darlo, continuá igual y creá la reserva sin ese dato).
-23. Si creaste la reserva y el cliente dio su email para la invitación de Google Calendar, en el mensaje final de confirmación recordale que le va a llegar un correo de invitación y que tiene que apretar "Sí" (o "Agregar al calendario") ahí para que el turno le quede guardado en su calendario personal.`;
+23. Si creaste la reserva y el cliente dio su email para la invitación de Google Calendar, en el mensaje final de confirmación recordale que le va a llegar un correo de invitación y que tiene que apretar "Sí" (o "Agregar al calendario") ahí para que el turno le quede guardado en su calendario personal.
+24. Cada ronda de herramientas es una llamada de red completa: si necesitás varias herramientas de SOLO LECTURA (obtener_info_negocio, consultar_servicios, consultar_disponibilidad, consultar_reservas_cliente) y ya tenés los datos para pedirlas todas, solicitalas juntas en la misma respuesta en vez de una por una. No juntes una herramienta de lectura con crear_reserva/cancelar_reserva/reprogramar_reserva en la misma ronda.`;
 
-export const MAX_TOOL_ROUNDS = 8;
+// Un flujo de reserva real (info/servicios -> disponibilidad -> crear_reserva
+// -> respuesta final) necesita 3-4 rondas. 5 deja margen sin permitir que un
+// loop del modelo se coma minutos de latencia en rondas contra OpenRouter.
+export const MAX_TOOL_ROUNDS = 5;

@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const handleInboundMessageMock = vi.fn();
 const runAgentTurnMock = vi.fn();
 const sendTelegramMessageMock = vi.fn();
+const sendTelegramTypingActionMock = vi.fn();
 
 vi.mock("../src/services/conversations/inboundMessageHandler.js", () => ({
   handleInboundMessage: (...args: unknown[]) => handleInboundMessageMock(...args)
@@ -14,6 +15,7 @@ vi.mock("../src/services/agent/agentRuntime.js", () => ({
 
 vi.mock("../src/services/telegram/telegramService.js", () => ({
   sendTelegramMessage: (...args: unknown[]) => sendTelegramMessageMock(...args),
+  sendTelegramTypingAction: (...args: unknown[]) => sendTelegramTypingActionMock(...args),
   getTelegramUpdates: vi.fn(),
   listConnectedTelegramBots: vi.fn()
 }));
@@ -58,6 +60,7 @@ describe("telegramPollingManager.processUpdate", () => {
     );
 
     expect(sendTelegramMessageMock).toHaveBeenCalledWith("bot-token-abc", 999, "¡Hola! ¿En qué te puedo ayudar?");
+    expect(sendTelegramTypingActionMock).toHaveBeenCalledWith("bot-token-abc", 999);
   });
 
   it("skips updates without a text message (e.g. photos, stickers) without touching the agent", async () => {

@@ -1,7 +1,15 @@
 import { logger } from "../../lib/logger.js";
 import { handleInboundMessage } from "../conversations/inboundMessageHandler.js";
 import { runAgentTurn } from "../agent/agentRuntime.js";
-import { getTelegramUpdates, listConnectedTelegramBots, sendTelegramMessage, type TelegramUpdate } from "./telegramService.js";
+import {
+  getTelegramUpdates,
+  listConnectedTelegramBots,
+  sendTelegramMessage,
+  sendTelegramTypingAction,
+  type TelegramUpdate
+} from "./telegramService.js";
+
+const TYPING_REFRESH_MS = 4_000;
 
 const REFRESH_INTERVAL_MS = 30_000;
 const LONG_POLL_TIMEOUT_SECONDS = 25;
@@ -42,25 +50,37 @@ export async function processUpdate(organizationId: string, botToken: string, up
   const chatId = message.chat.id;
   const externalIdentity = `telegram:${chatId}`;
 
-  const { conversationId, customerId } = await handleInboundMessage({
-    organizationId,
-    channel: "telegram",
-    externalIdentity,
-    externalConversationId: String(chatId),
-    content: message.text,
-    externalMessageId: String(message.message_id)
-  });
+  // Muestra "escribiendo..." de inmediato y la refresca mientras el turno
+  // del agente siga en curso, para que la espera no se sienta como que el
+  // bot no recibió el mensaje.
+  void sendTelegramTypingAction(botToken, chatId);
+  const typingTimer = setInterval(() => {
+    void sendTelegramTypingAction(botToken, chatId);
+  }, TYPING_REFRESH_MS);
 
-  const result = await runAgentTurn({
-    organizationId,
-    conversationId,
-    customerId,
-    customerPhone: externalIdentity,
-    requestId: `telegram:${update.update_id}`
-  });
+  try {
+    const { conversationId, customerId } = await handleInboundMessage({
+      organizationId,
+      channel: "telegram",
+      externalIdentity,
+      externalConversationId: String(chatId),
+      content: message.text,
+      externalMessageId: String(message.message_id)
+    });
 
-  if (result.reply) {
-    await sendTelegramMessage(botToken, chatId, result.reply);
+    const result = await runAgentTurn({
+      organizationId,
+      conversationId,
+      customerId,
+      customerPhone: externalIdentity,
+      requestId: `telegram:${update.update_id}`
+    });
+
+    if (result.reply) {
+      await sendTelegramMessage(botToken, chatId, result.reply);
+    }
+  } finally {
+    clearInterval(typingTimer);
   }
 }
 

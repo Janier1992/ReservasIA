@@ -46,7 +46,6 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
-export const MAX_TOOL_ROUNDS = 8;
 export const MAX_MESSAGE_LENGTH = 4000;
 export const MAX_CONVERSATION_HISTORY_MESSAGES = 20;
 export const AGENT_TIMEOUT_MS = 20000;

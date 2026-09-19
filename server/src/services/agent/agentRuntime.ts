@@ -1,5 +1,5 @@
 import type OpenAI from "openai";
-import { openai, OPENAI_MODEL } from "../../lib/openai.js";
+import { openai, OPENAI_MODEL, IS_OPENROUTER } from "../../lib/openai.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logAgentEvent, logger } from "../../lib/logger.js";
 import { AGENT_TIMEOUT_MS, MAX_CONVERSATION_HISTORY_MESSAGES, MAX_MESSAGE_LENGTH } from "../../config/env.js";
@@ -126,17 +126,19 @@ export async function runAgentTurn(params: RunAgentTurnParams): Promise<RunAgent
     const start = Date.now();
     let completion: OpenAI.Chat.Completions.ChatCompletion;
     try {
-      completion = await withTimeout(
-        openai.chat.completions.create({
-          model: OPENAI_MODEL,
-          messages,
-          tools: tools.length > 0 ? tools : undefined,
-          tool_choice: tools.length > 0 ? "auto" : undefined,
-          temperature: 0.4
-        }),
-        AGENT_TIMEOUT_MS,
-        "openai_completion"
-      );
+      const requestBody: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
+        model: OPENAI_MODEL,
+        messages,
+        tools: tools.length > 0 ? tools : undefined,
+        tool_choice: tools.length > 0 ? "auto" : undefined,
+        temperature: 0.4
+      };
+      if (IS_OPENROUTER) {
+        // Campo específico de OpenRouter, no tipado por el SDK de OpenAI.
+        (requestBody as unknown as { provider: { sort: string } }).provider = { sort: "throughput" };
+      }
+
+      completion = await withTimeout(openai.chat.completions.create(requestBody), AGENT_TIMEOUT_MS, "openai_completion");
     } catch (err) {
       logAgentEvent(logCtx, { scope: "agent", result: "error", durationMs: Date.now() - start, message: "openai_call_failed" });
       logger.error({ ...logCtx, err }, "agent_openai_error");
@@ -160,24 +162,34 @@ export async function runAgentTurn(params: RunAgentTurnParams): Promise<RunAgent
         metadata: { tool_calls: responseMessage.tool_calls }
       });
 
-      for (const toolCall of responseMessage.tool_calls) {
-        const toolStart = Date.now();
-        let parsedArgs: unknown = {};
-        try {
-          parsedArgs = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
-        } catch {
-          parsedArgs = {};
-        }
+      // Las herramientas de una misma ronda son independientes entre sí (el
+      // modelo ya decidió pedirlas juntas), así que se ejecutan en paralelo
+      // en vez de una por una — evita que varias llamadas a la BD/Google
+      // Calendar se sumen secuencialmente a la latencia del turno.
+      const toolRunResults = await Promise.all(
+        responseMessage.tool_calls.map(async (toolCall) => {
+          const toolStart = Date.now();
+          let parsedArgs: unknown = {};
+          try {
+            parsedArgs = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
+          } catch {
+            parsedArgs = {};
+          }
 
-        const result = await executeTool(toolCall.function.name, parsedArgs, executionCtx);
+          const result = await executeTool(toolCall.function.name, parsedArgs, executionCtx);
 
-        logAgentEvent(logCtx, {
-          scope: "agent",
-          tool: toolCall.function.name,
-          durationMs: Date.now() - toolStart,
-          result: result.success ? "success" : "error"
-        });
+          logAgentEvent(logCtx, {
+            scope: "agent",
+            tool: toolCall.function.name,
+            durationMs: Date.now() - toolStart,
+            result: result.success ? "success" : "error"
+          });
 
+          return { toolCall, result };
+        })
+      );
+
+      for (const { toolCall, result } of toolRunResults) {
         const toolContent = JSON.stringify(result);
         messages.push({ role: "tool", tool_call_id: toolCall.id, content: toolContent });
         await persistMessage({
