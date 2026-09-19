@@ -9,8 +9,10 @@ import { OrganizationProvider } from "@/hooks/useOrganization";
 import { InstallPromptProvider } from "@/hooks/useInstallPrompt";
 import { RequireAuth, FullscreenLoader } from "@/components/RequireAuth";
 import { RequireOrganization } from "@/components/RequireOrganization";
+import { RequireSupportStaff } from "@/components/RequireSupportStaff";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { SupportLayout } from "@/components/layout/SupportLayout";
 
 // Cada página se carga en su propio chunk: la primera visita (login) no paga
 // el costo de JS de las ~15 pantallas del dashboard que todavía no visitó.
@@ -28,6 +30,12 @@ const AgentPage = lazy(() => import("@/pages/dashboard/AgentPage").then((m) => (
 const IntegrationsPage = lazy(() => import("@/pages/dashboard/IntegrationsPage").then((m) => ({ default: m.IntegrationsPage })));
 const TeamPage = lazy(() => import("@/pages/dashboard/TeamPage").then((m) => ({ default: m.TeamPage })));
 const SettingsPage = lazy(() => import("@/pages/dashboard/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+const SupportBusinessesListPage = lazy(() =>
+  import("@/pages/support/SupportBusinessesListPage").then((m) => ({ default: m.SupportBusinessesListPage }))
+);
+const SupportBusinessDetailPage = lazy(() =>
+  import("@/pages/support/SupportBusinessDetailPage").then((m) => ({ default: m.SupportBusinessDetailPage }))
+);
 
 export default function App() {
   return (
@@ -48,6 +56,13 @@ export default function App() {
 
                       <Route element={<RequireAuth />}>
                         <Route path="/onboarding" element={<OnboardingWizard />} />
+
+                        <Route element={<RequireSupportStaff />}>
+                          <Route path="/soporte" element={<SupportLayout />}>
+                            <Route index element={<SupportBusinessesListPage />} />
+                            <Route path="negocios/:orgId" element={<SupportBusinessDetailPage />} />
+                          </Route>
+                        </Route>
 
                         <Route element={<RequireOrganization />}>
                           <Route path="/dashboard" element={<DashboardLayout />}>

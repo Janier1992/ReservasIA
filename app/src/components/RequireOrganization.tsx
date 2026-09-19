@@ -1,19 +1,23 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePendingInvitesForMe } from "@/hooks/usePendingInvites";
+import { useSupportStaff } from "@/hooks/useSupportStaff";
 import { AcceptInvites } from "./AcceptInvites";
 import { FullscreenLoader } from "./RequireAuth";
 
 /**
  * Si el usuario todavía no tiene ninguna organización, revisa primero si
- * tiene invitaciones pendientes (de un owner/admin que lo invitó) antes de
- * mandarlo al wizard de onboarding para crear un negocio propio.
+ * tiene invitaciones pendientes (de un owner/admin que lo invitó), después
+ * si es parte del equipo de soporte (una cuenta de soporte pura no tiene
+ * por qué tener un negocio propio) antes de mandarlo al wizard de
+ * onboarding para crear un negocio propio.
  */
 export function RequireOrganization() {
   const { memberships, isLoading, currentOrganizationId } = useOrganization();
   const { data: pendingInvites = [], isLoading: invitesLoading, refetch: refetchInvites } = usePendingInvitesForMe();
+  const { isSupportStaff, isLoading: supportLoading } = useSupportStaff();
 
-  if (isLoading || invitesLoading) return <FullscreenLoader />;
+  if (isLoading || invitesLoading || supportLoading) return <FullscreenLoader />;
 
   if (memberships.length === 0) {
     if (pendingInvites.length > 0) {
@@ -29,6 +33,7 @@ export function RequireOrganization() {
         </div>
       );
     }
+    if (isSupportStaff) return <Navigate to="/soporte" replace />;
     return <Navigate to="/onboarding" replace />;
   }
 

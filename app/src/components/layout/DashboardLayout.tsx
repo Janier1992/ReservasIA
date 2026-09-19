@@ -13,12 +13,14 @@ import {
   LogOut,
   LayoutDashboard,
   Menu,
-  X
+  X,
+  LifeBuoy
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useBusinessBranding } from "@/hooks/useBusinessBranding";
+import { useSupportStaff } from "@/hooks/useSupportStaff";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -41,8 +43,14 @@ export function DashboardLayout() {
   const { memberships, currentOrganizationId, setCurrentOrganizationId } = useOrganization();
   const branding = useBusinessBranding();
   const brandName = branding?.name || "Reservas AI";
+  const { isSupportStaff } = useSupportStaff();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const location = useLocation();
+
+  // El link a /soporte solo existe para quien tiene fila activa en
+  // support_staff (cubre el caso de alguien que además de hacer soporte
+  // también es dueño de un negocio propio y ya está dentro de /dashboard).
+  const navItems = isSupportStaff ? [...NAV_ITEMS, { to: "/soporte", label: "Soporte", icon: LifeBuoy }] : NAV_ITEMS;
 
   // Cierra el drawer al navegar, así el usuario no tiene que cerrarlo manualmente en cada tap.
   useEffect(() => setMobileNavOpen(false), [location.pathname]);
@@ -90,7 +98,7 @@ export function DashboardLayout() {
       )}
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

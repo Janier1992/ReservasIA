@@ -155,6 +155,14 @@ export interface AgentRule {
   enabled: boolean;
 }
 
+export interface SupportNote {
+  id: string;
+  organization_id: string;
+  author_user_id: string;
+  note: string;
+  created_at: string;
+}
+
 export interface OrganizationInvite {
   id: string;
   organization_id: string;
