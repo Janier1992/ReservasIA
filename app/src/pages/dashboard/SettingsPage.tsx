@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Copy } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CURRENCY_OPTIONS } from "@/lib/currency";
 import { PushNotificationsCard } from "@/components/PushNotificationsCard";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +28,8 @@ export function SettingsPage() {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [hours, setHours] = useState<BusinessHourPeriod[]>([]);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [copySourceId, setCopySourceId] = useState<string | null>(null);
+  const [copyTargetDays, setCopyTargetDays] = useState<Set<number>>(new Set());
 
   const {
     data: profileData,
@@ -169,6 +173,31 @@ export function SettingsPage() {
     }
     toast.success("Horarios actualizados.");
     queryClient.invalidateQueries({ queryKey: ["business-hours", currentOrganizationId] });
+  }
+
+  function toggleCopyTargetDay(dayOfWeek: number) {
+    setCopyTargetDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(dayOfWeek)) next.delete(dayOfWeek);
+      else next.add(dayOfWeek);
+      return next;
+    });
+  }
+
+  function applyCopyToTargetDays() {
+    const source = hours.find((h) => h.id === copySourceId);
+    if (!source) return;
+
+    setHours((prev) =>
+      prev.map((h) =>
+        copyTargetDays.has(h.day_of_week)
+          ? { ...h, is_closed: source.is_closed, opening_time: source.opening_time, closing_time: source.closing_time }
+          : h
+      )
+    );
+    toast.success(`Horario de ${DAY_NAMES[source.day_of_week]} copiado a ${copyTargetDays.size} día(s). No olvides guardar.`);
+    setCopySourceId(null);
+    setCopyTargetDays(new Set());
   }
 
   if (profileError) {
@@ -426,11 +455,68 @@ export function SettingsPage() {
               ) : (
                 <span className="text-sm text-muted-foreground">Cerrado</span>
               )}
+              {!readOnly && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => {
+                    setCopySourceId(h.id);
+                    setCopyTargetDays(new Set());
+                  }}
+                  title={`Copiar el horario de ${DAY_NAMES[h.day_of_week]} a otros días`}
+                  aria-label={`Copiar el horario de ${DAY_NAMES[h.day_of_week]} a otros días`}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           ))}
           {!readOnly && <Button onClick={saveHours}>Guardar horarios</Button>}
         </CardContent>
       </Card>
+
+      <Dialog open={!!copySourceId} onOpenChange={(open) => !open && setCopySourceId(null)}>
+        <DialogContent>
+          {copySourceId &&
+            (() => {
+              const source = hours.find((h) => h.id === copySourceId);
+              if (!source) return null;
+              return (
+                <>
+                  <DialogHeader>
+                    <DialogTitle>Copiar horario de {DAY_NAMES[source.day_of_week]}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      {source.is_closed
+                        ? "Cerrado"
+                        : `${source.opening_time?.slice(0, 5)} a ${source.closing_time?.slice(0, 5)}`}
+                      . Elegí a qué días aplicarlo:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {hours
+                        .filter((h) => h.id !== source.id)
+                        .map((h) => (
+                          <label key={h.id} className="flex items-center gap-2 rounded-md border border-border p-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={copyTargetDays.has(h.day_of_week)}
+                              onChange={() => toggleCopyTargetDay(h.day_of_week)}
+                            />
+                            {DAY_NAMES[h.day_of_week]}
+                          </label>
+                        ))}
+                    </div>
+                    <Button onClick={applyCopyToTargetDays} disabled={copyTargetDays.size === 0}>
+                      Aplicar a {copyTargetDays.size || ""} día(s)
+                    </Button>
+                  </div>
+                </>
+              );
+            })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
