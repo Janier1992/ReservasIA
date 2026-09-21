@@ -2,6 +2,29 @@ import { insforgeAdmin } from "../../lib/insforge.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 
 const TELEGRAM_API_BASE = "https://api.telegram.org";
+const SEND_TIMEOUT_MS = 10_000;
+const SEND_MAX_ATTEMPTS = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * fetch con timeout propio: sin esto, un `fetch` colgado (red inestable,
+ * Telegram con un hiccup) nunca falla ni se resuelve, y como
+ * processUpdate() lo espera con await, congela TODO el loop de esa
+ * organización — ningún mensaje más se procesa hasta que el fetch termine
+ * (que puede ser nunca).
+ */
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 interface TelegramCredentials {
   bot_token: string;
@@ -30,16 +53,70 @@ export async function listConnectedTelegramBots(): Promise<ConnectedTelegramBot[
     }));
 }
 
+/**
+ * La respuesta del agente ya quedó guardada en la conversación (y visible
+ * en el Inbox) antes de llamar a esta función — si el envío real a
+ * Telegram falla en silencio, el negocio ve "ya respondí" en el dashboard
+ * mientras el cliente nunca recibe nada. Por eso reintenta ante fallas
+ * transitorias (timeout, error de red, 5xx, 429) en vez de tirar la toalla
+ * al primer intento.
+ */
 export async function sendTelegramMessage(botToken: string, chatId: string | number, text: string): Promise<void> {
-  const res = await fetch(`${TELEGRAM_API_BASE}/bot${botToken}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text })
-  });
+  let lastError: unknown;
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new AppError(ErrorCodes.INTERNAL_ERROR, `No se pudo enviar el mensaje de Telegram (${res.status}): ${body}`, 502);
+  for (let attempt = 1; attempt <= SEND_MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetchWithTimeout(
+        `${TELEGRAM_API_BASE}/bot${botToken}/sendMessage`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: chatId, text })
+        },
+        SEND_TIMEOUT_MS
+      );
+
+      if (res.ok) return;
+
+      const body = await res.text().catch(() => "");
+
+      // 429: Telegram nos dice cuánto esperar antes de reintentar.
+      if (res.status === 429) {
+        const retryAfterSeconds = parseRetryAfterSeconds(body);
+        lastError = new AppError(ErrorCodes.INTERNAL_ERROR, `Telegram rate limit (429): ${body}`, 502);
+        if (attempt < SEND_MAX_ATTEMPTS) await sleep((retryAfterSeconds ?? 1) * 1000);
+        continue;
+      }
+
+      // 5xx: probablemente transitorio del lado de Telegram, reintentar.
+      if (res.status >= 500) {
+        lastError = new AppError(ErrorCodes.INTERNAL_ERROR, `Telegram devolvió ${res.status}: ${body}`, 502);
+        if (attempt < SEND_MAX_ATTEMPTS) await sleep(attempt * 500);
+        continue;
+      }
+
+      // Otro 4xx (chat_id inválido, bot bloqueado por el usuario, token
+      // revocado, etc.): reintentar no va a cambiar el resultado.
+      throw new AppError(ErrorCodes.INTERNAL_ERROR, `No se pudo enviar el mensaje de Telegram (${res.status}): ${body}`, 502);
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      // AbortError (timeout) o error de red: transitorio, reintentar.
+      lastError = err;
+      if (attempt < SEND_MAX_ATTEMPTS) await sleep(attempt * 500);
+    }
+  }
+
+  throw lastError instanceof AppError
+    ? lastError
+    : new AppError(ErrorCodes.INTERNAL_ERROR, `No se pudo enviar el mensaje de Telegram tras ${SEND_MAX_ATTEMPTS} intentos.`, 502);
+}
+
+function parseRetryAfterSeconds(body: string): number | undefined {
+  try {
+    const parsed = JSON.parse(body) as { parameters?: { retry_after?: number } };
+    return parsed.parameters?.retry_after;
+  } catch {
+    return undefined;
   }
 }
 
@@ -52,11 +129,15 @@ export async function sendTelegramMessage(botToken: string, chatId: string | num
  */
 export async function sendTelegramTypingAction(botToken: string, chatId: string | number): Promise<void> {
   try {
-    await fetch(`${TELEGRAM_API_BASE}/bot${botToken}/sendChatAction`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, action: "typing" })
-    });
+    await fetchWithTimeout(
+      `${TELEGRAM_API_BASE}/bot${botToken}/sendChatAction`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, action: "typing" })
+      },
+      SEND_TIMEOUT_MS
+    );
   } catch {
     // best-effort
   }
@@ -84,7 +165,11 @@ export interface TelegramUpdate {
 
 export async function getTelegramUpdates(botToken: string, offset: number, timeoutSeconds: number, signal: AbortSignal): Promise<TelegramUpdate[]> {
   const url = `${TELEGRAM_API_BASE}/bot${botToken}/getUpdates?timeout=${timeoutSeconds}&offset=${offset}&allowed_updates=%5B%22message%22%5D`;
-  const res = await fetch(url, { signal });
+  // Telegram debería responder dentro de `timeoutSeconds` (long-poll), pero
+  // sin un límite propio un cuelgue de red dejaría este fetch esperando
+  // para siempre, congelando el loop de esa organización. El margen extra
+  // cubre la latencia normal de ida y vuelta.
+  const res = await fetch(url, { signal: AbortSignal.any([signal, AbortSignal.timeout((timeoutSeconds + 10) * 1000)]) });
 
   if (!res.ok) {
     throw new AppError(ErrorCodes.INTERNAL_ERROR, `getUpdates falló con status ${res.status}`, 502);
