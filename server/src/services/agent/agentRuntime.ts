@@ -12,6 +12,19 @@ import type { Message } from "../../types/domain.js";
 const FALLBACK_REPLY =
   "Disculpá, tuve un inconveniente para procesar tu mensaje. Un miembro del equipo del negocio te va a responder en breve.";
 
+// El modelo gratuito de OpenRouter rota entre varios proveedores upstream
+// (más variedad todavía desde que se prioriza "throughput"), y se observó
+// que alguno de ellos filtra su propio token interno de "fin de turno"
+// (p. ej. "<CPA_DONE>") directamente en el texto visible en vez de
+// recortarlo del lado del servidor. `stop` corta la generación ahí cuando
+// el proveedor sí lo respeta; el regex de abajo es la red de seguridad para
+// cuando no lo hace (o filtra un tag equivalente que todavía no vimos).
+const KNOWN_LEAKED_CONTROL_TOKENS = ["<CPA_DONE>"];
+
+function stripLeakedControlTokens(text: string): string {
+  return text.replace(/<\/?[A-Z][A-Z0-9_]*>/g, "").trim();
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
     promise,
@@ -135,7 +148,8 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
         messages,
         tools: tools.length > 0 ? tools : undefined,
         tool_choice: tools.length > 0 ? "auto" : undefined,
-        temperature: 0.4
+        temperature: 0.4,
+        stop: KNOWN_LEAKED_CONTROL_TOKENS
       };
       if (IS_OPENROUTER) {
         // Campo específico de OpenRouter, no tipado por el SDK de OpenAI.
@@ -162,7 +176,7 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
         organizationId,
         conversationId,
         role: "assistant",
-        content: responseMessage.content ?? "",
+        content: stripLeakedControlTokens(responseMessage.content ?? ""),
         metadata: { tool_calls: responseMessage.tool_calls }
       });
 
@@ -208,7 +222,7 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
       continue;
     }
 
-    const finalReply = (responseMessage.content ?? "").slice(0, MAX_MESSAGE_LENGTH);
+    const finalReply = stripLeakedControlTokens(responseMessage.content ?? "").slice(0, MAX_MESSAGE_LENGTH);
     await persistMessage({ organizationId, conversationId, role: "assistant", content: finalReply });
     logAgentEvent(logCtx, { scope: "agent", result: "success", durationMs: Date.now() - start, message: "final_reply" });
     return { reply: finalReply, roundsUsed: round };

@@ -187,3 +187,26 @@ describe("runAgentTurn organization status", () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 });
+
+describe("runAgentTurn output sanitization", () => {
+  beforeEach(() => {
+    log.length = 0;
+    vi.clearAllMocks();
+  });
+
+  it("strips a leaked provider control token from the final reply before persisting/returning it", async () => {
+    createMock.mockResolvedValueOnce({
+      choices: [{ message: { content: "Podés llamar al negocio. <CPA_DONE>", tool_calls: undefined } }]
+    });
+
+    const result = await runAgentTurn({
+      organizationId: "org-1",
+      conversationId: "conv-sanitize",
+      customerId: "cust-1",
+      customerPhone: "+573000000001"
+    });
+
+    expect(result.reply).toBe("Podés llamar al negocio.");
+    expect(log).toContain("persist:assistant:Podés llamar al negocio.");
+  });
+});
