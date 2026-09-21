@@ -5,7 +5,7 @@ import type { AgentPromptData } from "../src/services/agent/promptBuilder.js";
 
 function makeData(overrides: Partial<AgentPromptData> = {}): AgentPromptData {
   return {
-    organization: { id: "org-1", businessType: "barbershop", timezone: "America/Bogota" },
+    organization: { id: "org-1", businessType: "barbershop", timezone: "America/Bogota", status: "active" },
     agentConfig: {
       id: "agent-1",
       organization_id: "org-1",
@@ -76,7 +76,7 @@ describe("buildSystemPrompt", () => {
   it("reflects a different business without any code changes when given restaurant data", () => {
     const prompt = buildSystemPrompt(
       makeData({
-        organization: { id: "org-2", businessType: "restaurant", timezone: "America/Bogota" },
+        organization: { id: "org-2", businessType: "restaurant", timezone: "America/Bogota", status: "active" },
         agentConfig: {
           id: "agent-2",
           organization_id: "org-2",

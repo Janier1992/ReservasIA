@@ -59,7 +59,7 @@ function formatAgentRules(rules: AgentRule[]): string {
 }
 
 export interface AgentPromptData {
-  organization: { id: string; businessType: string; timezone: string };
+  organization: { id: string; businessType: string; timezone: string; status: string };
   agentConfig: AgentConfig;
   businessProfile: BusinessProfile;
   services: Service[];
@@ -82,7 +82,7 @@ export async function loadAgentPromptData(organizationId: string, customerId: st
     customerResult,
     { data: googleIntegration }
   ] = await Promise.all([
-    insforgeAdmin.database.from("organizations").select("id, business_type, timezone").eq("id", organizationId).maybeSingle(),
+    insforgeAdmin.database.from("organizations").select("id, business_type, timezone, status").eq("id", organizationId).maybeSingle(),
     insforgeAdmin.database.from("agents").select("*").eq("organization_id", organizationId).maybeSingle(),
     insforgeAdmin.database.from("business_profiles").select("*").eq("organization_id", organizationId).maybeSingle(),
     insforgeAdmin.database.from("services").select("*").eq("organization_id", organizationId).eq("is_active", true),
@@ -105,7 +105,7 @@ export async function loadAgentPromptData(organizationId: string, customerId: st
   }
 
   return {
-    organization: { id: org.id, businessType: org.business_type, timezone: org.timezone },
+    organization: { id: org.id, businessType: org.business_type, timezone: org.timezone, status: org.status },
     agentConfig: agentConfig as AgentConfig,
     businessProfile: businessProfile as BusinessProfile,
     services: (services ?? []) as Service[],

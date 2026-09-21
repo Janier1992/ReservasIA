@@ -11,7 +11,7 @@ const log: string[] = [];
 const loadAgentPromptDataMock = vi.fn(async (_organizationId: string, customerId: string | null) => {
   log.push(`loadPromptData:${customerId}`);
   return {
-    organization: { id: "org-1", businessType: "generic", timezone: "America/Bogota" },
+    organization: { id: "org-1", businessType: "generic", timezone: "America/Bogota", status: "active" },
     agentConfig: { id: "agent-1", organization_id: "org-1", name: "Val", enabled: true, language: "es", tone: "friendly", system_instructions: null, booking_enabled: true, cancellation_enabled: true, rescheduling_enabled: true },
     businessProfile: {} as never,
     services: [],
@@ -143,5 +143,47 @@ describe("runAgentTurn concurrency", () => {
     expect(result2.reply).toBe("ok");
     // Ambas cargas de contexto arrancan sin esperarse entre sí.
     expect(log.filter((l) => l.startsWith("loadPromptData"))).toHaveLength(2);
+  });
+});
+
+describe("runAgentTurn organization status", () => {
+  beforeEach(() => {
+    log.length = 0;
+    vi.clearAllMocks();
+  });
+
+  it("never calls the model and replies null when the organization isn't active (suspended/cancelled)", async () => {
+    loadAgentPromptDataMock.mockResolvedValueOnce({
+      organization: { id: "org-1", businessType: "generic", timezone: "America/Bogota", status: "suspended" },
+      agentConfig: {
+        id: "agent-1",
+        organization_id: "org-1",
+        name: "Val",
+        enabled: true,
+        language: "es",
+        tone: "friendly",
+        system_instructions: null,
+        booking_enabled: true,
+        cancellation_enabled: true,
+        rescheduling_enabled: true
+      },
+      businessProfile: {} as never,
+      services: [],
+      resources: [],
+      hours: [],
+      agentRules: [],
+      customer: null,
+      googleCalendarConnected: false
+    });
+
+    const result = await runAgentTurn({
+      organizationId: "org-1",
+      conversationId: "conv-suspended",
+      customerId: "cust-1",
+      customerPhone: "+573000000001"
+    });
+
+    expect(result.reply).toBeNull();
+    expect(createMock).not.toHaveBeenCalled();
   });
 });

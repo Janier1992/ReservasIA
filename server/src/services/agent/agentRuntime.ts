@@ -84,6 +84,10 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
   const logCtx = { organizationId, conversationId, requestId };
 
   const data = await loadAgentPromptData(organizationId, customerId);
+  if (data.organization.status !== "active") {
+    logAgentEvent(logCtx, { scope: "agent", result: "success", message: "organization_not_active_skipping" });
+    return { reply: null, roundsUsed: 0 };
+  }
   if (!data.agentConfig.enabled) {
     logAgentEvent(logCtx, { scope: "agent", result: "success", message: "agent_disabled_skipping" });
     return { reply: null, roundsUsed: 0 };

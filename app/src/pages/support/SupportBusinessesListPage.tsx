@@ -100,6 +100,7 @@ export function SupportBusinessesListPage() {
                 <th className="px-4 py-3">Negocio</th>
                 <th className="px-4 py-3">Rubro</th>
                 <th className="px-4 py-3">Alta</th>
+                <th className="px-4 py-3">Cuenta</th>
                 <th className="px-4 py-3">Agente</th>
                 <th className="px-4 py-3">Canales</th>
                 <th className="px-4 py-3">Reservas (7 días)</th>
@@ -116,6 +117,11 @@ export function SupportBusinessesListPage() {
                   <td className="px-4 py-3 text-muted-foreground">{b.business_type}</td>
                   <td className="px-4 py-3 text-muted-foreground">{new Date(b.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3">
+                    <Badge variant={b.status === "active" ? "success" : "destructive"}>
+                      {b.status === "active" ? "Activa" : b.status === "suspended" ? "Suspendida" : "Cancelada"}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
                     <Badge variant={b.agentEnabled ? "success" : "muted"}>{b.agentEnabled ? "Activo" : "Pausado"}</Badge>
                   </td>
                   <td className="px-4 py-3">
@@ -128,7 +134,7 @@ export function SupportBusinessesListPage() {
                   <td className="px-4 py-3">{b.reservationsLast7Days}</td>
                 </tr>
               ))}
-              {!isLoading && businesses.length === 0 && <EmptyTableRow colSpan={6} message="No hay negocios registrados todavía." />}
+              {!isLoading && businesses.length === 0 && <EmptyTableRow colSpan={7} message="No hay negocios registrados todavía." />}
             </tbody>
           </table>
         </div>

@@ -2,8 +2,28 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePendingInvitesForMe } from "@/hooks/usePendingInvites";
 import { useSupportStaff } from "@/hooks/useSupportStaff";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 import { AcceptInvites } from "./AcceptInvites";
 import { FullscreenLoader } from "./RequireAuth";
+
+const SUSPENDED_MESSAGE = "Te informamos que tu cuenta ha sido bloqueada por falta de pago. Si deseas usar el servicio, realiza el pago.";
+const CANCELLED_MESSAGE = "Esta cuenta fue cancelada. Contactá al negocio proveedor del servicio si creés que es un error.";
+
+function BlockedOrganizationScreen({ message }: { message: string }) {
+  const { signOut } = useAuth();
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="w-full max-w-md space-y-4 rounded-lg border border-destructive/30 bg-card p-6 text-center">
+        <h1 className="text-xl font-semibold text-destructive">Cuenta bloqueada</h1>
+        <p className="text-sm text-muted-foreground">{message}</p>
+        <Button variant="outline" onClick={() => signOut()}>
+          Cerrar sesión
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Si el usuario todavía no tiene ninguna organización, revisa primero si
@@ -44,6 +64,10 @@ export function RequireOrganization() {
   // carga, no una señal de "hay que crear un negocio" — nunca hay que mandar
   // a un usuario con negocio ya creado de vuelta al onboarding.
   if (!currentOrganizationId) return <FullscreenLoader />;
+
+  const currentOrgStatus = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations.status;
+  if (currentOrgStatus === "suspended") return <BlockedOrganizationScreen message={SUSPENDED_MESSAGE} />;
+  if (currentOrgStatus === "cancelled") return <BlockedOrganizationScreen message={CANCELLED_MESSAGE} />;
 
   return <Outlet />;
 }

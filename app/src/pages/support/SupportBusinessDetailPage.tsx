@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useAuth } from "@/hooks/useAuth";
+import { useSupportStaff } from "@/hooks/useSupportStaff";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -16,6 +17,12 @@ import { reservationStatusLabel, reservationStatusVariant } from "@/lib/reservat
 import { paymentStatusLabel, paymentStatusVariant } from "@/lib/paymentStatus";
 import type { AgentConfig, BusinessProfile, Conversation, Organization, Reservation, SupportNote } from "@/types/domain";
 
+const ORG_STATUS_LABEL: Record<Organization["status"], string> = {
+  active: "Activo",
+  suspended: "Suspendido",
+  cancelled: "Cancelado"
+};
+
 const PROVIDER_LABEL: Record<string, string> = {
   telegram: "Telegram",
   twilio: "WhatsApp (Twilio)",
@@ -25,9 +32,13 @@ const PROVIDER_LABEL: Record<string, string> = {
 export function SupportBusinessDetailPage() {
   const { orgId } = useParams<{ orgId: string }>();
   const { user } = useAuth();
+  const { role: supportRole } = useSupportStaff();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [noteDraft, setNoteDraft] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const {
     data: org,
@@ -132,6 +143,40 @@ export function SupportBusinessDetailPage() {
     queryClient.invalidateQueries({ queryKey: ["support-businesses"] });
   }
 
+  async function toggleOrgStatus() {
+    if (!org || !orgId) return;
+    const nextStatus = org.status === "active" ? "suspended" : "active";
+    setUpdatingStatus(true);
+    const { error } = await insforge.database.from("organizations").update({ status: nextStatus }).eq("id", orgId);
+    setUpdatingStatus(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(nextStatus === "suspended" ? "Negocio suspendido: el dueño y el agente quedan bloqueados." : "Negocio reactivado.");
+    refetchOrg();
+    queryClient.invalidateQueries({ queryKey: ["support-businesses"] });
+  }
+
+  async function deleteOrganization() {
+    if (!org || !orgId) return;
+    const confirmed = window.confirm(
+      `¿Eliminar PERMANENTEMENTE "${org.name}"? Esto borra todas sus reservas, clientes, conversaciones y configuración. No se puede deshacer.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    const { error } = await insforge.database.from("organizations").delete().eq("id", orgId);
+    setDeleting(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Negocio eliminado.");
+    queryClient.invalidateQueries({ queryKey: ["support-businesses"] });
+    navigate("/soporte", { replace: true });
+  }
+
   async function addNote() {
     if (!noteDraft.trim() || !orgId || !user) return;
     setSavingNote(true);
@@ -155,11 +200,21 @@ export function SupportBusinessDetailPage() {
         <ArrowLeft className="h-4 w-4" /> Volver a negocios
       </Link>
 
-      <div>
-        <h1 className="text-2xl font-semibold">{org?.name ?? "Cargando..."}</h1>
-        <p className="text-sm text-muted-foreground">
-          {org?.business_type} · Alta {org ? new Date(org.created_at).toLocaleDateString() : "—"}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold">{org?.name ?? "Cargando..."}</h1>
+            {org && <Badge variant={org.status === "active" ? "success" : "destructive"}>{ORG_STATUS_LABEL[org.status]}</Badge>}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {org?.business_type} · Alta {org ? new Date(org.created_at).toLocaleDateString() : "—"}
+          </p>
+        </div>
+        {org && org.status !== "cancelled" && (
+          <Button variant={org.status === "active" ? "destructive" : "outline"} size="sm" onClick={toggleOrgStatus} disabled={updatingStatus}>
+            {org.status === "active" ? "Suspender negocio" : "Reactivar negocio"}
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -308,6 +363,22 @@ export function SupportBusinessDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {supportRole === "admin" && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-base text-destructive">Zona de peligro</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              Elimina el negocio y TODA su data (reservas, clientes, conversaciones, configuración) de forma permanente.
+            </p>
+            <Button variant="destructive" size="sm" onClick={deleteOrganization} disabled={deleting || !org}>
+              <Trash2 className="h-4 w-4" /> Eliminar negocio
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
