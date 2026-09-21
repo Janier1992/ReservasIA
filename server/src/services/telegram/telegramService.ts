@@ -165,11 +165,26 @@ export interface TelegramUpdate {
 
 export async function getTelegramUpdates(botToken: string, offset: number, timeoutSeconds: number, signal: AbortSignal): Promise<TelegramUpdate[]> {
   const url = `${TELEGRAM_API_BASE}/bot${botToken}/getUpdates?timeout=${timeoutSeconds}&offset=${offset}&allowed_updates=%5B%22message%22%5D`;
+
   // Telegram debería responder dentro de `timeoutSeconds` (long-poll), pero
   // sin un límite propio un cuelgue de red dejaría este fetch esperando
-  // para siempre, congelando el loop de esa organización. El margen extra
-  // cubre la latencia normal de ida y vuelta.
-  const res = await fetch(url, { signal: AbortSignal.any([signal, AbortSignal.timeout((timeoutSeconds + 10) * 1000)]) });
+  // para siempre, congelando el loop de esa organización. Se combina el
+  // signal del poller (para poder cortar en un shutdown) con un timeout
+  // propio a mano — sin depender de AbortSignal.any, que en algunos
+  // entornos de Node puede no estar disponible y tira todo el poller en un
+  // loop de error silencioso (nunca llega a intentar el fetch).
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  signal.addEventListener("abort", onAbort);
+  const timer = setTimeout(() => controller.abort(), (timeoutSeconds + 10) * 1000);
+
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener("abort", onAbort);
+  }
 
   if (!res.ok) {
     throw new AppError(ErrorCodes.INTERNAL_ERROR, `getUpdates falló con status ${res.status}`, 502);
