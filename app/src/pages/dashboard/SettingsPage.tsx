@@ -14,7 +14,7 @@ import { CURRENCY_OPTIONS } from "@/lib/currency";
 import { PushNotificationsCard } from "@/components/PushNotificationsCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryErrorState } from "@/components/QueryErrorState";
-import { isNonNegativeNumber, isPositiveInteger } from "@/lib/validation";
+import { isNonNegativeNumber, isPositiveInteger, isValidEmail } from "@/lib/validation";
 import type { BusinessHourPeriod, BusinessProfile } from "@/types/domain";
 
 const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -60,6 +60,10 @@ export function SettingsPage() {
 
   async function saveProfile() {
     if (!profile) return;
+    if (profile.email?.trim() && !isValidEmail(profile.email)) {
+      toast.error("Ingresá un correo de contacto válido.");
+      return;
+    }
     if (
       !isPositiveInteger(profile.reservation_duration_minutes) ||
       !isPositiveInteger(profile.slot_interval_minutes) ||
@@ -226,6 +230,18 @@ export function SettingsPage() {
               <Label>Teléfono</Label>
               <Input disabled={readOnly} value={profile.phone ?? ""} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Correo de contacto</Label>
+            <Input
+              type="email"
+              disabled={readOnly}
+              value={profile.email ?? ""}
+              onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Correo público del negocio (ej: para que te contacten clientes). Es distinto del correo con el que iniciás sesión.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Moneda</Label>
