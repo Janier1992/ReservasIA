@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy } from "lucide-react";
+import { Copy, Plus, Trash2 } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +28,7 @@ export function SettingsPage() {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [hours, setHours] = useState<BusinessHourPeriod[]>([]);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [copySourceId, setCopySourceId] = useState<string | null>(null);
+  const [copySourceDay, setCopySourceDay] = useState<number | null>(null);
   const [copyTargetDays, setCopyTargetDays] = useState<Set<number>>(new Set());
 
   const {
@@ -163,14 +163,98 @@ export function SettingsPage() {
     toast.success("Logo actualizado.");
   }
 
+  // Los IDs de bloques horarios nuevos (todavía no guardados) se marcan con
+  // este prefijo para distinguirlos de un UUID real al armar el
+  // insert/update/delete en saveHours — un día puede tener varios bloques
+  // horarios (mañana y tarde, con cierre por almuerzo), así que ya no
+  // alcanza con actualizar cada fila por id: hay que poder agregar y
+  // quitar filas también.
+  function newPeriodId() {
+    return `new:${crypto.randomUUID()}`;
+  }
+  function isNewPeriod(id: string) {
+    return id.startsWith("new:");
+  }
+
+  function setDayOpen(dayOfWeek: number, open: boolean) {
+    setHours((prev) => {
+      const others = prev.filter((h) => h.day_of_week !== dayOfWeek);
+      if (open) {
+        return [
+          ...others,
+          { id: newPeriodId(), organization_id: currentOrganizationId ?? "", day_of_week: dayOfWeek, is_closed: false, opening_time: "09:00", closing_time: "18:00" }
+        ];
+      }
+      // Cerrar el día colapsa todos sus bloques horarios en uno solo
+      // marcado is_closed — reutiliza el id del primero que encuentre para
+      // que sea un UPDATE en vez de un DELETE+INSERT innecesario.
+      const existing = prev.find((h) => h.day_of_week === dayOfWeek);
+      return [
+        ...others,
+        existing
+          ? { ...existing, is_closed: true, opening_time: null, closing_time: null }
+          : { id: newPeriodId(), organization_id: currentOrganizationId ?? "", day_of_week: dayOfWeek, is_closed: true, opening_time: null, closing_time: null }
+      ];
+    });
+  }
+
+  function addPeriod(dayOfWeek: number) {
+    setHours((prev) => [
+      ...prev,
+      { id: newPeriodId(), organization_id: currentOrganizationId ?? "", day_of_week: dayOfWeek, is_closed: false, opening_time: "09:00", closing_time: "18:00" }
+    ]);
+  }
+
+  function removePeriod(id: string) {
+    setHours((prev) => prev.filter((h) => h.id !== id));
+  }
+
+  function updatePeriod(id: string, patch: Partial<Pick<BusinessHourPeriod, "opening_time" | "closing_time">>) {
+    setHours((prev) => prev.map((h) => (h.id === id ? { ...h, ...patch } : h)));
+  }
+
   async function saveHours() {
     if (!currentOrganizationId) return;
+
     for (const h of hours) {
+      if (!h.is_closed && (!h.opening_time || !h.closing_time || h.closing_time <= h.opening_time)) {
+        toast.error(`Revisá el horario de ${DAY_NAMES[h.day_of_week]}: la hora de cierre debe ser posterior a la de apertura.`);
+        return;
+      }
+    }
+
+    const originalById = new Map((hoursData ?? []).map((h) => [h.id, h]));
+    const currentIds = new Set(hours.map((h) => h.id));
+
+    const toDelete = (hoursData ?? []).filter((h) => !currentIds.has(h.id));
+    const toInsert = hours.filter((h) => isNewPeriod(h.id));
+    const toUpdate = hours.filter((h) => !isNewPeriod(h.id) && originalById.has(h.id));
+
+    for (const h of toDelete) {
+      await insforge.database.from("business_hour_periods").delete().eq("id", h.id);
+    }
+    for (const h of toUpdate) {
       await insforge.database
         .from("business_hour_periods")
         .update({ is_closed: h.is_closed, opening_time: h.is_closed ? null : h.opening_time, closing_time: h.is_closed ? null : h.closing_time })
         .eq("id", h.id);
     }
+    if (toInsert.length > 0) {
+      const { error } = await insforge.database.from("business_hour_periods").insert(
+        toInsert.map((h) => ({
+          organization_id: currentOrganizationId,
+          day_of_week: h.day_of_week,
+          is_closed: h.is_closed,
+          opening_time: h.is_closed ? null : h.opening_time,
+          closing_time: h.is_closed ? null : h.closing_time
+        }))
+      );
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+    }
+
     toast.success("Horarios actualizados.");
     queryClient.invalidateQueries({ queryKey: ["business-hours", currentOrganizationId] });
   }
@@ -185,18 +269,16 @@ export function SettingsPage() {
   }
 
   function applyCopyToTargetDays() {
-    const source = hours.find((h) => h.id === copySourceId);
-    if (!source) return;
+    if (copySourceDay === null) return;
+    const sourcePeriods = hours.filter((h) => h.day_of_week === copySourceDay);
 
-    setHours((prev) =>
-      prev.map((h) =>
-        copyTargetDays.has(h.day_of_week)
-          ? { ...h, is_closed: source.is_closed, opening_time: source.opening_time, closing_time: source.closing_time }
-          : h
-      )
-    );
-    toast.success(`Horario de ${DAY_NAMES[source.day_of_week]} copiado a ${copyTargetDays.size} día(s). No olvides guardar.`);
-    setCopySourceId(null);
+    setHours((prev) => {
+      const kept = prev.filter((h) => !copyTargetDays.has(h.day_of_week));
+      const cloned = [...copyTargetDays].flatMap((dow) => sourcePeriods.map((p) => ({ ...p, id: newPeriodId(), day_of_week: dow })));
+      return [...kept, ...cloned];
+    });
+    toast.success(`Horario de ${DAY_NAMES[copySourceDay]} copiado a ${copyTargetDays.size} día(s). No olvides guardar.`);
+    setCopySourceDay(null);
     setCopyTargetDays(new Set());
   }
 
@@ -426,87 +508,114 @@ export function SettingsPage() {
           <CardTitle>Horarios</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {hours.map((h) => (
-            <div key={h.id} className="flex items-center gap-3 rounded-md border border-border p-2">
-              <span className="w-24 text-sm font-medium">{DAY_NAMES[h.day_of_week]}</span>
-              <Switch
-                disabled={readOnly}
-                checked={!h.is_closed}
-                onCheckedChange={(checked) => setHours((prev) => prev.map((p) => (p.id === h.id ? { ...p, is_closed: !checked } : p)))}
-              />
-              {!h.is_closed ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="time"
-                    className="w-28"
-                    disabled={readOnly}
-                    value={h.opening_time?.slice(0, 5) ?? ""}
-                    onChange={(e) => setHours((prev) => prev.map((p) => (p.id === h.id ? { ...p, opening_time: e.target.value } : p)))}
-                  />
-                  <span className="text-sm text-muted-foreground">a</span>
-                  <Input
-                    type="time"
-                    className="w-28"
-                    disabled={readOnly}
-                    value={h.closing_time?.slice(0, 5) ?? ""}
-                    onChange={(e) => setHours((prev) => prev.map((p) => (p.id === h.id ? { ...p, closing_time: e.target.value } : p)))}
-                  />
+          <p className="text-xs text-muted-foreground">
+            Podés agregar más de un bloque horario por día (ej. mañana y tarde, con cierre por almuerzo).
+          </p>
+          {DAY_NAMES.map((dayName, dayOfWeek) => {
+            const dayPeriods = hours
+              .filter((h) => h.day_of_week === dayOfWeek)
+              .sort((a, b) => (a.opening_time ?? "").localeCompare(b.opening_time ?? ""));
+            const openPeriods = dayPeriods.filter((p) => !p.is_closed);
+            const isOpen = openPeriods.length > 0;
+
+            return (
+              <div key={dayOfWeek} className="space-y-2 rounded-md border border-border p-2">
+                <div className="flex items-center gap-3">
+                  <span className="w-24 text-sm font-medium">{dayName}</span>
+                  <Switch disabled={readOnly} checked={isOpen} onCheckedChange={(checked) => setDayOpen(dayOfWeek, checked)} />
+                  {!isOpen && <span className="text-sm text-muted-foreground">Cerrado</span>}
+                  {!readOnly && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto"
+                      onClick={() => {
+                        setCopySourceDay(dayOfWeek);
+                        setCopyTargetDays(new Set());
+                      }}
+                      title={`Copiar el horario de ${dayName} a otros días`}
+                      aria-label={`Copiar el horario de ${dayName} a otros días`}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-              ) : (
-                <span className="text-sm text-muted-foreground">Cerrado</span>
-              )}
-              {!readOnly && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => {
-                    setCopySourceId(h.id);
-                    setCopyTargetDays(new Set());
-                  }}
-                  title={`Copiar el horario de ${DAY_NAMES[h.day_of_week]} a otros días`}
-                  aria-label={`Copiar el horario de ${DAY_NAMES[h.day_of_week]} a otros días`}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          ))}
+                {isOpen && (
+                  <div className="ml-0 space-y-2 sm:ml-24">
+                    {openPeriods.map((period) => (
+                      <div key={period.id} className="flex items-center gap-2">
+                        <Input
+                          type="time"
+                          className="w-28"
+                          disabled={readOnly}
+                          value={period.opening_time?.slice(0, 5) ?? ""}
+                          onChange={(e) => updatePeriod(period.id, { opening_time: e.target.value })}
+                        />
+                        <span className="text-sm text-muted-foreground">a</span>
+                        <Input
+                          type="time"
+                          className="w-28"
+                          disabled={readOnly}
+                          value={period.closing_time?.slice(0, 5) ?? ""}
+                          onChange={(e) => updatePeriod(period.id, { closing_time: e.target.value })}
+                        />
+                        {!readOnly && openPeriods.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removePeriod(period.id)}
+                            title="Quitar este bloque horario"
+                            aria-label="Quitar este bloque horario"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    {!readOnly && (
+                      <Button variant="outline" size="sm" onClick={() => addPeriod(dayOfWeek)}>
+                        <Plus className="h-4 w-4" /> Agregar horario
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {!readOnly && <Button onClick={saveHours}>Guardar horarios</Button>}
         </CardContent>
       </Card>
 
-      <Dialog open={!!copySourceId} onOpenChange={(open) => !open && setCopySourceId(null)}>
+      <Dialog open={copySourceDay !== null} onOpenChange={(open) => !open && setCopySourceDay(null)}>
         <DialogContent>
-          {copySourceId &&
+          {copySourceDay !== null &&
             (() => {
-              const source = hours.find((h) => h.id === copySourceId);
-              if (!source) return null;
+              const sourcePeriods = hours
+                .filter((h) => h.day_of_week === copySourceDay)
+                .sort((a, b) => (a.opening_time ?? "").localeCompare(b.opening_time ?? ""));
+              const sourceOpenPeriods = sourcePeriods.filter((p) => !p.is_closed);
               return (
                 <>
                   <DialogHeader>
-                    <DialogTitle>Copiar horario de {DAY_NAMES[source.day_of_week]}</DialogTitle>
+                    <DialogTitle>Copiar horario de {DAY_NAMES[copySourceDay]}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      {source.is_closed
+                      {sourceOpenPeriods.length === 0
                         ? "Cerrado"
-                        : `${source.opening_time?.slice(0, 5)} a ${source.closing_time?.slice(0, 5)}`}
+                        : sourceOpenPeriods.map((p) => `${p.opening_time?.slice(0, 5)} a ${p.closing_time?.slice(0, 5)}`).join(", ")}
                       . Elegí a qué días aplicarlo:
                     </p>
                     <div className="grid grid-cols-2 gap-2">
-                      {hours
-                        .filter((h) => h.id !== source.id)
-                        .map((h) => (
-                          <label key={h.id} className="flex items-center gap-2 rounded-md border border-border p-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={copyTargetDays.has(h.day_of_week)}
-                              onChange={() => toggleCopyTargetDay(h.day_of_week)}
-                            />
-                            {DAY_NAMES[h.day_of_week]}
-                          </label>
-                        ))}
+                      {DAY_NAMES.map(
+                        (dayName, dayOfWeek) =>
+                          dayOfWeek !== copySourceDay && (
+                            <label key={dayOfWeek} className="flex items-center gap-2 rounded-md border border-border p-2 text-sm">
+                              <input type="checkbox" checked={copyTargetDays.has(dayOfWeek)} onChange={() => toggleCopyTargetDay(dayOfWeek)} />
+                              {dayName}
+                            </label>
+                          )
+                      )}
                     </div>
                     <Button onClick={applyCopyToTargetDays} disabled={copyTargetDays.size === 0}>
                       Aplicar a {copyTargetDays.size || ""} día(s)
