@@ -203,7 +203,7 @@ export function SupportBusinessDetailPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold">{org?.name ?? "Cargando..."}</h1>
+            <h1 className="text-2xl font-semibold">{profile?.name || org?.name || "Cargando..."}</h1>
             {org && <Badge variant={org.status === "active" ? "success" : "destructive"}>{ORG_STATUS_LABEL[org.status]}</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">

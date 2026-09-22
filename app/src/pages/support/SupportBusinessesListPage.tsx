@@ -8,6 +8,7 @@ import { QueryErrorState } from "@/components/QueryErrorState";
 import type { Organization } from "@/types/domain";
 
 interface BusinessRow extends Organization {
+  displayName: string;
   agentEnabled: boolean | null;
   telegramConnected: boolean;
   whatsappConnected: boolean;
@@ -48,15 +49,24 @@ export function SupportBusinessesListPage() {
 
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [agentsRes, integrationsRes, reservationsRes] = await Promise.all([
+      const [agentsRes, integrationsRes, reservationsRes, profilesRes] = await Promise.all([
         insforge.database.from("agents").select("organization_id, enabled").in("organization_id", orgIds),
         insforge.database.from("integrations").select("organization_id, provider, status").in("organization_id", orgIds),
-        insforge.database.from("reservations").select("organization_id").in("organization_id", orgIds).gte("created_at", sevenDaysAgo)
+        insforge.database.from("reservations").select("organization_id").in("organization_id", orgIds).gte("created_at", sevenDaysAgo),
+        insforge.database.from("business_profiles").select("organization_id, name").in("organization_id", orgIds)
       ]);
       if (agentsRes.error) throw agentsRes.error;
       if (integrationsRes.error) throw integrationsRes.error;
       if (reservationsRes.error) throw reservationsRes.error;
+      if (profilesRes.error) throw profilesRes.error;
 
+      // organizations.name es el nombre interno con el que se creó la cuenta y
+      // NUNCA se actualiza; el nombre real del negocio (el que el dueño edita
+      // desde Configuración) vive en business_profiles.name. Mostrar el de
+      // organizations acá confunde muchísimo cuando el negocio se renombró.
+      const profileNameByOrg = new Map(
+        (profilesRes.data ?? []).map((p: { organization_id: string; name: string | null }) => [p.organization_id, p.name])
+      );
       const agentByOrg = new Map((agentsRes.data ?? []).map((a: { organization_id: string; enabled: boolean }) => [a.organization_id, a.enabled]));
       const reservationCountByOrg = new Map<string, number>();
       for (const r of (reservationsRes.data ?? []) as { organization_id: string }[]) {
@@ -73,6 +83,7 @@ export function SupportBusinessesListPage() {
         const orgIntegrations = integrationsByOrg.get(org.id) ?? [];
         return {
           ...org,
+          displayName: profileNameByOrg.get(org.id) || org.name,
           agentEnabled: agentByOrg.get(org.id) ?? null,
           telegramConnected: orgIntegrations.some((i) => i.provider === "telegram" && i.status === "connected"),
           whatsappConnected: orgIntegrations.some((i) => i.provider === "twilio" && i.status === "connected"),
@@ -111,7 +122,7 @@ export function SupportBusinessesListPage() {
                 <tr key={b.id} className="border-b border-border last:border-0 hover:bg-muted/50">
                   <td className="px-4 py-3 font-medium">
                     <Link to={`/soporte/negocios/${b.id}`} className="hover:underline">
-                      {b.name}
+                      {b.displayName}
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{b.business_type}</td>
