@@ -11,7 +11,7 @@ import { FullscreenLoader } from "./RequireAuth";
 const SUSPENDED_MESSAGE = "Te informamos que tu cuenta ha sido bloqueada por falta de pago. Si deseas usar el servicio, realiza el pago.";
 const CANCELLED_MESSAGE = "Esta cuenta fue cancelada. Contactá al negocio proveedor del servicio si creés que es un error.";
 const DELETED_ACCOUNT_MESSAGE =
-  "Esta cuenta ya no está vinculada a ningún negocio en la plataforma. Si querés volver a usar Reservas AI, registrate con un correo distinto para iniciar el proceso de vinculación de un negocio nuevo.";
+  "El negocio fue eliminado. Para más información, debés contactar a Soporte: synflow.ia@gmail.com";
 
 function BlockedOrganizationScreen({ message }: { message: string }) {
   const { signOut } = useAuth();
