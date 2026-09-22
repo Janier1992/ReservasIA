@@ -2,6 +2,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useOrganization } from "@/hooks/useOrganization";
 import { usePendingInvitesForMe } from "@/hooks/usePendingInvites";
 import { useSupportStaff } from "@/hooks/useSupportStaff";
+import { useDeletedAccount } from "@/hooks/useDeletedAccount";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { AcceptInvites } from "./AcceptInvites";
@@ -9,6 +10,8 @@ import { FullscreenLoader } from "./RequireAuth";
 
 const SUSPENDED_MESSAGE = "Te informamos que tu cuenta ha sido bloqueada por falta de pago. Si deseas usar el servicio, realiza el pago.";
 const CANCELLED_MESSAGE = "Esta cuenta fue cancelada. Contactá al negocio proveedor del servicio si creés que es un error.";
+const DELETED_ACCOUNT_MESSAGE =
+  "Esta cuenta ya no está vinculada a ningún negocio en la plataforma. Si querés volver a usar Reservas AI, registrate con un correo distinto para iniciar el proceso de vinculación de un negocio nuevo.";
 
 function BlockedOrganizationScreen({ message }: { message: string }) {
   const { signOut } = useAuth();
@@ -36,8 +39,9 @@ export function RequireOrganization() {
   const { memberships, isLoading, currentOrganizationId } = useOrganization();
   const { data: pendingInvites = [], isLoading: invitesLoading, refetch: refetchInvites } = usePendingInvitesForMe();
   const { isSupportStaff, isLoading: supportLoading } = useSupportStaff();
+  const { isDeletedAccount, isLoading: deletedLoading } = useDeletedAccount();
 
-  if (isLoading || invitesLoading || supportLoading) return <FullscreenLoader />;
+  if (isLoading || invitesLoading || supportLoading || deletedLoading) return <FullscreenLoader />;
 
   if (memberships.length === 0) {
     if (pendingInvites.length > 0) {
@@ -54,6 +58,10 @@ export function RequireOrganization() {
       );
     }
     if (isSupportStaff) return <Navigate to="/soporte" replace />;
+    // El negocio de esta cuenta fue eliminado por soporte: nunca dejar que
+    // recree uno nuevo silenciosamente con la misma cuenta, como si nada
+    // hubiera pasado (punto reportado explícitamente por el usuario).
+    if (isDeletedAccount) return <BlockedOrganizationScreen message={DELETED_ACCOUNT_MESSAGE} />;
     return <Navigate to="/onboarding" replace />;
   }
 
