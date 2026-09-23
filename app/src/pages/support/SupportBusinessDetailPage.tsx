@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
+import { functionsClient } from "@/lib/functionsClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useSupportStaff } from "@/hooks/useSupportStaff";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,12 +16,24 @@ import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
 import { paymentStatusLabel, paymentStatusVariant } from "@/lib/paymentStatus";
-import type { AgentConfig, BusinessProfile, Conversation, Organization, Reservation, SupportNote } from "@/types/domain";
+import type { AgentConfig, BusinessProfile, Conversation, Organization, Reservation, SubscriptionPayment, SupportNote } from "@/types/domain";
 
 const ORG_STATUS_LABEL: Record<Organization["status"], string> = {
   active: "Activo",
   suspended: "Suspendido",
   cancelled: "Cancelado"
+};
+
+const SUBSCRIPTION_STATUS_LABEL: Record<SubscriptionPayment["status"], string> = {
+  pending: "En revisión",
+  confirmed: "Confirmado",
+  rejected: "Rechazado"
+};
+
+const SUBSCRIPTION_STATUS_VARIANT: Record<SubscriptionPayment["status"], "warning" | "success" | "destructive"> = {
+  pending: "warning",
+  confirmed: "success",
+  rejected: "destructive"
 };
 
 const PROVIDER_LABEL: Record<string, string> = {
@@ -39,6 +52,8 @@ export function SupportBusinessDetailPage() {
   const [savingNote, setSavingNote] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reviewingPaymentId, setReviewingPaymentId] = useState<string | null>(null);
+  const [viewingReceiptId, setViewingReceiptId] = useState<string | null>(null);
 
   const {
     data: org,
@@ -115,6 +130,24 @@ export function SupportBusinessDetailPage() {
   });
 
   const {
+    data: payments = [],
+    refetch: refetchPayments
+  } = useQuery({
+    queryKey: ["support-subscription-payments", orgId],
+    enabled: !!orgId,
+    queryFn: async () => {
+      const { data, error } = await insforge.database
+        .from("subscription_payments")
+        .select("*")
+        .eq("organization_id", orgId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data as SubscriptionPayment[];
+    }
+  });
+
+  const {
     data: notes = [],
     refetch: refetchNotes
   } = useQuery({
@@ -175,6 +208,33 @@ export function SupportBusinessDetailPage() {
     toast.success("Negocio eliminado.");
     queryClient.invalidateQueries({ queryKey: ["support-businesses"] });
     navigate("/soporte", { replace: true });
+  }
+
+  async function reviewPayment(paymentId: string, action: "confirm" | "reject") {
+    setReviewingPaymentId(paymentId);
+    try {
+      await functionsClient.post("confirm-subscription-payment", { payment_id: paymentId, action });
+      toast.success(action === "confirm" ? "Pago confirmado: el negocio quedó activo." : "Pago rechazado.");
+      refetchPayments();
+      refetchOrg();
+      queryClient.invalidateQueries({ queryKey: ["support-businesses"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo actualizar el pago.");
+    } finally {
+      setReviewingPaymentId(null);
+    }
+  }
+
+  async function viewReceipt(paymentId: string) {
+    setViewingReceiptId(paymentId);
+    try {
+      const { url } = await functionsClient.get<{ url: string }>("get-subscription-receipt-url", { payment_id: paymentId });
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo abrir el comprobante.");
+    } finally {
+      setViewingReceiptId(null);
+    }
   }
 
   async function addNote() {
@@ -332,6 +392,55 @@ export function SupportBusinessDetailPage() {
                 {conversations.length === 0 && <EmptyTableRow colSpan={4} message="Sin conversaciones todavía." />}
               </tbody>
             </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Suscripción</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm">
+            <span className="text-muted-foreground">Vence: </span>
+            {org?.subscription_expires_at ? new Date(org.subscription_expires_at).toLocaleDateString("es-CO") : "Sin fecha registrada"}
+          </p>
+          <div className="space-y-2">
+            {payments.map((p) => (
+              <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 text-sm">
+                <div>
+                  <span>{new Date(p.created_at).toLocaleString()}</span>
+                  {p.amount != null && <span className="text-muted-foreground"> — ${p.amount}</span>}
+                  {p.note && <span className="text-muted-foreground"> · {p.note}</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={SUBSCRIPTION_STATUS_VARIANT[p.status]}>{SUBSCRIPTION_STATUS_LABEL[p.status]}</Badge>
+                  <Button variant="ghost" size="sm" disabled={viewingReceiptId === p.id} onClick={() => viewReceipt(p.id)}>
+                    Ver comprobante
+                  </Button>
+                  {p.status === "pending" && (
+                    <>
+                      <Button
+                        size="sm"
+                        disabled={reviewingPaymentId === p.id}
+                        onClick={() => reviewPayment(p.id, "confirm")}
+                      >
+                        Confirmar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={reviewingPaymentId === p.id}
+                        onClick={() => reviewPayment(p.id, "reject")}
+                      >
+                        Rechazar
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+            {payments.length === 0 && <p className="text-sm text-muted-foreground">Sin pagos reportados todavía.</p>}
           </div>
         </CardContent>
       </Card>

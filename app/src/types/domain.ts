@@ -7,8 +7,22 @@ export interface Organization {
   business_type: string;
   status: "active" | "suspended" | "cancelled";
   timezone: string;
+  subscription_expires_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface SubscriptionPayment {
+  id: string;
+  organization_id: string;
+  submitted_by: string;
+  receipt_storage_path: string;
+  amount: number | null;
+  note: string | null;
+  status: "pending" | "confirmed" | "rejected";
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
 }
 
 export interface OrganizationMembership {

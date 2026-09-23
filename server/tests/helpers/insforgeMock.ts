@@ -28,7 +28,7 @@ export function createInsforgeMock(responses: Record<string, TableResponse>, rpc
 
   function buildQuery(table: string) {
     const query: Record<string, unknown> = {};
-    const chainMethods = ["select", "eq", "neq", "in", "lt", "gt", "lte", "gte", "order", "limit", "is", "insert", "update", "upsert", "delete"];
+    const chainMethods = ["select", "eq", "neq", "in", "lt", "gt", "lte", "gte", "order", "limit", "is", "not", "insert", "update", "upsert", "delete"];
     for (const method of chainMethods) {
       query[method] = vi.fn(() => query);
     }

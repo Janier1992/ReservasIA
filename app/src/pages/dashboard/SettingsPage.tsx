@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CURRENCY_OPTIONS } from "@/lib/currency";
 import { PushNotificationsCard } from "@/components/PushNotificationsCard";
+import { SubscriptionCard } from "@/components/SubscriptionCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { isNonNegativeNumber, isPositiveInteger, isValidEmail } from "@/lib/validation";
@@ -513,6 +514,8 @@ export function SettingsPage() {
           {!readOnly && <Button onClick={saveProfile}>Guardar</Button>}
         </CardContent>
       </Card>
+
+      {currentOrganizationId && <SubscriptionCard organizationId={currentOrganizationId} />}
 
       {currentOrganizationId && <PushNotificationsCard organizationId={currentOrganizationId} />}
 

@@ -7,6 +7,7 @@ export interface Organization {
   business_type: string;
   status: "active" | "suspended" | "cancelled";
   timezone: string;
+  subscription_expires_at: string | null;
   created_at: string;
   updated_at: string;
 }

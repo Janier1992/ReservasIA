@@ -3,6 +3,7 @@ import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { startTelegramPollingManager, stopTelegramPollingManager } from "./services/telegram/telegramPollingManager.js";
 import { startReminderScheduler, stopReminderScheduler } from "./services/reminders/reminderScheduler.js";
+import { startSubscriptionScheduler, stopSubscriptionScheduler } from "./services/subscription/subscriptionScheduler.js";
 
 const app = createApp();
 
@@ -10,11 +11,13 @@ const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, env: env.NODE_ENV }, "server_started");
   startTelegramPollingManager();
   startReminderScheduler();
+  startSubscriptionScheduler();
 });
 
 function shutdown() {
   stopTelegramPollingManager();
   stopReminderScheduler();
+  stopSubscriptionScheduler();
   server.close(() => process.exit(0));
 }
 
