@@ -36,7 +36,7 @@ export function InstallAppButton({ className }: { className?: string }) {
       <Dialog open={instructionsOpen} onOpenChange={setInstructionsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Instalar Reservas AI</DialogTitle>
+            <DialogTitle>Instalar ReservasIA</DialogTitle>
           </DialogHeader>
           {isIos ? (
             <div className="space-y-3 text-sm">

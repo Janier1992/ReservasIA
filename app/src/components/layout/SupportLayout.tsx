@@ -19,7 +19,7 @@ export function SupportLayout() {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <LifeBuoy className="h-4 w-4" />
         </div>
-        <span className="font-semibold">Reservas AI — Soporte</span>
+        <span className="font-semibold">ReservasIA — Soporte</span>
         <span className="ml-auto truncate text-xs text-muted-foreground">{user?.email}</span>
         <ThemeToggle />
         <button

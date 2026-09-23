@@ -42,7 +42,7 @@ export function DashboardLayout() {
   const { user, signOut } = useAuth();
   const { memberships, currentOrganizationId, setCurrentOrganizationId } = useOrganization();
   const branding = useBusinessBranding();
-  const brandName = branding?.name || "Reservas AI";
+  const brandName = branding?.name || "ReservasIA";
   const { isSupportStaff } = useSupportStaff();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const location = useLocation();

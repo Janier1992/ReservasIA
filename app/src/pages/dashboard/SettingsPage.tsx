@@ -329,7 +329,7 @@ export function SettingsPage() {
                 className="block text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground file:hover:opacity-90 disabled:opacity-60"
               />
               <p className="text-xs text-muted-foreground">
-                Reemplaza el ícono y el nombre "Reservas AI" del menú por el logo y el nombre de tu negocio. PNG o JPG,
+                Reemplaza el ícono y el nombre "ReservasIA" del menú por el logo y el nombre de tu negocio. PNG o JPG,
                 máx. 2&nbsp;MB.
               </p>
             </div>

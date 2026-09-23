@@ -9,7 +9,7 @@ interface BusinessBranding {
 
 /**
  * Nombre y logo del negocio para reemplazar el branding genérico
- * "Reservas AI" en el menú lateral. Consulta liviana (2 columnas), separada
+ * "ReservasIA" en el menú lateral. Consulta liviana (2 columnas), separada
  * del query completo de business_profiles que usa SettingsPage.
  */
 export function useBusinessBranding(): BusinessBranding | null {

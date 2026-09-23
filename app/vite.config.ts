@@ -17,8 +17,8 @@ export default defineConfig({
       srcDir: "src",
       filename: "sw.ts",
       manifest: {
-        name: "Reservas AI — Panel de negocio",
-        short_name: "Reservas AI",
+        name: "ReservasIA — Panel de negocio",
+        short_name: "ReservasIA",
         description: "Gestioná reservas, conversaciones y clientes de tu negocio desde el celular.",
         lang: "es",
         start_url: "/dashboard",

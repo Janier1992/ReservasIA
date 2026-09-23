@@ -28,7 +28,7 @@ interface ReservationPushPayload {
  * listener el que efectivamente la muestra.
  */
 self.addEventListener("push", (event) => {
-  let payload: ReservationPushPayload = { title: "Reservas AI", body: "Tenés una actualización nueva." };
+  let payload: ReservationPushPayload = { title: "ReservasIA", body: "Tenés una actualización nueva." };
   try {
     if (event.data) payload = { ...payload, ...event.data.json() };
   } catch {
