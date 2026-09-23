@@ -73,6 +73,7 @@ export function SettingsPage() {
       !isPositiveInteger(profile.slot_interval_minutes) ||
       !isNonNegativeNumber(profile.advance_booking_hours) ||
       !isPositiveInteger(profile.max_booking_days) ||
+      !isNonNegativeNumber(profile.reminder_hours_before) ||
       (profile.capacity_total !== null && !isPositiveInteger(profile.capacity_total))
     ) {
       toast.error("Revisá los campos numéricos: deben ser números válidos mayores a 0.");
@@ -103,6 +104,7 @@ export function SettingsPage() {
         slot_interval_minutes: profile.slot_interval_minutes,
         advance_booking_hours: profile.advance_booking_hours,
         max_booking_days: profile.max_booking_days,
+        reminder_hours_before: profile.reminder_hours_before,
         cancellation_policy: profile.cancellation_policy,
         special_instructions: profile.special_instructions,
         nequi_phone: profile.nequi_phone,
@@ -426,6 +428,17 @@ export function SettingsPage() {
                 value={profile.max_booking_days}
                 onChange={(e) => setProfile({ ...profile, max_booking_days: Number(e.target.value) })}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Recordatorio automático (horas antes)</Label>
+              <Input
+                type="number"
+                min={0}
+                disabled={readOnly}
+                value={profile.reminder_hours_before}
+                onChange={(e) => setProfile({ ...profile, reminder_hours_before: Number(e.target.value) })}
+              />
+              <p className="text-xs text-muted-foreground">0 desactiva el recordatorio.</p>
             </div>
           </div>
           <div className="space-y-1.5">

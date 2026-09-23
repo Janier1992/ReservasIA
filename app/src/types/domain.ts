@@ -42,6 +42,7 @@ export interface BusinessProfile {
   deposit_enabled: boolean;
   deposit_mandatory: boolean;
   deposit_percentage: number | null;
+  reminder_hours_before: number;
 }
 
 export interface BusinessHourPeriod {

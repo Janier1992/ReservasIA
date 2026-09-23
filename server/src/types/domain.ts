@@ -36,6 +36,7 @@ export interface BusinessProfile {
   deposit_enabled: boolean;
   deposit_mandatory: boolean;
   deposit_percentage: number | null;
+  reminder_hours_before: number;
 }
 
 export interface BusinessHourPeriod {
@@ -124,6 +125,7 @@ export interface Reservation {
   internal_notes: string | null;
   payment_status: PaymentStatus;
   deposit_amount: number | null;
+  reminder_sent_at: string | null;
 }
 
 export interface AgentConfig {
