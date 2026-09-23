@@ -3,7 +3,7 @@ import { createInsforgeMock } from "./helpers/insforgeMock.js";
 
 let insforgeMockInstance = createInsforgeMock({});
 const sendTelegramMessageMock = vi.fn(async () => {});
-const sendWhatsAppMessageMock = vi.fn(async () => {});
+const sendWhatsAppReminderTemplateMock = vi.fn(async () => "sent" as const);
 
 vi.mock("../src/lib/insforge.js", () => ({
   get insforgeAdmin() {
@@ -14,7 +14,7 @@ vi.mock("../src/services/telegram/telegramService.js", () => ({
   sendTelegramMessage: (...args: unknown[]) => sendTelegramMessageMock(...args)
 }));
 vi.mock("../src/services/twilio/twilioService.js", () => ({
-  sendWhatsAppMessage: (...args: unknown[]) => sendWhatsAppMessageMock(...args)
+  sendWhatsAppReminderTemplate: (...args: unknown[]) => sendWhatsAppReminderTemplateMock(...args)
 }));
 
 const { sendDueReservationReminders, buildReminderText } = await import("../src/services/reminders/reminderService.js");
@@ -58,7 +58,7 @@ describe("sendDueReservationReminders", () => {
     const result = await sendDueReservationReminders();
     expect(result).toEqual({ total: 0, sent: 0 });
     expect(sendTelegramMessageMock).not.toHaveBeenCalled();
-    expect(sendWhatsAppMessageMock).not.toHaveBeenCalled();
+    expect(sendWhatsAppReminderTemplateMock).not.toHaveBeenCalled();
   });
 
   it("sends via Telegram when the customer phone has the telegram: prefix, and marks it sent", async () => {
@@ -73,20 +73,37 @@ describe("sendDueReservationReminders", () => {
     const result = await sendDueReservationReminders();
 
     expect(sendTelegramMessageMock).toHaveBeenCalledWith("bot-token-1", "555", expect.any(String));
-    expect(sendWhatsAppMessageMock).not.toHaveBeenCalled();
+    expect(sendWhatsAppReminderTemplateMock).not.toHaveBeenCalled();
     expect(result).toEqual({ total: 1, sent: 1 });
   });
 
-  it("sends via WhatsApp when the customer phone is a plain number", async () => {
+  it("sends via the WhatsApp reminder template (never free text) when the customer phone is a plain number", async () => {
     insforgeMockInstance = createInsforgeMock(
       { reservations: { data: null, error: null } },
       { get_due_reservation_reminders: { data: [makeRow({ customer_phone: "+573001112233" })], error: null } }
     );
 
-    await sendDueReservationReminders();
+    const result = await sendDueReservationReminders();
 
-    expect(sendWhatsAppMessageMock).toHaveBeenCalledWith("org-1", "+573001112233", expect.any(String));
+    expect(sendWhatsAppReminderTemplateMock).toHaveBeenCalledWith(
+      "org-1",
+      "+573001112233",
+      expect.objectContaining({ "1": "Camila", "2": "Barbería El Corte" })
+    );
     expect(sendTelegramMessageMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ total: 1, sent: 1 });
+  });
+
+  it("skips a WhatsApp reminder without marking it sent when the org has no approved template yet", async () => {
+    sendWhatsAppReminderTemplateMock.mockResolvedValueOnce("no_template_configured");
+    insforgeMockInstance = createInsforgeMock(
+      { reservations: { data: null, error: null } },
+      { get_due_reservation_reminders: { data: [makeRow({ customer_phone: "+573001112233" })], error: null } }
+    );
+
+    const result = await sendDueReservationReminders();
+
+    expect(result).toEqual({ total: 1, sent: 0 });
   });
 
   it("skips a Telegram reminder without marking it sent when no bot is connected", async () => {

@@ -2,7 +2,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { sendTelegramMessage } from "../telegram/telegramService.js";
-import { sendWhatsAppMessage } from "../twilio/twilioService.js";
+import { sendWhatsAppReminderTemplate } from "../twilio/twilioService.js";
 
 const TELEGRAM_PHONE_PREFIX = "telegram:";
 
@@ -29,8 +29,12 @@ async function loadTelegramBotToken(organizationId: string): Promise<string | nu
   return (data?.credentials as { bot_token?: string } | null)?.bot_token ?? null;
 }
 
+function formatReminderWhen(row: DueReminderRow): string {
+  return formatInTimeZone(new Date(row.start_at), row.timezone, "EEEE d 'de' MMMM 'a las' HH:mm");
+}
+
 export function buildReminderText(row: DueReminderRow): string {
-  const when = formatInTimeZone(new Date(row.start_at), row.timezone, "EEEE d 'de' MMMM 'a las' HH:mm");
+  const when = formatReminderWhen(row);
   const greeting = row.customer_name ? `¡Hola ${row.customer_name}!` : "¡Hola!";
   const serviceText = row.service_name ? ` para ${row.service_name}` : "";
   return `${greeting} Te recordamos tu reserva${serviceText} en ${row.business_name}, el ${when}. Si necesitás cambiarla o cancelarla, escribinos por acá.`;
@@ -41,10 +45,17 @@ export function buildReminderText(row: DueReminderRow): string {
  * sistema ya nos dice por qué canal escribirle: `telegram:<chat_id>` para
  * Telegram, o el número real para WhatsApp — no hace falta guardar el
  * canal aparte en ningún lado.
+ *
+ * WhatsApp SIEMPRE se manda por plantilla pre-aprobada, nunca como texto
+ * libre: una reserva hecha con anticipación casi siempre cae fuera de la
+ * ventana de 24h en la que Meta permite texto libre, así que un mensaje
+ * libre se rechazaría. La plantilla se crea y somete a aprobación sola al
+ * conectar WhatsApp (ver functions/twilio-connect.ts); si todavía no está
+ * configurada (o Meta no la aprobó), el recordatorio de esa reserva se
+ * salta y se reintenta en el siguiente ciclo — nunca se cae a texto libre.
  */
 async function sendReminder(row: DueReminderRow): Promise<boolean> {
   if (!row.customer_phone) return false;
-  const text = buildReminderText(row);
 
   try {
     if (row.customer_phone.startsWith(TELEGRAM_PHONE_PREFIX)) {
@@ -54,9 +65,18 @@ async function sendReminder(row: DueReminderRow): Promise<boolean> {
         logger.warn({ reservationId: row.reservation_id, organizationId: row.organization_id }, "reminder_skipped_no_telegram_bot");
         return false;
       }
-      await sendTelegramMessage(botToken, chatId, text);
-    } else {
-      await sendWhatsAppMessage(row.organization_id, row.customer_phone, text);
+      await sendTelegramMessage(botToken, chatId, buildReminderText(row));
+      return true;
+    }
+
+    const result = await sendWhatsAppReminderTemplate(row.organization_id, row.customer_phone, {
+      "1": row.customer_name ?? "cliente",
+      "2": row.business_name,
+      "3": formatReminderWhen(row)
+    });
+    if (result === "no_template_configured") {
+      logger.warn({ reservationId: row.reservation_id, organizationId: row.organization_id }, "reminder_skipped_no_whatsapp_template");
+      return false;
     }
     return true;
   } catch (err) {

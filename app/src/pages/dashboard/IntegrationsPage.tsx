@@ -207,6 +207,12 @@ export function IntegrationsPage() {
           {twilio?.status === "connected" ? (
             <>
               <p className="text-sm text-muted-foreground">Número: {String(twilio.metadata?.whatsapp_number ?? "—")}</p>
+              <p className="text-sm text-muted-foreground">
+                Recordatorios automáticos:{" "}
+                {twilio.metadata?.reminder_template_sid
+                  ? "configurados (la primera vez, Meta puede tardar hasta 24-48h en aprobar la plantilla)."
+                  : "no se pudieron configurar automáticamente — contactá a soporte para activarlos."}
+              </p>
               <Button variant="outline" onClick={disconnectTwilio}>
                 Desconectar
               </Button>
