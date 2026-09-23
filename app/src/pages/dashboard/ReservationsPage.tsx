@@ -168,7 +168,10 @@ export function ReservationsPage() {
               {upcoming.map((r) => (
                 <tr key={r.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3">{new Date(r.start_at).toLocaleString()}</td>
-                  <td className="px-4 py-3">{r.customer_name || r.customers?.name || r.customers?.phone}</td>
+                  <td className="px-4 py-3">
+                    {r.customer_name || r.customers?.name || r.customers?.phone}
+                    {r.special_requests && <p className="max-w-xs text-xs text-muted-foreground">{r.special_requests}</p>}
+                  </td>
                   <td className="px-4 py-3">{r.services?.name ?? "—"}</td>
                   <td className="px-4 py-3">{r.resources?.name ?? "—"}</td>
                   <td className="px-4 py-3">

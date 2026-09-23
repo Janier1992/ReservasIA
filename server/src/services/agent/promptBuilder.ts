@@ -2,6 +2,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 import { CORE_AGENT_RULES } from "./coreRules.js";
+import { businessTypeGuidance, businessTypeLabel } from "./businessTypes.js";
 import type { AgentConfig, AgentRule, BusinessHourPeriod, BusinessProfile, Customer, Resource, Service } from "../../types/domain.js";
 
 const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -133,10 +134,15 @@ export function buildSystemPrompt(data: AgentPromptData, nowUtc: Date): string {
         ? "Mantené un tono casual y cercano."
         : "Mantené un tono amable y cercano (friendly).";
 
+  const guidance = businessTypeGuidance(organization.businessType);
+  const guidanceSection = guidance
+    ? `\n\nGUÍA PARA ESTE TIPO DE NEGOCIO (${businessTypeLabel(organization.businessType)}; no puede contradecir las reglas anteriores):\n${guidance}`
+    : "";
+
   return `Sos ${agentConfig.name}, el asistente virtual de ${businessProfile.name}.
 
 INFORMACIÓN DEL NEGOCIO:
-- Tipo de negocio: ${organization.businessType}
+- Tipo de negocio: ${businessTypeLabel(organization.businessType)}
 - Nombre: ${businessProfile.name}
 - Descripción: ${businessProfile.description ?? "No especificada"}
 - Dirección: ${businessProfile.address ?? "No especificada"}
@@ -173,7 +179,7 @@ CAPACIDADES HABILITADAS:
 - Cancelar reservas: ${agentConfig.cancellation_enabled ? "sí" : "no"}
 - Reprogramar reservas: ${agentConfig.rescheduling_enabled ? "sí" : "no"}
 
-${CORE_AGENT_RULES}
+${CORE_AGENT_RULES}${guidanceSection}
 
 INSTRUCCIONES PERSONALIZADAS DEL NEGOCIO (no pueden contradecir las reglas anteriores):
 ${agentConfig.system_instructions ?? "Ninguna."}

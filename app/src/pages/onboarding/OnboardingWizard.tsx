@@ -29,6 +29,7 @@ const initialData: WizardData = {
   hours: DEFAULT_HOURS,
   services: [],
   resources: [],
+  capacityTotal: null,
   agentName: "Valentina",
   agentTone: "friendly",
   agentLanguage: "es"
@@ -125,7 +126,7 @@ export function OnboardingWizard() {
     }
   }
 
-  async function saveResources(resources: WizardData["resources"]) {
+  async function saveResources(resources: WizardData["resources"], capacityTotal: number | null) {
     if (!data.organizationId) return;
     setSaving(true);
     try {
@@ -135,7 +136,14 @@ export function OnboardingWizard() {
           .insert(resources.map((r) => ({ organization_id: data.organizationId, ...r })));
         if (error) throw error;
       }
-      setData((prev) => ({ ...prev, resources }));
+      if (capacityTotal !== null) {
+        const { error } = await insforge.database
+          .from("business_profiles")
+          .update({ capacity_total: capacityTotal })
+          .eq("organization_id", data.organizationId);
+        if (error) throw error;
+      }
+      setData((prev) => ({ ...prev, resources, capacityTotal }));
       setStep(8);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudieron guardar los recursos.");
@@ -212,8 +220,18 @@ export function OnboardingWizard() {
             />
           )}
           {step === 5 && <Step5Hours value={data.hours} onBack={() => setStep(4)} onNext={saveHours} />}
-          {step === 6 && <Step6Services value={data.services} onBack={() => setStep(5)} onNext={saveServices} />}
-          {step === 7 && <Step7Resources value={data.resources} onBack={() => setStep(6)} onNext={saveResources} />}
+          {step === 6 && (
+            <Step6Services value={data.services} businessType={data.businessType} onBack={() => setStep(5)} onNext={saveServices} />
+          )}
+          {step === 7 && (
+            <Step7Resources
+              value={data.resources}
+              capacityTotal={data.capacityTotal}
+              businessType={data.businessType}
+              onBack={() => setStep(6)}
+              onNext={saveResources}
+            />
+          )}
           {step === 8 && (
             <Step8Agent
               value={{ agentName: data.agentName, agentTone: data.agentTone, agentLanguage: data.agentLanguage }}

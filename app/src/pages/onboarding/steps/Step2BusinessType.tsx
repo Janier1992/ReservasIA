@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { BUSINESS_TYPES } from "../wizardTypes";
+import { BUSINESS_TYPES } from "@/lib/businessTypes";
 
 export function Step2BusinessType({ value, onNext, onBack }: { value: string; onNext: (type: string) => void; onBack: () => void }) {
   const [selected, setSelected] = useState(value || "restaurant");

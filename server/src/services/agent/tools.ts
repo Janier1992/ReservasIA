@@ -130,7 +130,11 @@ const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCom
           cantidad_personas: { type: "number" },
           service_id: { type: "string" },
           resource_id: { type: "string" },
-          notas: { type: "string" },
+          notas: {
+            type: "string",
+            description:
+              "Datos adicionales útiles para el negocio que el cliente haya dado (ej: motivo de la consulta, nombre y especie de la mascota, marca/modelo/placa del vehículo, nombre y nivel del estudiante, ocasión especial)."
+          },
           metodo_pago: {
             type: "string",
             enum: ["anticipado", "en_sitio"],

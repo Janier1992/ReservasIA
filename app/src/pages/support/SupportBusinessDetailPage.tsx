@@ -16,6 +16,7 @@ import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
 import { paymentStatusLabel, paymentStatusVariant } from "@/lib/paymentStatus";
+import { businessTypeLabel } from "@/lib/businessTypes";
 import type { AgentConfig, BusinessProfile, Conversation, Organization, Reservation, SubscriptionPayment, SupportNote } from "@/types/domain";
 
 const ORG_STATUS_LABEL: Record<Organization["status"], string> = {
@@ -267,7 +268,7 @@ export function SupportBusinessDetailPage() {
             {org && <Badge variant={org.status === "active" ? "success" : "destructive"}>{ORG_STATUS_LABEL[org.status]}</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">
-            {org?.business_type} · Alta {org ? new Date(org.created_at).toLocaleDateString() : "—"}
+            {businessTypeLabel(org?.business_type)} · Alta {org ? new Date(org.created_at).toLocaleDateString() : "—"}
           </p>
         </div>
         {org && org.status !== "cancelled" && (

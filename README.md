@@ -1,7 +1,8 @@
 # Reservas AI — SaaS multi-tenant de agentes de reservas
 
 Plataforma SaaS multi-tenant para negocios que trabajan con reservas o turnos (restaurantes, barberías,
-peluquerías/salones de belleza, clínicas, spas, gimnasios, estudios, consultorios, etc.). Cada negocio configura su
+peluquerías/salones de belleza, spas, consultorios odontológicos y médicos, fisioterapia, veterinarias, talleres
+mecánicos, academias, gimnasios, estudios, etc.). Cada negocio configura su
 propio agente de IA, que atiende a sus clientes por **Telegram** (canal recomendado, gratuito) o **WhatsApp**,
 consulta disponibilidad real contra la agenda del negocio y crea, cancela o reprograma reservas — sincronizando
 automáticamente con **Google Calendar**, tanto el del negocio como una invitación al propio calendario del cliente.
@@ -119,8 +120,10 @@ Backend: **[InsForge](https://insforge.dev)** (PostgreSQL + Auth + Data API, ges
   `(organization_id, resource_id, tstzrange(start_at, end_at))`, más locks de asesoría (`pg_advisory_xact_lock`)
   para el caso de capacidad total sin recursos individuales.
 - **Agente genérico**: el prompt se arma en runtime a partir de `business_profiles`, `services`, `resources`,
-  `business_hour_periods`, `agents`, `agent_rules` y el estado de la integración de Google Calendar. Nunca hay
-  lógica hardcodeada a un rubro de negocio.
+  `business_hour_periods`, `agents`, `agent_rules` y el estado de la integración de Google Calendar. El motor de
+  reservas es el mismo para todos los rubros; lo único específico por rubro es una guía opcional para el agente
+  (`server/src/services/agent/businessTypes.ts`: qué datos anotar y límites de seguridad, como no dar diagnósticos)
+  y las plantillas de servicios del onboarding (`app/src/lib/businessTypes.ts`).
 
 ### Por qué hay tres lugares donde vive "backend"
 

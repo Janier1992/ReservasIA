@@ -5,6 +5,7 @@ import { insforge } from "@/lib/insforgeClient";
 import { Badge } from "@/components/ui/badge";
 import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
+import { businessTypeLabel } from "@/lib/businessTypes";
 import type { Organization } from "@/types/domain";
 
 interface BusinessRow extends Organization {
@@ -125,7 +126,7 @@ export function SupportBusinessesListPage() {
                       {b.displayName}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{b.business_type}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{businessTypeLabel(b.business_type)}</td>
                   <td className="px-4 py-3 text-muted-foreground">{new Date(b.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3">
                     <Badge variant={b.status === "active" ? "success" : "destructive"}>

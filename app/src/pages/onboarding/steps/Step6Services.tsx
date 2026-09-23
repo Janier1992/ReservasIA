@@ -4,20 +4,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CURRENCY_OPTIONS, DEFAULT_CURRENCY } from "@/lib/currency";
+import { getBusinessType } from "@/lib/businessTypes";
 import type { OnboardingServiceDraft } from "../wizardTypes";
+
+function initialServices(value: OnboardingServiceDraft[], businessType: string): OnboardingServiceDraft[] {
+  if (value.length > 0) return value;
+  const suggested = getBusinessType(businessType).suggestedServices;
+  if (suggested.length === 0) return [{ name: "", duration_minutes: 60, price: null, currency: DEFAULT_CURRENCY }];
+  return suggested.map((s) => ({ ...s, price: null, currency: DEFAULT_CURRENCY }));
+}
 
 export function Step6Services({
   value,
+  businessType,
   onNext,
   onBack
 }: {
   value: OnboardingServiceDraft[];
+  businessType: string;
   onNext: (services: OnboardingServiceDraft[]) => void;
   onBack: () => void;
 }) {
-  const [services, setServices] = useState<OnboardingServiceDraft[]>(
-    value.length > 0 ? value : [{ name: "", duration_minutes: 60, price: null, currency: DEFAULT_CURRENCY }]
-  );
+  const [services, setServices] = useState<OnboardingServiceDraft[]>(() => initialServices(value, businessType));
+  const usingSuggestions = value.length === 0 && getBusinessType(businessType).suggestedServices.length > 0;
 
   const update = (i: number, patch: Partial<OnboardingServiceDraft>) =>
     setServices((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -26,7 +35,11 @@ export function Step6Services({
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold">Servicios que ofrecés</h2>
-        <p className="text-sm text-muted-foreground">Ej: "Corte de cabello", "Reserva de mesa", "Consulta inicial".</p>
+        <p className="text-sm text-muted-foreground">
+          {usingSuggestions
+            ? "Te sugerimos algunos servicios típicos de tu rubro. Ajustá nombres y duraciones, poné tus precios y borrá los que no ofrezcas."
+            : 'Ej: "Corte de cabello", "Reserva de mesa", "Consulta inicial".'}
+        </p>
       </div>
       <div className="space-y-2">
         {services.map((s, i) => (

@@ -94,7 +94,51 @@ describe("buildSystemPrompt", () => {
       new Date("2026-09-07T15:00:00Z")
     );
     expect(prompt).toContain("Sos Sofía, el asistente virtual de La Buena Mesa.");
-    expect(prompt).toContain("Tipo de negocio: restaurant");
+    expect(prompt).toContain("Tipo de negocio: Restaurante");
+  });
+});
+
+describe("buildSystemPrompt business type guidance", () => {
+  const now = new Date("2026-09-07T15:00:00Z");
+  const withType = (businessType: string) =>
+    buildSystemPrompt(makeData({ organization: { id: "org-1", businessType, timezone: "America/Bogota", status: "active" } }), now);
+
+  it("shows the business type in Spanish instead of the internal slug", () => {
+    expect(withType("auto_repair")).toContain("Tipo de negocio: Taller mecánico");
+  });
+
+  it("falls back to the raw value for a business type outside the catalog", () => {
+    expect(withType("floristeria")).toContain("Tipo de negocio: floristeria");
+  });
+
+  it("asks a veterinary agent for the pet's name and species and forbids diagnoses", () => {
+    const prompt = withType("veterinary");
+    expect(prompt).toContain("GUÍA PARA ESTE TIPO DE NEGOCIO (Veterinaria");
+    expect(prompt).toContain("nombre de la mascota");
+    expect(prompt).toContain("Nunca des diagnósticos");
+  });
+
+  it("asks an auto repair agent for the vehicle's plate", () => {
+    expect(withType("auto_repair")).toContain("placa del vehículo");
+  });
+
+  it("tells health-related agents to redirect emergencies instead of booking them", () => {
+    for (const type of ["dental", "clinic", "physiotherapy"]) {
+      expect(withType(type)).toContain("línea de emergencias");
+    }
+  });
+
+  it("places the guidance after the core rules and before the business's own instructions", () => {
+    const prompt = withType("academy");
+    const coreIndex = prompt.indexOf(CORE_AGENT_RULES);
+    const guidanceIndex = prompt.indexOf("GUÍA PARA ESTE TIPO DE NEGOCIO");
+    const customIndex = prompt.indexOf("Ofrecé siempre agua o café al cliente.");
+    expect(guidanceIndex).toBeGreaterThan(coreIndex);
+    expect(customIndex).toBeGreaterThan(guidanceIndex);
+  });
+
+  it("adds no guidance section for business types that don't need one", () => {
+    expect(withType("barbershop")).not.toContain("GUÍA PARA ESTE TIPO DE NEGOCIO");
   });
 });
 
