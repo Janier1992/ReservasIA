@@ -55,6 +55,20 @@ interface ActivePoller {
  */
 const activePollers = new Map<string, ActivePoller>();
 
+// Cada `getTelegramUpdates` que resuelve (con o sin mensajes nuevos) prueba
+// que el loop sigue vivo — se usa para que /api/health pueda distinguir
+// "el proceso responde" de "el poller además sigue funcionando de verdad"
+// (ver el bug de AbortSignal.any que dejó el poller trabado sin caerse el
+// proceso).
+let lastPollSuccessAt: number | null = null;
+
+export function getTelegramPollerHealth(): { activeOrgCount: number; lastPollSuccessAt: string | null } {
+  return {
+    activeOrgCount: activePollers.size,
+    lastPollSuccessAt: lastPollSuccessAt ? new Date(lastPollSuccessAt).toISOString() : null
+  };
+}
+
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     const timer = setTimeout(resolve, ms);
@@ -176,6 +190,7 @@ async function runPollLoop(organizationId: string, botToken: string, signal: Abo
   while (!signal.aborted) {
     try {
       const updates = await getTelegramUpdates(botToken, offset, LONG_POLL_TIMEOUT_SECONDS, signal);
+      lastPollSuccessAt = Date.now();
 
       for (const update of updates) {
         offset = update.update_id + 1;
@@ -218,6 +233,11 @@ async function refreshPollers(): Promise<void> {
     if (activePollers.has(organizationId)) continue;
     const controller = new AbortController();
     activePollers.set(organizationId, { controller, botToken });
+    // Línea de base optimista: recién arrancado, todavía no tuvo tiempo de
+    // completar su primer getUpdates (hasta LONG_POLL_TIMEOUT_SECONDS) —
+    // sin esto, /api/health marcaría "degraded" por unos segundos en cada
+    // arranque/redeploy.
+    lastPollSuccessAt = Date.now();
     runPollLoop(organizationId, botToken, controller.signal).catch((err) => {
       logger.error({ organizationId, err }, "telegram_poll_loop_crashed");
       activePollers.delete(organizationId);
