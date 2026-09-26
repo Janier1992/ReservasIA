@@ -7,7 +7,8 @@
 --
 --   psql "<connection-string-de-tu-proyecto-InsForge>" -f db-tests/tenant-isolation.sql
 --
--- No se pudo ejecutar en el entorno donde se generó este proyecto (sin
+-- Corre en CI (scripts/test-db.sh) contra un Postgres vacío con el stub de
+-- InsForge. Antes de eso no se había podido ejecutar (sin
 -- proyecto InsForge vinculado ni acceso a Docker/Postgres local). Revisar
 -- el resultado la primera vez que se corra contra un proyecto real.
 --

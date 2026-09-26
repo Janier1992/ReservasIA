@@ -453,17 +453,26 @@ npm test
 Corre la suite de `server` (vitest: motor de disponibilidad, reglas y herramientas del agente, prompt builder,
 webhook de Twilio, procesamiento de Telegram — con InsForge mockeado, no requiere proyecto real) y de `app`.
 
-### Tests de aislamiento multi-tenant / RLS
+### Tests de base de datos (migraciones + RLS)
 
 ```bash
-psql "<connection-string-de-tu-proyecto-InsForge>" -f db-tests/tenant-isolation.sql
+PGHOST=localhost PGUSER=postgres PGPASSWORD=postgres PGDATABASE=postgres scripts/test-db.sh
 ```
 
-Verifica que un owner/staff de una organización no puede leer, insertar, actualizar ni borrar datos de otra, que
-staff no puede ver integraciones ni eliminar la organización, y que el `EXCLUDE` constraint bloquea reservas
-solapadas. Requiere reemplazar los UUID de usuarios de prueba por cuentas reales ya registradas y ejecutarse en una
-única sesión `psql` (no como una secuencia de `db query` sueltos, porque necesita mantener `SET LOCAL ROLE` dentro
-de una misma transacción).
+Sobre un Postgres **vacío** (nunca un proyecto InsForge real: crea roles, esquemas y datos), aplica
+`db-tests/insforge-stub.sql` (roles, `auth.uid()`, `auth.users`, storage), todas las migraciones en orden, y corre:
+
+- `db-tests/tenant-isolation.sql`: un owner/staff de una organización no puede leer, insertar, actualizar ni
+  borrar datos de otra; staff no ve integraciones ni puede eliminar la organización; el `EXCLUDE` constraint
+  bloquea reservas solapadas.
+- `db-tests/modules-billing-walkins.sql`: solo soporte cambia módulos, estado y vencimiento de la suscripción;
+  Atención en sitio y Reportes arrancan apagados; la fila de atención queda aislada por negocio; atender crea
+  una reserva real, una bahía ocupada se rechaza y finalizar la completa.
+
+### CI
+
+`.github/workflows/ci.yml` corre en cada push a `main` y en cada pull request: lint, typecheck, tests, build,
+`npm audit` (falla con vulnerabilidades altas) y los tests de base de datos de arriba contra un Postgres 16.
 
 ## Build y producción
 
