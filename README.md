@@ -2,7 +2,7 @@
 
 Plataforma SaaS multi-tenant para negocios que trabajan con reservas o turnos (restaurantes, barberías,
 peluquerías/salones de belleza, spas, consultorios odontológicos y médicos, fisioterapia, veterinarias, talleres
-mecánicos, academias, gimnasios, estudios, etc.). Cada negocio configura su
+mecánicos, lavaderos de vehículos, academias, gimnasios, estudios, etc.). Cada negocio configura su
 propio agente de IA, que atiende a sus clientes por **Telegram** (canal recomendado, gratuito) o **WhatsApp**,
 consulta disponibilidad real contra la agenda del negocio y crea, cancela o reprograma reservas — sincronizando
 automáticamente con **Google Calendar**, tanto el del negocio como una invitación al propio calendario del cliente.

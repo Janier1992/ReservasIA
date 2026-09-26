@@ -15,6 +15,7 @@ const BUSINESS_TYPE_LABELS: Record<string, string> = {
   physiotherapy: "Fisioterapia / Rehabilitación",
   veterinary: "Veterinaria",
   auto_repair: "Taller mecánico",
+  car_wash: "Lavadero de vehículos",
   academy: "Academia / Clases",
   gym: "Gimnasio",
   studio: "Estudio",
@@ -50,6 +51,11 @@ const BUSINESS_TYPE_GUIDANCE: Record<string, string[]> = {
   auto_repair: [
     "Pedí la marca, el modelo y la placa del vehículo, y una breve descripción del problema o del servicio que necesita, y anotalo todo en el campo notas de crear_reserva.",
     "Nunca des diagnósticos mecánicos definitivos ni valores que no estén en la lista de servicios: el costo final lo define el taller después de revisar el vehículo."
+  ],
+  car_wash: [
+    "Pedí el tipo de vehículo (carro, camioneta, moto) y la placa, y anotalos en el campo notas de crear_reserva junto con cualquier pedido especial del cliente.",
+    "Si el precio depende del tamaño del vehículo, usá solo los valores de la lista de servicios; si no hay uno para ese caso, indicá que el valor final lo confirma el lavadero al recibir el vehículo.",
+    "No prometas resultados como quitar rayones, manchas u olores: eso lo evalúa el lavadero al ver el vehículo."
   ],
   academy: [
     "Quien escribe puede no ser el estudiante (por ejemplo, una madre o un padre inscribiendo a su hijo o hija). Pedí el nombre del estudiante y, si aplica, su edad o nivel, y anotalo en el campo notas de crear_reserva.",

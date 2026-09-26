@@ -109,6 +109,19 @@ export const BUSINESS_TYPES: BusinessTypeDefinition[] = [
     resourceExample: { name: "Bahía 1", type: "bahía" }
   },
   {
+    value: "car_wash",
+    label: "Lavadero de vehículos",
+    suggestedServices: [
+      { name: "Lavado exterior", duration_minutes: 30 },
+      { name: "Lavado general (exterior + interior)", duration_minutes: 60 },
+      { name: "Lavado de motor", duration_minutes: 30 },
+      { name: "Lavado de moto", duration_minutes: 30 },
+      { name: "Polichado / brillado", duration_minutes: 120 },
+      { name: "Lavado de tapicería", duration_minutes: 180 }
+    ],
+    resourceExample: { name: "Bahía de lavado 1", type: "bahía" }
+  },
+  {
     value: "academy",
     label: "Academia / Clases",
     suggestedServices: [

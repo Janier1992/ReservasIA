@@ -122,6 +122,13 @@ describe("buildSystemPrompt business type guidance", () => {
     expect(withType("auto_repair")).toContain("placa del vehículo");
   });
 
+  it("asks a car wash agent for the vehicle type and plate without promising results", () => {
+    const prompt = withType("car_wash");
+    expect(prompt).toContain("Tipo de negocio: Lavadero de vehículos");
+    expect(prompt).toContain("tipo de vehículo");
+    expect(prompt).toContain("No prometas resultados");
+  });
+
   it("tells health-related agents to redirect emergencies instead of booking them", () => {
     for (const type of ["dental", "clinic", "physiotherapy"]) {
       expect(withType(type)).toContain("línea de emergencias");
