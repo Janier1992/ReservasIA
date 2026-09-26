@@ -50,25 +50,69 @@ async function persistMessage(input: {
   ]);
 }
 
-function mapHistoryToOpenAiMessages(rows: Message[]): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
+/**
+ * La API exige que cada mensaje de assistant con `tool_calls` vaya seguido
+ * INMEDIATAMENTE por un mensaje `tool` por cada tool_call_id, y rechaza con
+ * 400 cualquier otra secuencia. El historial guardado no siempre cumple eso:
+ * - dos turnos simultáneos sobre la misma conversación (incidente
+ *   2026-09-25) dejan las filas intercaladas: tool_calls A, tool_calls B,
+ *   resultado A, resultado B;
+ * - la ventana de MAX_CONVERSATION_HISTORY_MESSAGES puede cortar justo
+ *   entre un tool_calls y sus resultados, dejando resultados huérfanos.
+ * Si se manda tal cual, TODOS los turnos siguientes de esa conversación
+ * fallan (el cliente solo recibe el mensaje de "tuve un inconveniente")
+ * hasta que lo roto sale de la ventana. Por eso se reconstruye una
+ * secuencia válida: un tool_calls sin todas sus respuestas contiguas se
+ * degrada a texto (o se descarta si no tiene texto), y los resultados
+ * huérfanos se descartan.
+ */
+export function mapHistoryToOpenAiMessages(rows: Message[]): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
-  for (const row of rows) {
+  let i = 0;
+
+  while (i < rows.length) {
+    const row = rows[i];
+
     if (row.role === "user") {
       messages.push({ role: "user", content: row.content });
-    } else if (row.role === "assistant" || row.role === "staff") {
-      const toolCalls = row.metadata?.tool_calls as OpenAI.Chat.Completions.ChatCompletionMessageToolCall[] | undefined;
-      if (toolCalls && toolCalls.length > 0) {
-        messages.push({ role: "assistant", content: row.content || null, tool_calls: toolCalls });
-      } else {
-        messages.push({ role: "assistant", content: row.content });
-      }
-    } else if (row.role === "tool") {
-      const toolCallId = row.metadata?.tool_call_id as string | undefined;
-      if (toolCallId) {
-        messages.push({ role: "tool", tool_call_id: toolCallId, content: row.content });
-      }
+      i++;
+      continue;
     }
+
+    if (row.role === "assistant" || row.role === "staff") {
+      const toolCalls = row.metadata?.tool_calls as OpenAI.Chat.Completions.ChatCompletionMessageToolCall[] | undefined;
+
+      if (toolCalls && toolCalls.length > 0) {
+        let j = i + 1;
+        const responses = new Map<string, string>();
+        while (j < rows.length && rows[j].role === "tool") {
+          const toolCallId = rows[j].metadata?.tool_call_id as string | undefined;
+          if (toolCallId) responses.set(toolCallId, rows[j].content);
+          j++;
+        }
+
+        if (toolCalls.every((tc) => responses.has(tc.id))) {
+          messages.push({ role: "assistant", content: row.content || null, tool_calls: toolCalls });
+          for (const tc of toolCalls) {
+            messages.push({ role: "tool", tool_call_id: tc.id, content: responses.get(tc.id)! });
+          }
+        } else if (row.content) {
+          messages.push({ role: "assistant", content: row.content });
+        }
+        i = j;
+        continue;
+      }
+
+      if (row.content) messages.push({ role: "assistant", content: row.content });
+      i++;
+      continue;
+    }
+
+    // Resultado de herramienta huérfano (su tool_calls no quedó justo
+    // antes) u otro rol: se descarta.
+    i++;
   }
+
   return messages;
 }
 

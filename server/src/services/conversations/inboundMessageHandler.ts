@@ -1,4 +1,5 @@
 import { insforgeAdmin } from "../../lib/insforge.js";
+import { logger } from "../../lib/logger.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 import { findOrCreateCustomerByPhone } from "../customers/customersService.js";
 import { MAX_MESSAGE_LENGTH } from "../../config/env.js";
@@ -89,12 +90,42 @@ export interface InboundMessageInput {
   customerName?: string;
 }
 
-export interface InboundMessageResult {
-  conversationId: string;
-  customerId: string;
+export type InboundMessageResult =
+  | { duplicate: false; conversationId: string; customerId: string }
+  | { duplicate: true };
+
+/**
+ * Reclama el mensaje de forma atómica en la base compartida. Devuelve false
+ * si otro proceso ya lo reclamó (ver migración inbound-message-claims:
+ * dos instancias leyendo el mismo bot reciben el mismo update). Ante
+ * cualquier otro error falla "abierto" — perder un mensaje del cliente es
+ * peor que arriesgar un duplicado.
+ */
+async function claimInboundMessage(input: InboundMessageInput): Promise<boolean> {
+  if (!input.externalMessageId) return true;
+  const { error } = await insforgeAdmin.database.from("inbound_message_claims").insert([
+    {
+      organization_id: input.organizationId,
+      channel: input.channel,
+      external_conversation_id: input.externalConversationId,
+      external_message_id: input.externalMessageId
+    }
+  ]);
+  if (!error) return true;
+  if ((error as { code?: string }).code === "23505") return false;
+  logger.warn({ organizationId: input.organizationId, err: error }, "inbound_message_claim_failed_processing_anyway");
+  return true;
 }
 
 export async function handleInboundMessage(input: InboundMessageInput): Promise<InboundMessageResult> {
+  if (!(await claimInboundMessage(input))) {
+    logger.warn(
+      { organizationId: input.organizationId, channel: input.channel, externalMessageId: input.externalMessageId },
+      "inbound_message_duplicate_skipped"
+    );
+    return { duplicate: true };
+  }
+
   const customer = await findOrCreateCustomerByPhone(input.organizationId, input.externalIdentity, input.customerName);
   const conversation = await findOrCreateActiveConversation(
     input.organizationId,
@@ -116,5 +147,5 @@ export async function handleInboundMessage(input: InboundMessageInput): Promise<
     }
   ]);
 
-  return { conversationId: conversation.id, customerId: customer.id };
+  return { duplicate: false, conversationId: conversation.id, customerId: customer.id };
 }

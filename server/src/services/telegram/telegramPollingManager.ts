@@ -11,6 +11,7 @@ import {
   listConnectedTelegramBots,
   sendTelegramMessage,
   sendTelegramTypingAction,
+  TELEGRAM_POLL_CONFLICT,
   type TelegramUpdate
 } from "./telegramService.js";
 
@@ -62,10 +63,20 @@ const activePollers = new Map<string, ActivePoller>();
 // proceso).
 let lastPollSuccessAt: number | null = null;
 
-export function getTelegramPollerHealth(): { activeOrgCount: number; lastPollSuccessAt: string | null } {
+// Organizaciones cuyo último getUpdates devolvió 409 (otro proceso leyendo
+// el mismo bot). Se limpia en cuanto un getUpdates de esa org vuelve a
+// funcionar.
+const conflictedOrgs = new Set<string>();
+
+export function getTelegramPollerHealth(): {
+  activeOrgCount: number;
+  lastPollSuccessAt: string | null;
+  conflictOrgCount: number;
+} {
   return {
     activeOrgCount: activePollers.size,
-    lastPollSuccessAt: lastPollSuccessAt ? new Date(lastPollSuccessAt).toISOString() : null
+    lastPollSuccessAt: lastPollSuccessAt ? new Date(lastPollSuccessAt).toISOString() : null,
+    conflictOrgCount: conflictedOrgs.size
   };
 }
 
@@ -93,7 +104,7 @@ async function processPhotoMessage(
 ): Promise<void> {
   const externalIdentity = `telegram:${chatId}`;
 
-  const { conversationId, customerId } = await handleInboundMessage({
+  const inbound = await handleInboundMessage({
     organizationId,
     channel: "telegram",
     externalIdentity,
@@ -103,6 +114,8 @@ async function processPhotoMessage(
     messageType: "image",
     customerName: telegramDisplayName(message.from)
   });
+  if (inbound.duplicate) return;
+  const { conversationId, customerId } = inbound;
 
   try {
     const { bytes, mimeType } = await downloadTelegramPhoto(botToken, message.photo!);
@@ -156,7 +169,7 @@ export async function processUpdate(organizationId: string, botToken: string, up
 
   const externalIdentity = `telegram:${chatId}`;
 
-  const { conversationId, customerId } = await handleInboundMessage({
+  const inbound = await handleInboundMessage({
     organizationId,
     channel: "telegram",
     externalIdentity,
@@ -165,6 +178,10 @@ export async function processUpdate(organizationId: string, botToken: string, up
     externalMessageId: String(message.message_id),
     customerName: telegramDisplayName(message.from)
   });
+  // Otro proceso ya tomó este update (dos instancias leyendo el mismo bot):
+  // correr un segundo turno del agente duplicaría respuestas y reservas.
+  if (inbound.duplicate) return;
+  const { conversationId, customerId } = inbound;
 
   const result = await withTypingIndicator(
     botToken,
@@ -191,6 +208,7 @@ async function runPollLoop(organizationId: string, botToken: string, signal: Abo
     try {
       const updates = await getTelegramUpdates(botToken, offset, LONG_POLL_TIMEOUT_SECONDS, signal);
       lastPollSuccessAt = Date.now();
+      conflictedOrgs.delete(organizationId);
 
       for (const update of updates) {
         offset = update.update_id + 1;
@@ -202,7 +220,15 @@ async function runPollLoop(organizationId: string, botToken: string, signal: Abo
       }
     } catch (err) {
       if (signal.aborted || (err as { name?: string }).name === "AbortError") break;
-      logger.warn({ organizationId, err }, "telegram_get_updates_failed");
+      if ((err as { code?: string }).code === TELEGRAM_POLL_CONFLICT) {
+        conflictedOrgs.add(organizationId);
+        logger.error(
+          { organizationId },
+          "telegram_poll_conflict_another_instance_running: otro proceso (¿server local con credenciales de producción?) está leyendo este bot"
+        );
+      } else {
+        logger.warn({ organizationId, err }, "telegram_get_updates_failed");
+      }
       await sleep(ERROR_BACKOFF_MS, signal);
     }
   }
@@ -226,6 +252,7 @@ async function refreshPollers(): Promise<void> {
     if (!stillConnectedToken || stillConnectedToken !== poller.botToken) {
       poller.controller.abort();
       activePollers.delete(organizationId);
+      conflictedOrgs.delete(organizationId);
     }
   }
 

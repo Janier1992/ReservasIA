@@ -52,7 +52,7 @@ webhooksRouter.post(
       }
 
       const fromPhone = stripWhatsappPrefix(From);
-      const { conversationId, customerId } = await handleInboundMessage({
+      const inbound = await handleInboundMessage({
         organizationId: routing.organizationId,
         channel: "whatsapp",
         externalIdentity: fromPhone,
@@ -61,6 +61,14 @@ webhooksRouter.post(
         externalMessageId: MessageSid,
         customerName: ProfileName
       });
+
+      // Reintento de Twilio (o de otro proceso) para un MessageSid ya
+      // procesado: se confirma igual para que Twilio deje de reintentar.
+      if (inbound.duplicate) {
+        res.status(200).type("text/xml").send("<Response></Response>");
+        return;
+      }
+      const { conversationId, customerId } = inbound;
 
       // Respondemos de inmediato a Twilio (< 15s) y procesamos el agente de
       // forma asíncrona, enviando la respuesta luego vía la API REST de

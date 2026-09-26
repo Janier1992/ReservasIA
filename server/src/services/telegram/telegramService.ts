@@ -2,6 +2,7 @@ import { insforgeAdmin } from "../../lib/insforge.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 
 const TELEGRAM_API_BASE = "https://api.telegram.org";
+export const TELEGRAM_POLL_CONFLICT = "TELEGRAM_POLL_CONFLICT";
 const SEND_TIMEOUT_MS = 10_000;
 const SEND_MAX_ATTEMPTS = 3;
 
@@ -184,6 +185,14 @@ export async function getTelegramUpdates(botToken: string, offset: number, timeo
   } finally {
     clearTimeout(timer);
     signal.removeEventListener("abort", onAbort);
+  }
+
+  if (res.status === 409) {
+    // "Conflict: terminated by other getUpdates request": otro proceso está
+    // leyendo este mismo bot (p. ej. el server corriendo en local con las
+    // credenciales de producción). Se distingue para poder loguearlo y
+    // exponerlo en /api/health, en vez de un fallo genérico más.
+    throw new AppError(TELEGRAM_POLL_CONFLICT, "Otro proceso está leyendo este bot de Telegram (409 Conflict).", 409);
   }
 
   if (!res.ok) {
