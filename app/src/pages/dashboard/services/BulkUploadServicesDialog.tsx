@@ -1,104 +1,11 @@
 import { useRef, useState } from "react";
-import type * as XLSXType from "xlsx";
 import { toast } from "sonner";
 import { UploadCloud, Download } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
-
-// Mismos campos que muestra la vista de Servicios: Nombre, Duración (min),
-// Precio y Moneda. Los encabezados se aceptan sin importar mayúsculas/acentos
-// para que una planilla exportada de otro sistema también sirva.
-const TEMPLATE_HEADERS = ["Nombre", "Duración (min)", "Precio", "Moneda"];
-
-interface ParsedRow {
-  rowNumber: number;
-  name: string;
-  duration_minutes: number;
-  price: number | null;
-  currency: string;
-}
-
-interface RowError {
-  rowNumber: number;
-  message: string;
-}
-
-const DIACRITICS_PATTERN = /[̀-ͯ]/g;
-
-function normalizeHeader(header: string): string {
-  return header.toString().trim().toLowerCase().normalize("NFD").replace(DIACRITICS_PATTERN, "");
-}
-
-function findColumn(headers: string[], candidates: string[]): number {
-  const normalized = headers.map(normalizeHeader);
-  for (const candidate of candidates) {
-    const index = normalized.indexOf(candidate);
-    if (index !== -1) return index;
-  }
-  return -1;
-}
-
-function parseWorkbook(XLSX: typeof XLSXType, buffer: ArrayBuffer, defaultCurrency: string): { rows: ParsedRow[]; errors: RowError[] } {
-  const workbook = XLSX.read(buffer, { type: "array" });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const raw: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
-
-  if (raw.length === 0) return { rows: [], errors: [] };
-
-  const headers = raw[0].map((h) => String(h ?? ""));
-  const nameCol = findColumn(headers, ["nombre", "servicio", "name"]);
-  const durationCol = findColumn(headers, ["duracion (min)", "duracion", "duration_minutes", "duration"]);
-  const priceCol = findColumn(headers, ["precio", "price"]);
-  const currencyCol = findColumn(headers, ["moneda", "currency"]);
-
-  if (nameCol === -1 || durationCol === -1) {
-    return {
-      rows: [],
-      errors: [{ rowNumber: 1, message: 'El archivo debe tener al menos las columnas "Nombre" y "Duración (min)".' }]
-    };
-  }
-
-  const rows: ParsedRow[] = [];
-  const errors: RowError[] = [];
-
-  for (let i = 1; i < raw.length; i++) {
-    const line = raw[i];
-    const rowNumber = i + 1;
-    const name = String(line[nameCol] ?? "").trim();
-    if (!name) continue;
-
-    const durationRaw = line[durationCol];
-    const duration_minutes = Number(durationRaw);
-    if (!durationRaw || !Number.isFinite(duration_minutes) || duration_minutes <= 0) {
-      errors.push({ rowNumber, message: `"${name}": la duración debe ser un número mayor a 0.` });
-      continue;
-    }
-
-    let price: number | null = null;
-    if (priceCol !== -1 && line[priceCol] !== undefined && line[priceCol] !== "") {
-      const priceValue = Number(line[priceCol]);
-      if (!Number.isFinite(priceValue) || priceValue < 0) {
-        errors.push({ rowNumber, message: `"${name}": el precio debe ser un número mayor o igual a 0.` });
-        continue;
-      }
-      price = priceValue;
-    }
-
-    const currency = currencyCol !== -1 ? String(line[currencyCol] ?? "").trim().toUpperCase() : "";
-
-    rows.push({
-      rowNumber,
-      name,
-      duration_minutes: Math.round(duration_minutes),
-      price,
-      currency: currency || defaultCurrency
-    });
-  }
-
-  return { rows, errors };
-}
+import { TEMPLATE_HEADERS, parseServiceRows, type ParsedRow, type RowError } from "@/lib/servicesImport";
 
 export function BulkUploadServicesDialog({
   open,
@@ -118,23 +25,23 @@ export function BulkUploadServicesDialog({
   const [preview, setPreview] = useState<{ rows: ParsedRow[]; errors: RowError[] } | null>(null);
 
   async function downloadTemplate() {
-    const XLSX = await import("xlsx");
-    const worksheet = XLSX.utils.aoa_to_sheet([
-      TEMPLATE_HEADERS,
-      ["Corte de cabello", 30, 35000, DEFAULT_CURRENCY],
-      ["Manicura", 45, 40000, DEFAULT_CURRENCY]
-    ]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Servicios");
-    XLSX.writeFile(workbook, "plantilla-servicios.xlsx");
+    const { default: writeXlsxFile } = await import("write-excel-file/browser");
+    await writeXlsxFile(
+      [
+        TEMPLATE_HEADERS,
+        ["Corte de cabello", 30, 35000, DEFAULT_CURRENCY],
+        ["Manicura", 45, 40000, DEFAULT_CURRENCY]
+      ],
+      { sheet: "Servicios" }
+    ).toFile("plantilla-servicios.xlsx");
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const [XLSX, buffer] = await Promise.all([import("xlsx"), file.arrayBuffer()]);
-      const parsed = parseWorkbook(XLSX, buffer, defaultCurrency);
+      const { readSheet } = await import("read-excel-file/browser");
+      const parsed = parseServiceRows(await readSheet(file), defaultCurrency);
       setPreview(parsed);
     } catch {
       toast.error("No se pudo leer el archivo. Verificá que sea un .xlsx válido.");
@@ -194,7 +101,7 @@ export function BulkUploadServicesDialog({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx"
               className="input-base"
               onChange={handleFileChange}
             />
