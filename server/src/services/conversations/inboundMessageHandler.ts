@@ -126,6 +126,30 @@ export async function handleInboundMessage(input: InboundMessageInput): Promise<
     return { duplicate: true };
   }
 
+  try {
+    return await persistInboundMessage(input);
+  } catch (err) {
+    // El claim ya se tomó pero el mensaje no quedó guardado: si no se libera,
+    // una reentrega del mismo mensaje (reintento de Twilio, otro proceso) se
+    // descartaría como duplicado y el mensaje del cliente se perdería.
+    await releaseInboundMessageClaim(input);
+    throw err;
+  }
+}
+
+async function releaseInboundMessageClaim(input: InboundMessageInput): Promise<void> {
+  if (!input.externalMessageId) return;
+  const { error } = await insforgeAdmin.database
+    .from("inbound_message_claims")
+    .delete()
+    .eq("organization_id", input.organizationId)
+    .eq("channel", input.channel)
+    .eq("external_conversation_id", input.externalConversationId)
+    .eq("external_message_id", input.externalMessageId);
+  if (error) logger.warn({ organizationId: input.organizationId, err: error }, "inbound_message_claim_release_failed");
+}
+
+async function persistInboundMessage(input: InboundMessageInput): Promise<InboundMessageResult> {
   const customer = await findOrCreateCustomerByPhone(input.organizationId, input.externalIdentity, input.customerName);
   const conversation = await findOrCreateActiveConversation(
     input.organizationId,
@@ -148,4 +172,15 @@ export async function handleInboundMessage(input: InboundMessageInput): Promise<
   ]);
 
   return { duplicate: false, conversationId: conversation.id, customerId: customer.id };
+}
+
+// Un claim solo sirve mientras el mismo mensaje pueda volver a llegar
+// (reintentos de Twilio, otro proceso leyendo el bot): eso pasa en minutos,
+// así que una semana de retención sobra y evita que la tabla crezca sin fin.
+export const INBOUND_CLAIM_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function purgeOldInboundMessageClaims(now: Date = new Date()): Promise<void> {
+  const cutoff = new Date(now.getTime() - INBOUND_CLAIM_RETENTION_MS).toISOString();
+  const { error } = await insforgeAdmin.database.from("inbound_message_claims").delete().lt("claimed_at", cutoff);
+  if (error) throw error;
 }

@@ -4,6 +4,10 @@ import { logger } from "./lib/logger.js";
 import { startTelegramPollingManager, stopTelegramPollingManager } from "./services/telegram/telegramPollingManager.js";
 import { startReminderScheduler, stopReminderScheduler } from "./services/reminders/reminderScheduler.js";
 import { startSubscriptionScheduler, stopSubscriptionScheduler } from "./services/subscription/subscriptionScheduler.js";
+import {
+  startInboundClaimsCleanupScheduler,
+  stopInboundClaimsCleanupScheduler
+} from "./services/conversations/inboundClaimsCleanupScheduler.js";
 
 const app = createApp();
 
@@ -12,12 +16,14 @@ const server = app.listen(env.PORT, () => {
   startTelegramPollingManager();
   startReminderScheduler();
   startSubscriptionScheduler();
+  startInboundClaimsCleanupScheduler();
 });
 
 function shutdown() {
   stopTelegramPollingManager();
   stopReminderScheduler();
   stopSubscriptionScheduler();
+  stopInboundClaimsCleanupScheduler();
   server.close(() => process.exit(0));
 }
 
