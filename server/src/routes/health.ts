@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { env } from "../config/env.js";
 import { getTelegramPollerHealth } from "../services/telegram/telegramPollingManager.js";
 
 export const healthRouter = Router();
@@ -22,5 +23,11 @@ healthRouter.get("/", (_req, res) => {
   const degraded = telegramStale || telegramConflict;
   const reason = telegramConflict ? "telegram_poll_conflict_another_instance_running" : telegramStale ? "telegram_poller_stale" : undefined;
 
-  res.status(degraded ? 503 : 200).json({ status: degraded ? "degraded" : "ok", reason, telegram, timestamp: new Date().toISOString() });
+  res.status(degraded ? 503 : 200).json({
+    status: degraded ? "degraded" : "ok",
+    reason,
+    version: env.RAILWAY_GIT_COMMIT_SHA ? env.RAILWAY_GIT_COMMIT_SHA.slice(0, 7) : null,
+    telegram,
+    timestamp: new Date().toISOString()
+  });
 });

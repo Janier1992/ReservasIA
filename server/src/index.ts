@@ -13,6 +13,10 @@ const app = createApp();
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, env: env.NODE_ENV }, "server_started");
+  if (env.DISABLE_BACKGROUND_WORKERS) {
+    logger.warn("background_workers_disabled: sin poller de Telegram ni schedulers (DISABLE_BACKGROUND_WORKERS=true)");
+    return;
+  }
   startTelegramPollingManager();
   startReminderScheduler();
   startSubscriptionScheduler();
@@ -20,10 +24,12 @@ const server = app.listen(env.PORT, () => {
 });
 
 function shutdown() {
-  stopTelegramPollingManager();
-  stopReminderScheduler();
-  stopSubscriptionScheduler();
-  stopInboundClaimsCleanupScheduler();
+  if (!env.DISABLE_BACKGROUND_WORKERS) {
+    stopTelegramPollingManager();
+    stopReminderScheduler();
+    stopSubscriptionScheduler();
+    stopInboundClaimsCleanupScheduler();
+  }
   server.close(() => process.exit(0));
 }
 
