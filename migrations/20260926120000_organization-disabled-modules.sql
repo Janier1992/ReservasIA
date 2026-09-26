@@ -12,11 +12,18 @@ alter table public.organizations
 
 -- Solo claves conocidas (app/src/lib/modules.ts): un typo desde el panel de
 -- soporte falla acá en vez de quedar guardado sin efecto.
+--
+-- Incluye ya 'walk_ins' y 'reports' (que agrega formalmente la migración
+-- walk-ins-and-new-modules): el SQL de esa migración se ejecutó directo en
+-- producción antes de quedar registrado en el historial, así que al correr
+-- esta migración ya había filas con esas claves y la lista de 7 las
+-- rechazaba. El estado final es el mismo — la otra migración recrea este
+-- mismo check con las 9 claves.
 alter table public.organizations
   drop constraint if exists organizations_disabled_modules_known;
 alter table public.organizations
   add constraint organizations_disabled_modules_known
-  check (disabled_modules <@ array['inbox', 'customers', 'services', 'resources', 'agent', 'integrations', 'team']::text[]);
+  check (disabled_modules <@ array['inbox', 'customers', 'services', 'resources', 'agent', 'integrations', 'team', 'walk_ins', 'reports']::text[]);
 
 -- ------------------------------------------------------------
 -- Qué módulos tiene un negocio lo decide soporte, no el negocio: el dueño

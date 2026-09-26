@@ -66,6 +66,21 @@ describe("handleInboundMessage claim handling", () => {
     expect(claimQueries[1].eq).toHaveBeenCalledWith("external_message_id", "SM123");
   });
 
+  it("releases the claim when the message insert itself returns an error (the SDK does not throw)", async () => {
+    insforgeMockInstance = createInsforgeMock({
+      inbound_message_claims: { data: null, error: null },
+      conversations: { data: { id: "conv-1", customer_id: "cust-1", status: "active" }, error: null },
+      messages: { data: null, error: { message: "insert failed" } }
+    });
+    findOrCreateCustomerByPhoneMock.mockResolvedValue({ id: "cust-1" });
+
+    await expect(handleInboundMessage(input)).rejects.toThrow();
+
+    const claimQueries = queriesFor("inbound_message_claims");
+    expect(claimQueries).toHaveLength(2);
+    expect(claimQueries[1].delete).toHaveBeenCalled();
+  });
+
   it("keeps the claim when the message is saved", async () => {
     insforgeMockInstance = createInsforgeMock({
       inbound_message_claims: { data: null, error: null },

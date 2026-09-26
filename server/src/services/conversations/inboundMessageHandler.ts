@@ -159,7 +159,10 @@ async function persistInboundMessage(input: InboundMessageInput): Promise<Inboun
   );
 
   const content = input.content.slice(0, MAX_MESSAGE_LENGTH);
-  await insforgeAdmin.database.from("messages").insert([
+  // El SDK devuelve { error } en vez de lanzar: sin este chequeo, un fallo al
+  // guardar el mensaje no llegaría al catch de handleInboundMessage y el
+  // claim nunca se liberaría — justo el caso que esa liberación cubre.
+  const { error: messageError } = await insforgeAdmin.database.from("messages").insert([
     {
       organization_id: input.organizationId,
       conversation_id: conversation.id,
@@ -170,6 +173,7 @@ async function persistInboundMessage(input: InboundMessageInput): Promise<Inboun
       metadata: input.metadata ?? {}
     }
   ]);
+  if (messageError) throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudo guardar el mensaje entrante.", 500);
 
   return { duplicate: false, conversationId: conversation.id, customerId: customer.id };
 }
