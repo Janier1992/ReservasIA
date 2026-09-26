@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,6 +19,7 @@ import type { Reservation } from "@/types/domain";
 
 export function ReservationsPage() {
   const { currentOrganizationId, memberships } = useOrganization();
+  const { vocabulary } = useCurrentBusinessTheme();
   const timezone = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations.timezone ?? "UTC";
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -108,7 +110,7 @@ export function ReservationsPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Reservas</h1>
+          <h1 className="font-display text-2xl font-semibold">{vocabulary.reservations}</h1>
           <p className="text-sm text-muted-foreground">Gestioná las reservas de tu negocio.</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -14,6 +15,7 @@ import type { Resource } from "@/types/domain";
 
 export function ResourcesPage() {
   const { currentOrganizationId } = useOrganization();
+  const { vocabulary } = useCurrentBusinessTheme();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", resource_type: "", capacity: 1 });
 
@@ -73,7 +75,7 @@ export function ResourcesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold">Recursos</h1>
+        <h1 className="font-display text-2xl font-semibold">{vocabulary.resources}</h1>
         <p className="text-sm text-muted-foreground">Mesas, personal o cualquier unidad que se reserva individualmente.</p>
       </div>
 

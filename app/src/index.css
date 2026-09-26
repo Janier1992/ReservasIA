@@ -19,6 +19,17 @@
     --color-card-foreground: 42 37 34;
     --color-destructive: 179 38 30; /* #B3261E */
     --color-destructive-foreground: 255 255 255;
+    /* Menú lateral y banner del inicio: por defecto iguales a la tarjeta y
+       al acento suave; cada rubro los redefine (lib/businessThemes.ts). */
+    --color-sidebar: 255 255 255;
+    --color-sidebar-foreground: 42 37 34;
+    --color-sidebar-muted: 107 99 85;
+    --color-sidebar-border: 228 217 196;
+    --color-sidebar-active: 244 226 219;
+    --color-sidebar-active-foreground: 140 58 38;
+    --color-hero: 239 230 211;
+    --color-hero-foreground: 42 37 34;
+    --font-display: Inter, system-ui, sans-serif;
   }
 
   /* Misma paleta cálida, reajustada para fondos oscuros: los colores de
@@ -47,6 +58,14 @@
     --color-card-foreground: 242 236 224;
     --color-destructive: 229 83 75; /* #E5534B */
     --color-destructive-foreground: 255 255 255;
+    --color-sidebar: 33 29 25;
+    --color-sidebar-foreground: 242 236 224;
+    --color-sidebar-muted: 167 156 140;
+    --color-sidebar-border: 58 51 44;
+    --color-sidebar-active: 44 52 68;
+    --color-sidebar-active-foreground: 176 198 232;
+    --color-hero: 38 34 29;
+    --color-hero-foreground: 242 236 224;
   }
 
   html {

@@ -29,6 +29,18 @@ export default {
           DEFAULT: "rgb(var(--color-card) / <alpha-value>)",
           foreground: "rgb(var(--color-card-foreground) / <alpha-value>)"
         },
+        sidebar: {
+          DEFAULT: "rgb(var(--color-sidebar) / <alpha-value>)",
+          foreground: "rgb(var(--color-sidebar-foreground) / <alpha-value>)",
+          muted: "rgb(var(--color-sidebar-muted) / <alpha-value>)",
+          border: "rgb(var(--color-sidebar-border) / <alpha-value>)",
+          active: "rgb(var(--color-sidebar-active) / <alpha-value>)",
+          "active-foreground": "rgb(var(--color-sidebar-active-foreground) / <alpha-value>)"
+        },
+        hero: {
+          DEFAULT: "rgb(var(--color-hero) / <alpha-value>)",
+          foreground: "rgb(var(--color-hero-foreground) / <alpha-value>)"
+        },
         destructive: {
           DEFAULT: "rgb(var(--color-destructive) / <alpha-value>)",
           foreground: "rgb(var(--color-destructive-foreground) / <alpha-value>)"
@@ -40,7 +52,8 @@ export default {
         sm: "0.375rem"
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"]
+        sans: ["Inter", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "Inter", "system-ui", "sans-serif"]
       }
     }
   },

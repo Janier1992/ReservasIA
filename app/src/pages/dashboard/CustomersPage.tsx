@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +19,7 @@ import type { Customer, Reservation } from "@/types/domain";
 
 export function CustomersPage() {
   const { currentOrganizationId } = useOrganization();
+  const { vocabulary } = useCurrentBusinessTheme();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Customer | null>(null);
@@ -98,7 +100,7 @@ export function CustomersPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold">Clientes</h1>
+        <h1 className="font-display text-2xl font-semibold">{vocabulary.customers}</h1>
         <p className="text-sm text-muted-foreground">Historial y datos de contacto.</p>
       </div>
 

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, UploadCloud, Pencil, Check, X } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -17,6 +18,7 @@ import type { Service } from "@/types/domain";
 
 export function ServicesPage() {
   const { currentOrganizationId } = useOrganization();
+  const { vocabulary } = useCurrentBusinessTheme();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", duration_minutes: 60, price: "", currency: DEFAULT_CURRENCY });
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
@@ -121,7 +123,7 @@ export function ServicesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold">Servicios</h1>
+        <h1 className="font-display text-2xl font-semibold">{vocabulary.services}</h1>
         <p className="text-sm text-muted-foreground">Catálogo de servicios que ofrece tu negocio.</p>
       </div>
 

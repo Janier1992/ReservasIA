@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarCheck, MessageSquare, UserPlus, Bot, MessageCircle, CalendarDays, Send, TrendingUp } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,7 +36,7 @@ function StatCard({
           <Icon className="h-5 w-5" />
         </div>
         <div className="flex-1">
-          {loading ? <Skeleton className="h-7 w-12" /> : <p className="text-2xl font-semibold">{value}</p>}
+          {loading ? <Skeleton className="h-7 w-12" /> : <p className="font-display text-2xl font-semibold">{value}</p>}
           <p className="text-sm text-muted-foreground">{label}</p>
         </div>
       </CardContent>
@@ -52,6 +53,9 @@ const PERIOD_OPTIONS = [
 export function DashboardHome() {
   const { currentOrganizationId, currentRole } = useOrganization();
   const [periodDays, setPeriodDays] = useState("30");
+  const theme = useCurrentBusinessTheme();
+  const HeroIcon = theme.icon;
+  const todayLabel = new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" });
 
   const {
     data: stats,
@@ -152,19 +156,32 @@ export function DashboardHome() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Resumen</h1>
-        <p className="text-sm text-muted-foreground">Estado general de tu negocio.</p>
-      </div>
+      <section className="relative overflow-hidden rounded-xl bg-hero px-5 py-6 text-hero-foreground sm:px-8 sm:py-7">
+        <div className="relative z-10 max-w-xl space-y-1">
+          <p className="text-sm font-medium capitalize opacity-80">{todayLabel}</p>
+          <h1 className="font-display text-2xl font-bold leading-tight sm:text-3xl">{theme.heroTitle}</h1>
+          <p className="text-sm opacity-90 sm:text-base">
+            {statsLoading
+              ? theme.heroSubtitle
+              : `${theme.vocabulary.reservations}: ${stats?.today ?? 0} hoy · ${stats?.upcoming ?? 0} por venir`}
+          </p>
+        </div>
+        {/* Ícono del rubro como marca de agua: identifica el negocio sin tapar el texto. */}
+        <HeroIcon
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-6 right-2 h-32 w-32 opacity-15 sm:right-8 sm:h-40 sm:w-40"
+          strokeWidth={1.25}
+        />
+      </section>
 
       {statsError ? (
         <QueryErrorState onRetry={() => refetchStats()} message="No se pudieron cargar las estadísticas." />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard icon={CalendarCheck} label="Reservas de hoy" value={stats?.today ?? 0} loading={statsLoading} />
-          <StatCard icon={CalendarCheck} label="Reservas próximas" value={stats?.upcoming ?? 0} loading={statsLoading} />
+          <StatCard icon={CalendarCheck} label={`${theme.vocabulary.reservations} de hoy`} value={stats?.today ?? 0} loading={statsLoading} />
+          <StatCard icon={CalendarCheck} label={`${theme.vocabulary.reservations} por venir`} value={stats?.upcoming ?? 0} loading={statsLoading} />
           <StatCard icon={MessageSquare} label="Conversaciones activas" value={stats?.pendingConversations ?? 0} loading={statsLoading} />
-          <StatCard icon={UserPlus} label="Clientes nuevos (7 días)" value={stats?.newCustomers ?? 0} loading={statsLoading} />
+          <StatCard icon={UserPlus} label={`${theme.vocabulary.customers} · nuevos (7 días)`} value={stats?.newCustomers ?? 0} loading={statsLoading} />
         </div>
       )}
 

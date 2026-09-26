@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { OrganizationProvider } from "@/hooks/useOrganization";
 import { InstallPromptProvider } from "@/hooks/useInstallPrompt";
 import { RequireAuth, FullscreenLoader } from "@/components/RequireAuth";
+import { RequireModule } from "@/components/RequireModule";
 import { RequireOrganization } from "@/components/RequireOrganization";
 import { RequireSupportStaff } from "@/components/RequireSupportStaff";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -67,14 +68,28 @@ export default function App() {
                         <Route element={<RequireOrganization />}>
                           <Route path="/dashboard" element={<DashboardLayout />}>
                             <Route index element={<DashboardHome />} />
-                            <Route path="inbox" element={<InboxPage />} />
+                            <Route element={<RequireModule module="inbox" />}>
+                              <Route path="inbox" element={<InboxPage />} />
+                            </Route>
                             <Route path="reservations" element={<ReservationsPage />} />
-                            <Route path="customers" element={<CustomersPage />} />
-                            <Route path="services" element={<ServicesPage />} />
-                            <Route path="resources" element={<ResourcesPage />} />
-                            <Route path="agent" element={<AgentPage />} />
-                            <Route path="integrations" element={<IntegrationsPage />} />
-                            <Route path="team" element={<TeamPage />} />
+                            <Route element={<RequireModule module="customers" />}>
+                              <Route path="customers" element={<CustomersPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="services" />}>
+                              <Route path="services" element={<ServicesPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="resources" />}>
+                              <Route path="resources" element={<ResourcesPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="agent" />}>
+                              <Route path="agent" element={<AgentPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="integrations" />}>
+                              <Route path="integrations" element={<IntegrationsPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="team" />}>
+                              <Route path="team" element={<TeamPage />} />
+                            </Route>
                             <Route path="settings" element={<SettingsPage />} />
                           </Route>
                         </Route>

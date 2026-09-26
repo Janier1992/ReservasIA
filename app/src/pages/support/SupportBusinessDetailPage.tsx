@@ -17,6 +17,8 @@ import { QueryErrorState } from "@/components/QueryErrorState";
 import { reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
 import { paymentStatusLabel, paymentStatusVariant } from "@/lib/paymentStatus";
 import { businessTypeLabel } from "@/lib/businessTypes";
+import { OPTIONAL_MODULES, isModuleEnabled, toggleModule, type ModuleKey } from "@/lib/modules";
+import { cn } from "@/lib/utils";
 import type { AgentConfig, BusinessProfile, Conversation, Organization, Reservation, SubscriptionPayment, SupportNote } from "@/types/domain";
 
 const ORG_STATUS_LABEL: Record<Organization["status"], string> = {
@@ -55,6 +57,7 @@ export function SupportBusinessDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [reviewingPaymentId, setReviewingPaymentId] = useState<string | null>(null);
   const [viewingReceiptId, setViewingReceiptId] = useState<string | null>(null);
+  const [savingModule, setSavingModule] = useState<ModuleKey | null>(null);
 
   const {
     data: org,
@@ -192,6 +195,23 @@ export function SupportBusinessDetailPage() {
     queryClient.invalidateQueries({ queryKey: ["support-businesses"] });
   }
 
+  async function setModuleEnabled(key: ModuleKey, enabled: boolean) {
+    if (!org || !orgId) return;
+    setSavingModule(key);
+    const { error } = await insforge.database
+      .from("organizations")
+      .update({ disabled_modules: toggleModule(org.disabled_modules, key, enabled) })
+      .eq("id", orgId);
+    setSavingModule(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const label = OPTIONAL_MODULES.find((m) => m.key === key)?.label ?? key;
+    toast.success(enabled ? `Módulo "${label}" activado.` : `Módulo "${label}" desactivado: ya no aparece en el menú del negocio.`);
+    refetchOrg();
+  }
+
   async function deleteOrganization() {
     if (!org || !orgId) return;
     const confirmed = window.confirm(
@@ -310,6 +330,41 @@ export function SupportBusinessDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Módulos del negocio</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            El negocio solo ve en su menú los módulos activos. Inicio, Reservas y Configuración siempre están disponibles.
+          </p>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {OPTIONAL_MODULES.map((module) => {
+            const enabled = isModuleEnabled(org?.disabled_modules, module.key);
+            const switchId = `module-${module.key}`;
+            return (
+              <div
+                key={module.key}
+                className={cn(
+                  "flex items-start gap-3 rounded-md border px-3 py-3",
+                  enabled ? "border-primary/40 bg-primary/5" : "border-border"
+                )}
+              >
+                <label htmlFor={switchId} className="flex-1 cursor-pointer space-y-0.5">
+                  <span className="block text-sm font-medium">{module.label}</span>
+                  <span className="block text-xs text-muted-foreground">{module.description}</span>
+                </label>
+                <Switch
+                  id={switchId}
+                  checked={enabled}
+                  onCheckedChange={(checked) => setModuleEnabled(module.key, checked)}
+                  disabled={!org || savingModule !== null}
+                />
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

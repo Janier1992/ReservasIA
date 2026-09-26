@@ -99,6 +99,19 @@ conexión de canales — todo antes de llegar al dashboard.
 - Datos de contacto, moneda (COP por defecto, cualquier otra editable), duración/intervalo de turnos, capacidad,
   anticipación mínima/máxima, política de cancelación, horarios por día.
 
+### Apariencia por rubro
+El dashboard toma la identidad del tipo de negocio: paleta de colores, menú lateral, tipografía de títulos, ícono,
+banner de inicio y nombres de secciones ("Mesas" y "Comensales" en un restaurante, "Pacientes" en un consultorio,
+"Bahías de lavado" en un lavadero). Cada rubro del onboarding tiene su tema, en claro y oscuro, con contraste de texto
+verificado por tests (`app/src/lib/businessThemes.ts`). "Otro" usa la apariencia base.
+
+### Módulos por negocio (desde soporte)
+Desde `/soporte/negocios/:id`, soporte activa o desactiva los módulos opcionales de cada negocio: Inbox, Clientes,
+Servicios, Recursos, Agente IA, Integraciones y Equipo. Inicio, Reservas y Configuración son la base y no se pueden
+apagar. Un módulo apagado desaparece del menú del negocio y su ruta muestra "Módulo no disponible". Se guarda en
+`organizations.disabled_modules`; un trigger impide que el propio negocio lo cambie. Apagar "Agente IA" solo oculta
+la página de configuración: para pausar el agente está el switch de Agente en el mismo panel.
+
 ### Multi-tenant y seguridad
 - Aislamiento estricto por organización con Row Level Security de PostgreSQL, no con filtros en el código de la
   aplicación.

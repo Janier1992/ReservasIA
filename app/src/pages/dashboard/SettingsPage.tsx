@@ -302,7 +302,7 @@ export function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Configuración del negocio</h1>
+        <h1 className="font-display text-2xl font-semibold">Configuración del negocio</h1>
         <p className="text-sm text-muted-foreground">Datos operativos que usa el motor de disponibilidad y el agente.</p>
       </div>
 
