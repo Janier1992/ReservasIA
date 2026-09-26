@@ -158,7 +158,7 @@ export function DashboardHome() {
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-xl bg-hero px-5 py-6 text-hero-foreground sm:px-8 sm:py-7">
         <div className="relative z-10 max-w-xl space-y-1">
-          <p className="text-sm font-medium capitalize opacity-80">{todayLabel}</p>
+          <p className="text-sm font-medium opacity-80 first-letter:uppercase">{todayLabel}</p>
           <h1 className="font-display text-2xl font-bold leading-tight sm:text-3xl">{theme.heroTitle}</h1>
           <p className="text-sm opacity-90 sm:text-base">
             {statsLoading

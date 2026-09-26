@@ -188,3 +188,22 @@ export interface OrganizationInvite {
   status: "pending" | "accepted" | "revoked";
   invited_by: string;
 }
+
+export type WalkInStatus = "waiting" | "in_service" | "done" | "left";
+
+export interface WalkIn {
+  id: string;
+  organization_id: string;
+  customer_id: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  service_id: string | null;
+  notes: string | null;
+  status: WalkInStatus;
+  reservation_id: string | null;
+  arrived_at: string;
+  served_at: string | null;
+  finished_at: string | null;
+  services?: Pick<Service, "name" | "duration_minutes"> | null;
+  reservations?: { resource_id: string | null; resources: Pick<Resource, "name"> | null } | null;
+}

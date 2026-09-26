@@ -107,10 +107,21 @@ verificado por tests (`app/src/lib/businessThemes.ts`). "Otro" usa la apariencia
 
 ### Módulos por negocio (desde soporte)
 Desde `/soporte/negocios/:id`, soporte activa o desactiva los módulos opcionales de cada negocio: Inbox, Clientes,
-Servicios, Recursos, Agente IA, Integraciones y Equipo. Inicio, Reservas y Configuración son la base y no se pueden
-apagar. Un módulo apagado desaparece del menú del negocio y su ruta muestra "Módulo no disponible". Se guarda en
+Servicios, Recursos, Agente IA, Integraciones, Equipo, Atención en sitio y Reportes (estos dos últimos arrancan
+apagados). Inicio, Reservas y Configuración son la base y no se pueden apagar. Un módulo apagado desaparece del menú del negocio y su ruta muestra "Módulo no disponible". Se guarda en
 `organizations.disabled_modules`; un trigger impide que el propio negocio lo cambie. Apagar "Agente IA" solo oculta
 la página de configuración: para pausar el agente está el switch de Agente en el mismo panel.
+
+### Atención en sitio (módulo, apagado por defecto)
+Fila de clientes que llegan sin cita (lavaderos, talleres, barberías): se registra la llegada (nombre, teléfono
+opcional, servicio y notas como la placa), se pasa a atención eligiendo el recurso, y se finaliza. Al pasar a
+atención, `serve_walk_in` crea una reserva real con `book_reservation` (origen `walk_in`), así respeta la
+disponibilidad del recurso y queda en el historial, los reportes y la ficha del cliente. Muestra espera promedio y
+se refresca sola para que varias personas del equipo atiendan la misma fila.
+
+### Reportes (módulo, apagado por defecto)
+Atenciones completadas, ingresos, ticket promedio, cancelaciones y no-show por período (7/30/90 días), reservas por
+día, y desglose por servicio, recurso y canal, con exportación a CSV.
 
 ### Multi-tenant y seguridad
 - Aislamiento estricto por organización con Row Level Security de PostgreSQL, no con filtros en el código de la
@@ -499,8 +510,6 @@ npm run build
 
 ## Simplificaciones conocidas / próximos pasos
 
-- **Vista de reservas**: sólo hay vista de **lista** con filtros por estado. La vista de calendario
-  mensual/semanal queda como siguiente paso de UI.
 - **`check-availability` duplicado**: la Edge Function y el servicio interno del compute service implementan el
   mismo algoritmo por separado (Deno y Node) en vez de compartir una única fuente de verdad en SQL.
 - **Invitaciones de equipo sin email automático**: "invitar" crea un registro en `organization_invites` que la

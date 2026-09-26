@@ -15,6 +15,8 @@ import {
   Menu,
   X,
   LifeBuoy,
+  DoorOpen,
+  BarChart3,
   type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,10 +45,12 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: "/dashboard", label: "Inicio", icon: LayoutDashboard, end: true },
   { to: "/dashboard/inbox", label: "Inbox", icon: Inbox, module: "inbox" },
+  { to: "/dashboard/walk-ins", label: "Atención en sitio", icon: DoorOpen, module: "walk_ins" },
   { to: "/dashboard/reservations", label: "Reservas", icon: CalendarClock, vocabulary: "reservations" },
   { to: "/dashboard/customers", label: "Clientes", icon: Users, module: "customers", vocabulary: "customers" },
   { to: "/dashboard/services", label: "Servicios", icon: Sparkles, module: "services", vocabulary: "services" },
   { to: "/dashboard/resources", label: "Recursos", icon: Boxes, module: "resources", vocabulary: "resources" },
+  { to: "/dashboard/reports", label: "Reportes", icon: BarChart3, module: "reports" },
   { to: "/dashboard/agent", label: "Agente IA", icon: Bot, module: "agent" },
   { to: "/dashboard/integrations", label: "Integraciones", icon: Plug, module: "integrations" },
   { to: "/dashboard/team", label: "Equipo", icon: UsersRound, module: "team" },
@@ -93,7 +97,7 @@ export function DashboardLayout() {
             <BrandIcon className="h-5 w-5" />
           </div>
         )}
-        <span className="truncate font-display text-lg font-semibold leading-tight">{brandName}</span>
+        <span className="line-clamp-2 break-words font-display text-base font-semibold leading-tight">{brandName}</span>
         <ThemeToggle className="ml-auto text-sidebar-muted hover:bg-sidebar-foreground/10" />
         <button
           className="rounded-md p-1.5 text-sidebar-muted hover:bg-sidebar-foreground/10 lg:hidden"

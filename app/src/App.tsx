@@ -29,6 +29,8 @@ const ServicesPage = lazy(() => import("@/pages/dashboard/ServicesPage").then((m
 const ResourcesPage = lazy(() => import("@/pages/dashboard/ResourcesPage").then((m) => ({ default: m.ResourcesPage })));
 const AgentPage = lazy(() => import("@/pages/dashboard/AgentPage").then((m) => ({ default: m.AgentPage })));
 const IntegrationsPage = lazy(() => import("@/pages/dashboard/IntegrationsPage").then((m) => ({ default: m.IntegrationsPage })));
+const WalkInsPage = lazy(() => import("@/pages/dashboard/WalkInsPage").then((m) => ({ default: m.WalkInsPage })));
+const ReportsPage = lazy(() => import("@/pages/dashboard/ReportsPage").then((m) => ({ default: m.ReportsPage })));
 const TeamPage = lazy(() => import("@/pages/dashboard/TeamPage").then((m) => ({ default: m.TeamPage })));
 const SettingsPage = lazy(() => import("@/pages/dashboard/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const SupportBusinessesListPage = lazy(() =>
@@ -72,6 +74,9 @@ export default function App() {
                               <Route path="inbox" element={<InboxPage />} />
                             </Route>
                             <Route path="reservations" element={<ReservationsPage />} />
+                            <Route element={<RequireModule module="walk_ins" />}>
+                              <Route path="walk-ins" element={<WalkInsPage />} />
+                            </Route>
                             <Route element={<RequireModule module="customers" />}>
                               <Route path="customers" element={<CustomersPage />} />
                             </Route>
@@ -86,6 +91,9 @@ export default function App() {
                             </Route>
                             <Route element={<RequireModule module="integrations" />}>
                               <Route path="integrations" element={<IntegrationsPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="reports" />}>
+                              <Route path="reports" element={<ReportsPage />} />
                             </Route>
                             <Route element={<RequireModule module="team" />}>
                               <Route path="team" element={<TeamPage />} />
