@@ -25,11 +25,15 @@
 -- ------------------------------------------------------------
 alter table public.organizations
   drop constraint if exists organizations_disabled_modules_known;
+-- Incluye surveys/reactivation (migración posterior): se aplicó a mano en
+-- producción y al registrarla con `migrations up` corre sobre datos que ya
+-- las tienen.
 alter table public.organizations
   add constraint organizations_disabled_modules_known
   check (disabled_modules <@ array[
     'inbox', 'customers', 'services', 'resources', 'agent', 'integrations', 'team',
-    'walk_ins', 'reports', 'public_booking', 'assets', 'workflow', 'plans', 'cash'
+    'walk_ins', 'reports', 'public_booking', 'assets', 'workflow', 'plans', 'cash',
+    'surveys', 'reactivation'
   ]::text[]);
 
 alter table public.organizations
