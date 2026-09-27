@@ -33,7 +33,9 @@ export const OPTIONAL_MODULES = [
     label: "Planes y paquetes",
     description: "Bonos de sesiones, membresías y tarjetas de sellos que se descuentan solos al completar cada atención."
   },
-  { key: "cash", label: "Caja", description: "Registro de cobros reales por medio de pago (efectivo, Nequi, tarjeta) y cierre del día." }
+  { key: "cash", label: "Caja", description: "Registro de cobros reales por medio de pago (efectivo, Nequi, tarjeta) y cierre del día." },
+  { key: "surveys", label: "Opiniones", description: "Encuesta de 1 a 5 estrellas después de cada atención; quien califica alto recibe la invitación a dejar su reseña en Google." },
+  { key: "reactivation", label: "Recuperar clientes", description: "Lista de clientes que dejaron de venir, con mensaje listo para escribirles por WhatsApp o por el chat." }
 ] as const;
 
 export type ModuleKey = (typeof OPTIONAL_MODULES)[number]["key"];

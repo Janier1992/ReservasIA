@@ -3,6 +3,7 @@ import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { startTelegramPollingManager, stopTelegramPollingManager } from "./services/telegram/telegramPollingManager.js";
 import { startReminderScheduler, stopReminderScheduler } from "./services/reminders/reminderScheduler.js";
+import { startSurveyScheduler, stopSurveyScheduler } from "./services/surveys/surveyScheduler.js";
 import { startSubscriptionScheduler, stopSubscriptionScheduler } from "./services/subscription/subscriptionScheduler.js";
 import {
   startInboundClaimsCleanupScheduler,
@@ -19,6 +20,7 @@ const server = app.listen(env.PORT, () => {
   }
   startTelegramPollingManager();
   startReminderScheduler();
+  startSurveyScheduler();
   startSubscriptionScheduler();
   startInboundClaimsCleanupScheduler();
 });
@@ -27,6 +29,7 @@ function shutdown() {
   if (!env.DISABLE_BACKGROUND_WORKERS) {
     stopTelegramPollingManager();
     stopReminderScheduler();
+    stopSurveyScheduler();
     stopSubscriptionScheduler();
     stopInboundClaimsCleanupScheduler();
   }

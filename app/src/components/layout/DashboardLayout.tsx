@@ -19,6 +19,8 @@ import {
   BarChart3,
   Ticket,
   Wallet,
+  Star,
+  HeartHandshake,
   type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -54,6 +56,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/dashboard/resources", label: "Recursos", icon: Boxes, module: "resources", vocabulary: "resources" },
   { to: "/dashboard/plans", label: "Planes", icon: Ticket, module: "plans" },
   { to: "/dashboard/cash", label: "Caja", icon: Wallet, module: "cash" },
+  { to: "/dashboard/surveys", label: "Opiniones", icon: Star, module: "surveys" },
+  { to: "/dashboard/reactivation", label: "Recuperar clientes", icon: HeartHandshake, module: "reactivation" },
   { to: "/dashboard/reports", label: "Reportes", icon: BarChart3, module: "reports" },
   { to: "/dashboard/agent", label: "Agente IA", icon: Bot, module: "agent" },
   { to: "/dashboard/integrations", label: "Integraciones", icon: Plug, module: "integrations" },

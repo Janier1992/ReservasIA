@@ -108,7 +108,7 @@ verificado por tests (`app/src/lib/businessThemes.ts`). "Otro" usa la apariencia
 ### Módulos por negocio (desde soporte)
 Desde `/soporte/negocios/:id`, soporte activa o desactiva los módulos opcionales de cada negocio: Inbox, Clientes,
 Servicios, Recursos, Agente IA, Integraciones, Equipo, Fichas, Etapas de atención, y Atención en sitio, Reportes,
-Página pública de reservas, Planes y Caja (estos cinco arrancan apagados). Inicio, Reservas y Configuración son la base y no se pueden apagar. Un módulo apagado desaparece del menú del negocio y su ruta muestra "Módulo no disponible". Se guarda en
+Página pública de reservas, Planes, Caja, Opiniones y Recuperar clientes (estos siete arrancan apagados). Inicio, Reservas y Configuración son la base y no se pueden apagar. Un módulo apagado desaparece del menú del negocio y su ruta muestra "Módulo no disponible". Se guarda en
 `organizations.disabled_modules`; un trigger impide que el propio negocio lo cambie. Apagar "Agente IA" solo oculta
 la página de configuración: para pausar el agente está el switch de Agente en el mismo panel.
 
@@ -165,6 +165,21 @@ cobro al vender un plan. Un cobro no se edita (solo owner/admin lo borran), y co
   (`TIME_BLOCKED`) cualquier reserva nueva o movida que pise un bloqueo, venga del canal que venga. Las reservas que ya
   existían no se tocan; al crear el bloqueo el panel avisa cuántas hay. Cualquiera del equipo puede bloquear; borrar,
   solo owner/admin o quien lo creó.
+
+### Opiniones (módulo `surveys`, apagado por defecto)
+Encuesta de 1 a 5 estrellas en `/o/<token>` (sin cuenta; token de 64 caracteres, vence a los 60 días). Se pide desde
+cada reserva completada ("Pedir opinión": WhatsApp, chat o copiar enlace) y, con el compute service corriendo, se
+manda sola 2 a 48 horas después de la atención a clientes de Telegram, o de WhatsApp que escribieron en las últimas 24
+horas (fuera de esa ventana Meta rechaza texto libre; esas se piden a mano). Quien califica 4 o 5 recibe la invitación
+a dejar la reseña en Google (`business_profiles.review_url`). El cliente responde por las RPC `get_public_survey` /
+`submit_public_survey` (habilitadas para anon, una sola respuesta); el negocio no puede escribir calificaciones. La
+página Opiniones muestra promedio, tasa de respuesta, distribución y comentarios.
+
+### Recuperar clientes (módulo `reactivation`, apagado por defecto)
+Lista (`get_reactivation_candidates`) de clientes cuya última atención completada fue hace más de
+`business_profiles.reactivation_days` días (45 por defecto), sin reservas futuras y sin contacto reciente, ordenados
+por cantidad de visitas. Cada uno se contacta con un mensaje editable por WhatsApp (enlace wa.me desde el celular del
+negocio) o por el chat, y queda registrado en `reactivation_contacts`.
 
 ### Multi-tenant y seguridad
 - Aislamiento estricto por organización con Row Level Security de PostgreSQL, no con filtros en el código de la

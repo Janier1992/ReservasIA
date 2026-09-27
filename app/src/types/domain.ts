@@ -59,6 +59,9 @@ export interface BusinessProfile {
   deposit_mandatory: boolean;
   deposit_percentage: number | null;
   reminder_hours_before: number;
+  review_url?: string | null;
+  survey_auto_send?: boolean;
+  reactivation_days?: number;
 }
 
 export interface BusinessHourPeriod {
@@ -294,4 +297,30 @@ export interface ScheduleBlock {
   created_by: string | null;
   created_at: string;
   resources?: { name: string } | null;
+}
+
+export interface SurveyRequest {
+  id: string;
+  organization_id: string;
+  reservation_id: string | null;
+  customer_id: string | null;
+  token: string;
+  sent_via: string | null;
+  sent_at: string | null;
+  rating: number | null;
+  comment: string | null;
+  answered_at: string | null;
+  created_at: string;
+  customers?: Pick<Customer, "name" | "phone"> | null;
+}
+
+export interface ReactivationCandidate {
+  customer_id: string;
+  name: string | null;
+  phone: string;
+  conversation_id: string | null;
+  last_visit_at: string;
+  visits: number;
+  last_service_name: string | null;
+  last_contacted_at: string | null;
 }

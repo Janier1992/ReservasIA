@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CalendarOff, Plus, Trash2 } from "lucide-react";
+import { CalendarOff, Plus, Star, Trash2 } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
@@ -23,6 +23,7 @@ import { useBusinessBranding } from "@/hooks/useBusinessBranding";
 import { AssetSelect, ReservationsBoardView, StageSelect, type ReservationWithAsset } from "./reservations/ReservationWorkflow";
 import { PaymentDialog, type PaymentDraft } from "@/components/PaymentDialog";
 import { ScheduleBlocksDialog } from "@/components/ScheduleBlocksDialog";
+import { SurveyShareDialog, type SurveyTarget } from "@/components/SurveyShareDialog";
 import type { CustomerAsset, Reservation } from "@/types/domain";
 
 export function ReservationsPage() {
@@ -36,6 +37,9 @@ export function ReservationsPage() {
   const cashEnabled = isModuleEnabled(currentOrg?.disabled_modules, "cash");
   const plansEnabled = isModuleEnabled(currentOrg?.disabled_modules, "plans");
   const [paymentDraft, setPaymentDraft] = useState<PaymentDraft | null>(null);
+  const surveysEnabled = isModuleEnabled(currentOrg?.disabled_modules, "surveys");
+  const [surveyTarget, setSurveyTarget] = useState<SurveyTarget | null>(null);
+  const closeSurvey = useCallback((open: boolean) => !open && setSurveyTarget(null), []);
   const branding = useBusinessBranding();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -125,6 +129,21 @@ export function ReservationsPage() {
         (u) => u.customer_plans?.kind !== "stamps"
       );
       return new Set([...((paid.data ?? []) as { reservation_id: string }[]), ...prepaid].map((row) => row.reservation_id));
+    }
+  });
+
+  // Calificación de cada atención completada (si ya respondió la encuesta).
+  const { data: ratings = new Map<string, number | null>() } = useQuery({
+    queryKey: ["reservations-surveys", currentOrganizationId, completedIds],
+    enabled: !!currentOrganizationId && surveysEnabled && completedIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await insforge.database
+        .from("survey_requests")
+        .select("reservation_id, rating")
+        .eq("organization_id", currentOrganizationId)
+        .in("reservation_id", completedIds);
+      if (error) throw error;
+      return new Map(((data ?? []) as { reservation_id: string; rating: number | null }[]).map((s) => [s.reservation_id, s.rating]));
     }
   });
 
@@ -331,6 +350,29 @@ export function ReservationsPage() {
                         </Button>
                       </>
                     )}
+                    {surveysEnabled && r.status === "completed" && (
+                      ratings.get(r.id) ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium" title="Calificación del cliente">
+                          <Star className="h-3.5 w-3.5 fill-primary text-primary" /> {ratings.get(r.id)}
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            setSurveyTarget({
+                              reservationId: r.id,
+                              customerId: r.customer_id,
+                              customerName: r.customer_name || r.customers?.name || null,
+                              phone: r.customers?.phone ?? null,
+                              conversationId: r.conversation_id ?? null
+                            })
+                          }
+                        >
+                          {ratings.has(r.id) ? "Reenviar opinión" : "Pedir opinión"}
+                        </Button>
+                      )
+                    )}
                     {cashEnabled && r.status === "completed" && !settledIds.has(r.id) && (
                       <Button size="sm" variant="outline" onClick={() => charge(r)}>
                         Cobrar
@@ -348,6 +390,16 @@ export function ReservationsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {currentOrganizationId && surveysEnabled && (
+        <SurveyShareDialog
+          target={surveyTarget}
+          organizationId={currentOrganizationId}
+          businessName={branding?.name ?? currentOrg?.name ?? ""}
+          onOpenChange={closeSurvey}
+          onSent={() => queryClient.invalidateQueries({ queryKey: ["reservations-surveys", currentOrganizationId] })}
+        />
       )}
 
       {currentOrganizationId && (
