@@ -16,7 +16,8 @@ const SOURCE_LABEL: Record<string, string> = {
   // Telegram), así que se muestra como el canal del agente.
   whatsapp: "Agente IA (chat)",
   dashboard: "Panel del negocio",
-  walk_in: "Atención en sitio"
+  walk_in: "Atención en sitio",
+  web: "Página de reservas"
 };
 
 export function sourceLabel(source: string): string {

@@ -4,6 +4,9 @@ import { CalendarCheck, MessageSquare, UserPlus, Bot, MessageCircle, CalendarDay
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
+import { useBusinessBranding } from "@/hooks/useBusinessBranding";
+import { isModuleEnabled } from "@/lib/modules";
+import { PublicBookingCard } from "@/components/PublicBookingCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,7 +54,9 @@ const PERIOD_OPTIONS = [
 ];
 
 export function DashboardHome() {
-  const { currentOrganizationId, currentRole } = useOrganization();
+  const { currentOrganizationId, currentRole, memberships } = useOrganization();
+  const currentOrg = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations;
+  const branding = useBusinessBranding();
   const [periodDays, setPeriodDays] = useState("30");
   const theme = useCurrentBusinessTheme();
   const HeroIcon = theme.icon;
@@ -156,23 +161,20 @@ export function DashboardHome() {
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-xl bg-hero px-5 py-6 text-hero-foreground sm:px-8 sm:py-7">
-        <div className="relative z-10 max-w-xl space-y-1">
-          <p className="text-sm font-medium opacity-80 first-letter:uppercase">{todayLabel}</p>
-          <h1 className="font-display text-2xl font-bold leading-tight sm:text-3xl">{theme.heroTitle}</h1>
-          <p className="text-sm opacity-90 sm:text-base">
-            {statsLoading
-              ? theme.heroSubtitle
-              : `${theme.vocabulary.reservations}: ${stats?.today ?? 0} hoy · ${stats?.upcoming ?? 0} por venir`}
-          </p>
-        </div>
-        {/* Ícono del rubro como marca de agua: identifica el negocio sin tapar el texto. */}
-        <HeroIcon
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-6 right-2 h-32 w-32 opacity-15 sm:right-8 sm:h-40 sm:w-40"
-          strokeWidth={1.25}
-        />
+      <section className="space-y-2 pt-2">
+        <p className="flex items-center gap-2 text-sm text-muted-foreground first-letter:uppercase">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <HeroIcon className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span className="first-letter:uppercase">{todayLabel}</span>
+        </p>
+        <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">{theme.heroTitle}</h1>
+        <p className="text-muted-foreground">{theme.heroSubtitle}</p>
       </section>
+
+      {currentOrg && isModuleEnabled(currentOrg.disabled_modules, "public_booking") && (
+        <PublicBookingCard slug={currentOrg.slug} businessName={branding?.name ?? currentOrg.name} />
+      )}
 
       {statsError ? (
         <QueryErrorState onRetry={() => refetchStats()} message="No se pudieron cargar las estadísticas." />

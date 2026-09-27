@@ -20,7 +20,12 @@ export function useCurrentBusinessTheme(): BusinessTheme {
  */
 export function useApplyBusinessTheme(): BusinessTheme {
   const theme = useCurrentBusinessTheme();
+  useApplyTheme(theme);
+  return theme;
+}
 
+/** Aplica un tema cualquiera (ej. la página pública, donde no hay organización en sesión). */
+export function useApplyTheme(theme: BusinessTheme): void {
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute("data-business-theme", theme.businessType);
@@ -48,6 +53,4 @@ export function useApplyBusinessTheme(): BusinessTheme {
       document.getElementById(FONT_LINK_ID)?.remove();
     };
   }, [theme]);
-
-  return theme;
 }

@@ -37,10 +37,6 @@ export default {
           active: "rgb(var(--color-sidebar-active) / <alpha-value>)",
           "active-foreground": "rgb(var(--color-sidebar-active-foreground) / <alpha-value>)"
         },
-        hero: {
-          DEFAULT: "rgb(var(--color-hero) / <alpha-value>)",
-          foreground: "rgb(var(--color-hero-foreground) / <alpha-value>)"
-        },
         destructive: {
           DEFAULT: "rgb(var(--color-destructive) / <alpha-value>)",
           foreground: "rgb(var(--color-destructive-foreground) / <alpha-value>)"
