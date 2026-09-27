@@ -156,6 +156,16 @@ por medio para el cierre, cobro rápido de reservas completadas (las cubiertas p
 cobro al vender un plan. Un cobro no se edita (solo owner/admin lo borran), y con Caja activa Reportes muestra también
 "Cobrado en caja".
 
+### Horario por recurso y bloqueos de agenda
+- **Horario por recurso** (Recursos → columna Horario, owner/admin): franjas semanales propias de cada recurso (ej. el
+  barbero que solo trabaja mañanas). Sin horario propio, el recurso sigue el horario del negocio. El agente y la página
+  pública solo ofrecen el recurso dentro de sus franjas.
+- **Bloqueos** (Reservas → Bloqueos): vacaciones, almuerzo, festivos o mantenimiento, para un recurso o todo el
+  negocio, por horas o días completos. Es una regla dura: el trigger `check_reservation_not_blocked` rechaza
+  (`TIME_BLOCKED`) cualquier reserva nueva o movida que pise un bloqueo, venga del canal que venga. Las reservas que ya
+  existían no se tocan; al crear el bloqueo el panel avisa cuántas hay. Cualquiera del equipo puede bloquear; borrar,
+  solo owner/admin o quien lo creó.
+
 ### Multi-tenant y seguridad
 - Aislamiento estricto por organización con Row Level Security de PostgreSQL, no con filtros en el código de la
   aplicación.

@@ -40,6 +40,11 @@ export function mapPostgresErrorMessage(message: string): AppError | null {
       status: 409,
       friendly: "El horario solicitado ya no está disponible."
     },
+    TIME_BLOCKED: {
+      code: ErrorCodes.RESERVATION_NOT_AVAILABLE,
+      status: 409,
+      friendly: "Ese horario está bloqueado en la agenda del negocio."
+    },
     RESERVATION_NOT_FOUND: {
       code: ErrorCodes.RESERVATION_NOT_FOUND,
       status: 404,

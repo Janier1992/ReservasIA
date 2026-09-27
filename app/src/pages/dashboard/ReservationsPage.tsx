@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { CalendarOff, Plus, Trash2 } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
@@ -22,11 +22,13 @@ import { isModuleEnabled } from "@/lib/modules";
 import { useBusinessBranding } from "@/hooks/useBusinessBranding";
 import { AssetSelect, ReservationsBoardView, StageSelect, type ReservationWithAsset } from "./reservations/ReservationWorkflow";
 import { PaymentDialog, type PaymentDraft } from "@/components/PaymentDialog";
+import { ScheduleBlocksDialog } from "@/components/ScheduleBlocksDialog";
 import type { CustomerAsset, Reservation } from "@/types/domain";
 
 export function ReservationsPage() {
-  const { currentOrganizationId, memberships } = useOrganization();
+  const { currentOrganizationId, currentRole, memberships } = useOrganization();
   const { vocabulary } = useCurrentBusinessTheme();
+  const [blocksOpen, setBlocksOpen] = useState(false);
   const currentOrg = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations;
   const timezone = currentOrg?.timezone ?? "UTC";
   const workflow = isModuleEnabled(currentOrg?.disabled_modules, "workflow") ? getWorkflow(currentOrg?.business_type) : null;
@@ -204,9 +206,14 @@ export function ReservationsPage() {
           <h1 className="font-display text-2xl font-semibold">{vocabulary.reservations}</h1>
           <p className="text-sm text-muted-foreground">Gestioná las reservas de tu negocio.</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4" /> Nueva reserva
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBlocksOpen(true)}>
+            <CalendarOff className="h-4 w-4" /> Bloqueos
+          </Button>
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4" /> Nueva reserva
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -341,6 +348,19 @@ export function ReservationsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {currentOrganizationId && (
+        <ScheduleBlocksDialog
+          open={blocksOpen}
+          onOpenChange={setBlocksOpen}
+          organizationId={currentOrganizationId}
+          timezone={timezone}
+          resources={resources}
+          resourceLabel={vocabulary.resources}
+          canManageAll={currentRole === "owner" || currentRole === "admin"}
+          reservations={reservations}
+        />
       )}
 
       {currentOrganizationId && cashEnabled && (

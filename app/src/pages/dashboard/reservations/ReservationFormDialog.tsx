@@ -2,6 +2,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { bookingErrorMessage } from "@/lib/schedule";
 import { fromZonedTime } from "date-fns-tz";
 import { insforge } from "@/lib/insforgeClient";
 import { Button } from "@/components/ui/button";
@@ -117,7 +118,7 @@ export function ReservationFormDialog({
       onOpenChange(false);
       onCreated();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo crear la reserva.");
+      toast.error(bookingErrorMessage(err));
     }
   };
 

@@ -42,6 +42,7 @@ export function walkInStats(walkIns: WalkIn[]): WalkInStats {
 
 const ERROR_MESSAGES: Record<string, string> = {
   RESERVATION_NOT_AVAILABLE: "Ese recurso está ocupado en este momento. Elegí otro o esperá a que se libere.",
+  TIME_BLOCKED: "Ese recurso tiene la agenda bloqueada ahora (almuerzo, vacaciones). Elegí otro o quitá el bloqueo.",
   WALK_IN_NOT_WAITING: "Esta llegada ya fue atendida por otra persona del equipo.",
   WALK_IN_NOT_IN_SERVICE: "Esta atención ya fue finalizada.",
   WALK_IN_NOT_FOUND: "No se encontró esta llegada. Recargá la página."

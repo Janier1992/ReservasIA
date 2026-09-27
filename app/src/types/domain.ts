@@ -274,3 +274,24 @@ export interface Payment {
   paid_at: string;
   customers?: Pick<Customer, "name"> | null;
 }
+
+export interface ResourceHourPeriod {
+  id: string;
+  organization_id: string;
+  resource_id: string;
+  day_of_week: number;
+  opening_time: string;
+  closing_time: string;
+}
+
+export interface ScheduleBlock {
+  id: string;
+  organization_id: string;
+  resource_id: string | null;
+  starts_at: string;
+  ends_at: string;
+  reason: string | null;
+  created_by: string | null;
+  created_at: string;
+  resources?: { name: string } | null;
+}
