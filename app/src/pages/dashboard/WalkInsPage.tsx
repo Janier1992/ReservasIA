@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CalendarCheck, Clock, DoorOpen, Hourglass, Trash2, UserCheck, Wallet } from "lucide-react";
+import { CalendarCheck, Clock, DoorOpen, Hourglass, Pencil, Trash2, UserCheck, Wallet } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
@@ -418,6 +418,9 @@ export function WalkInsPage() {
                 <span className="hidden text-muted-foreground sm:inline">{w.services?.name ?? "—"}</span>
                 <span className="text-muted-foreground">{time(w.arrived_at)}</span>
                 <Badge variant={w.status === "done" ? "success" : "muted"}>{w.status === "done" ? "Atendido" : "Se fue"}</Badge>
+                <Button size="icon" variant="ghost" title="Editar registro" aria-label={`Editar el registro de ${w.customer_name}`} onClick={() => setEditing(w)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
                 {salesEnabled && w.status === "done" && (
                   <Button size="icon" variant="ghost" title="Registrar venta" aria-label={`Registrar venta de ${w.customer_name}`} onClick={() => setSaleFor(w)}>
                     <Wallet className="h-4 w-4" />
