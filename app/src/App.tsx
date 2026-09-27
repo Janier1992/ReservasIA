@@ -33,6 +33,7 @@ const WalkInsPage = lazy(() => import("@/pages/dashboard/WalkInsPage").then((m) 
 const ReportsPage = lazy(() => import("@/pages/dashboard/ReportsPage").then((m) => ({ default: m.ReportsPage })));
 const TeamPage = lazy(() => import("@/pages/dashboard/TeamPage").then((m) => ({ default: m.TeamPage })));
 const SettingsPage = lazy(() => import("@/pages/dashboard/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+const PublicBookingPage = lazy(() => import("@/pages/public/PublicBookingPage").then((m) => ({ default: m.PublicBookingPage })));
 const SupportBusinessesListPage = lazy(() =>
   import("@/pages/support/SupportBusinessesListPage").then((m) => ({ default: m.SupportBusinessesListPage }))
 );
@@ -56,6 +57,7 @@ export default function App() {
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/register" element={<RegisterPage />} />
                       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                      <Route path="/r/:slug" element={<PublicBookingPage />} />
 
                       <Route element={<RequireAuth />}>
                         <Route path="/onboarding" element={<OnboardingWizard />} />

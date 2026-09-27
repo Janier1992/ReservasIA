@@ -100,15 +100,15 @@ conexión de canales — todo antes de llegar al dashboard.
   anticipación mínima/máxima, política de cancelación, horarios por día.
 
 ### Apariencia por rubro
-El dashboard toma la identidad del tipo de negocio: paleta de colores, menú lateral, tipografía de títulos, ícono,
-banner de inicio y nombres de secciones ("Mesas" y "Comensales" en un restaurante, "Pacientes" en un consultorio,
+Estilo minimalista: superficies neutras y un solo color de acento por rubro, más su tipografía de títulos, ícono,
+encabezado de inicio y nombres de secciones ("Mesas" y "Comensales" en un restaurante, "Pacientes" en un consultorio,
 "Bahías de lavado" en un lavadero). Cada rubro del onboarding tiene su tema, en claro y oscuro, con contraste de texto
 verificado por tests (`app/src/lib/businessThemes.ts`). "Otro" usa la apariencia base.
 
 ### Módulos por negocio (desde soporte)
 Desde `/soporte/negocios/:id`, soporte activa o desactiva los módulos opcionales de cada negocio: Inbox, Clientes,
-Servicios, Recursos, Agente IA, Integraciones, Equipo, Atención en sitio y Reportes (estos dos últimos arrancan
-apagados). Inicio, Reservas y Configuración son la base y no se pueden apagar. Un módulo apagado desaparece del menú del negocio y su ruta muestra "Módulo no disponible". Se guarda en
+Servicios, Recursos, Agente IA, Integraciones, Equipo, Atención en sitio, Reportes, Página pública de reservas
+(estos tres arrancan apagados), Fichas y Etapas de atención. Inicio, Reservas y Configuración son la base y no se pueden apagar. Un módulo apagado desaparece del menú del negocio y su ruta muestra "Módulo no disponible". Se guarda en
 `organizations.disabled_modules`; un trigger impide que el propio negocio lo cambie. Apagar "Agente IA" solo oculta
 la página de configuración: para pausar el agente está el switch de Agente en el mismo panel.
 
@@ -122,6 +122,25 @@ se refresca sola para que varias personas del equipo atiendan la misma fila.
 ### Reportes (módulo, apagado por defecto)
 Atenciones completadas, ingresos, ticket promedio, cancelaciones y no-show por período (7/30/90 días), reservas por
 día, y desglose por servicio, recurso y canal, con exportación a CSV.
+
+### Página pública de reservas (módulo, apagado por defecto)
+Cada negocio tiene una página en `/r/<slug>` para que sus clientes reserven sin chat ni cuenta: eligen servicio, día
+y hora libre, y dejan nombre y celular. El inicio del dashboard muestra el enlace, un botón para copiarlo y el código QR
+para descargar e imprimir. La API vive en el compute service (`/api/public/...`, `server/src/routes/public.ts`): solo
+responde por negocios activos con el módulo encendido (mismo 404 en cualquier otro caso), vuelve a verificar la
+disponibilidad al reservar, limita 5 reservas cada 10 minutos por IP y tiene un campo trampa contra bots. Requiere
+`VITE_API_URL` en el frontend (URL del compute service) y que `APP_URL` del server sea la URL del frontend (CORS).
+
+### Fichas por rubro (módulo `assets`)
+Desde la ficha del cliente se registran vehículos (taller, lavadero: placa única por negocio, marca, modelo,
+kilometraje), mascotas (veterinaria), preferencias (salón, barbería, spa, restaurante) o estudiantes y miembros
+(academia, gimnasio), y cada reserva se puede vincular a una ficha. Los rubros de salud quedan afuera a propósito:
+sus notas son datos sensibles (Ley 1581). Catálogo de campos: `app/src/lib/assetTypes.ts`.
+
+### Etapas de atención y tablero (módulo `workflow`)
+Taller, lavadero, veterinaria y restaurante tienen su propio flujo (ej. recibido → diagnóstico → cotización enviada →
+aprobado → en reparación → listo para entregar) además del estado de la reserva. Reservas muestra un tablero por
+etapas y, al llegar a "listo", un botón para avisarle al cliente por su chat. Definición: `app/src/lib/workflows.ts`.
 
 ### Multi-tenant y seguridad
 - Aislamiento estricto por organización con Row Level Security de PostgreSQL, no con filtros en el código de la
@@ -468,6 +487,8 @@ Sobre un Postgres **vacío** (nunca un proyecto InsForge real: crea roles, esque
 - `db-tests/modules-billing-walkins.sql`: solo soporte cambia módulos, estado y vencimiento de la suscripción;
   Atención en sitio y Reportes arrancan apagados; la fila de atención queda aislada por negocio; atender crea
   una reserva real, una bahía ocupada se rechaza y finalizar la completa.
+- `db-tests/assets-stages.sql`: fichas aisladas por negocio, placa única, no se vincula una ficha ni un cliente de
+  otro negocio, y el cambio de etapa queda registrado.
 
 ### CI
 

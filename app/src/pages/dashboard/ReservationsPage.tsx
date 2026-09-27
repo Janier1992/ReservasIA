@@ -15,15 +15,25 @@ import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { RESERVATION_STATUS_LABEL, reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
 import { paymentStatusLabel, paymentStatusVariant } from "@/lib/paymentStatus";
-import type { Reservation } from "@/types/domain";
+import { functionsClient } from "@/lib/functionsClient";
+import { getAssetDefinition } from "@/lib/assetTypes";
+import { getWorkflow, fillNotifyMessage } from "@/lib/workflows";
+import { isModuleEnabled } from "@/lib/modules";
+import { useBusinessBranding } from "@/hooks/useBusinessBranding";
+import { AssetSelect, ReservationsBoardView, StageSelect, type ReservationWithAsset } from "./reservations/ReservationWorkflow";
+import type { CustomerAsset, Reservation } from "@/types/domain";
 
 export function ReservationsPage() {
   const { currentOrganizationId, memberships } = useOrganization();
   const { vocabulary } = useCurrentBusinessTheme();
-  const timezone = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations.timezone ?? "UTC";
+  const currentOrg = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations;
+  const timezone = currentOrg?.timezone ?? "UTC";
+  const workflow = isModuleEnabled(currentOrg?.disabled_modules, "workflow") ? getWorkflow(currentOrg?.business_type) : null;
+  const assetDefinition = isModuleEnabled(currentOrg?.disabled_modules, "assets") ? getAssetDefinition(currentOrg?.business_type) : null;
+  const branding = useBusinessBranding();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [view, setView] = useState<"list" | "calendar">("list");
+  const [view, setView] = useState<"list" | "calendar" | "board">(() => (workflow ? "board" : "list"));
   const queryClient = useQueryClient();
 
   const { data: services = [] } = useQuery({
@@ -55,17 +65,58 @@ export function ReservationsPage() {
     queryFn: async () => {
       let query = insforge.database
         .from("reservations")
-        .select("*, customers(*), services(*), resources(*)")
+        .select("*, customers(*), services(*), resources(*), customer_assets(label, asset_type)")
         .eq("organization_id", currentOrganizationId)
         .order("start_at", { ascending: true });
       if (statusFilter !== "all") query = query.eq("status", statusFilter);
       const { data, error } = await query;
       if (error) throw error;
-      return data as Reservation[];
+      return data as ReservationWithAsset[];
     }
   });
 
   const upcoming = useMemo(() => reservations, [reservations]);
+
+  // Fichas de los clientes que aparecen en la lista, para vincularlas a su reserva.
+  const customerIds = useMemo(
+    () => [...new Set(reservations.map((r) => r.customer_id).filter((id): id is string => !!id))].sort(),
+    [reservations]
+  );
+  const { data: assets = [] } = useQuery({
+    queryKey: ["customer-assets-by-org", currentOrganizationId, customerIds],
+    enabled: !!currentOrganizationId && !!assetDefinition && customerIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await insforge.database
+        .from("customer_assets")
+        .select("*")
+        .eq("organization_id", currentOrganizationId)
+        .in("customer_id", customerIds);
+      if (error) throw error;
+      return data as CustomerAsset[];
+    }
+  });
+
+  async function updateReservation(id: string, patch: Partial<Pick<Reservation, "stage" | "asset_id">>, success?: string) {
+    const { error } = await insforge.database.from("reservations").update(patch).eq("id", id);
+    if (error) {
+      toast.error("No se pudo actualizar la reserva.");
+      return;
+    }
+    if (success) toast.success(success);
+    refetch();
+  }
+
+  async function notifyCustomer(r: Reservation) {
+    if (!workflow?.notifyMessage || !r.conversation_id || !currentOrganizationId) return;
+    const content = fillNotifyMessage(workflow.notifyMessage, r.customer_name || r.customers?.name, branding?.name ?? currentOrg?.name ?? "");
+    if (!window.confirm(`Se enviará este mensaje al cliente por su chat:\n\n"${content}"`)) return;
+    try {
+      await functionsClient.post("conversations-reply", { organization_id: currentOrganizationId, conversation_id: r.conversation_id, content });
+      toast.success("Cliente avisado.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo enviar el aviso.");
+    }
+  }
 
   async function updateStatus(id: string, status: "completed" | "no_show") {
     const { error } = await insforge.database.from("reservations").update({ status }).eq("id", id);
@@ -133,8 +184,9 @@ export function ReservationsPage() {
           </SelectContent>
         </Select>
 
-        <Tabs value={view} onValueChange={(v) => setView(v as "list" | "calendar")}>
+        <Tabs value={view} onValueChange={(v) => setView(v as "list" | "calendar" | "board")}>
           <TabsList>
+            {workflow && <TabsTrigger value="board">Tablero</TabsTrigger>}
             <TabsTrigger value="list">Lista</TabsTrigger>
             <TabsTrigger value="calendar">Calendario</TabsTrigger>
           </TabsList>
@@ -143,6 +195,15 @@ export function ReservationsPage() {
 
       {isError ? (
         <QueryErrorState onRetry={() => refetch()} message="No se pudieron cargar las reservas." />
+      ) : view === "board" && workflow ? (
+        <ReservationsBoardView
+          workflow={workflow}
+          reservations={upcoming}
+          timezone={timezone}
+          onStageChange={(r, stage) => updateReservation(r.id, { stage })}
+          onNotify={notifyCustomer}
+          onComplete={(r) => updateStatus(r.id, "completed")}
+        />
       ) : view === "calendar" ? (
         <ReservationsCalendarView
           reservations={upcoming}
@@ -161,6 +222,7 @@ export function ReservationsPage() {
                 <th className="px-4 py-3">Cliente</th>
                 <th className="px-4 py-3">Servicio</th>
                 <th className="px-4 py-3">Recurso</th>
+                {workflow && <th className="px-4 py-3">Etapa</th>}
                 <th className="px-4 py-3">Estado</th>
                 <th className="px-4 py-3">Pago</th>
                 <th className="px-4 py-3">Acciones</th>
@@ -173,9 +235,26 @@ export function ReservationsPage() {
                   <td className="px-4 py-3">
                     {r.customer_name || r.customers?.name || r.customers?.phone}
                     {r.special_requests && <p className="max-w-xs text-xs text-muted-foreground">{r.special_requests}</p>}
+                    {assetDefinition && r.customer_id && (
+                      <AssetSelect
+                        assets={assets.filter((a) => a.customer_id === r.customer_id)}
+                        reservation={r}
+                        label={assetDefinition.singular}
+                        onChange={(assetId) => updateReservation(r.id, { asset_id: assetId })}
+                      />
+                    )}
                   </td>
                   <td className="px-4 py-3">{r.services?.name ?? "—"}</td>
                   <td className="px-4 py-3">{r.resources?.name ?? "—"}</td>
+                  {workflow && (
+                    <td className="px-4 py-3">
+                      {r.status === "pending" || r.status === "confirmed" ? (
+                        <StageSelect workflow={workflow} reservation={r} onChange={(stage) => updateReservation(r.id, { stage })} />
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <Badge variant={reservationStatusVariant(r.status)}>{reservationStatusLabel(r.status)}</Badge>
                   </td>
@@ -213,7 +292,7 @@ export function ReservationsPage() {
                   </td>
                 </tr>
               ))}
-              {!isLoading && upcoming.length === 0 && <EmptyTableRow colSpan={7} message="No hay reservas para este filtro." />}
+              {!isLoading && upcoming.length === 0 && <EmptyTableRow colSpan={workflow ? 8 : 7} message="No hay reservas para este filtro." />}
             </tbody>
           </table>
         </div>

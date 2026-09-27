@@ -20,7 +20,14 @@ export const OPTIONAL_MODULES = [
     label: "Atención en sitio",
     description: "Fila de clientes que llegan sin cita: registrar llegada, pasar a atención y finalizar."
   },
-  { key: "reports", label: "Reportes", description: "Atenciones, ingresos, servicios y canales por período, con exportación a CSV." }
+  { key: "reports", label: "Reportes", description: "Atenciones, ingresos, servicios y canales por período, con exportación a CSV." },
+  {
+    key: "public_booking",
+    label: "Página pública de reservas",
+    description: "Enlace y código QR para que los clientes reserven sin chat. Hace visible el negocio en internet."
+  },
+  { key: "assets", label: "Fichas", description: "Vehículos, mascotas, preferencias o estudiantes de cada cliente, según el rubro." },
+  { key: "workflow", label: "Etapas de atención", description: "Flujo propio del rubro (ej. recibido → en reparación → listo) y tablero por etapas." }
 ] as const;
 
 export type ModuleKey = (typeof OPTIONAL_MODULES)[number]["key"];

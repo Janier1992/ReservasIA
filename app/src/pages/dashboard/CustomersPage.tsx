@@ -15,11 +15,16 @@ import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
 import { isValidEmail } from "@/lib/validation";
+import { CustomerAssetsSection } from "@/components/CustomerAssetsSection";
+import { getAssetDefinition } from "@/lib/assetTypes";
+import { isModuleEnabled } from "@/lib/modules";
 import type { Customer, Reservation } from "@/types/domain";
 
 export function CustomersPage() {
-  const { currentOrganizationId } = useOrganization();
+  const { currentOrganizationId, currentRole, memberships } = useOrganization();
   const { vocabulary } = useCurrentBusinessTheme();
+  const currentOrg = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations;
+  const assetDefinition = isModuleEnabled(currentOrg?.disabled_modules, "assets") ? getAssetDefinition(currentOrg?.business_type) : null;
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Customer | null>(null);
@@ -150,7 +155,7 @@ export function CustomersPage() {
       )}
 
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selected?.name || "Cliente"}</DialogTitle>
           </DialogHeader>
@@ -182,6 +187,15 @@ export function CustomersPage() {
                 Guardar
               </Button>
             </div>
+
+            {assetDefinition && selected && currentOrganizationId && (
+              <CustomerAssetsSection
+                organizationId={currentOrganizationId}
+                customerId={selected.id}
+                definition={assetDefinition}
+                canDelete={currentRole === "owner" || currentRole === "admin"}
+              />
+            )}
 
             <div>
               <h4 className="mb-2 font-medium">Historial de reservas</h4>

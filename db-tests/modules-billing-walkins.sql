@@ -21,7 +21,7 @@ insert into public.walk_ins(id, organization_id, customer_name) values ('4444444
 insert into public.walk_ins(id, organization_id, customer_name) values ('44444444-0000-0000-0000-000000000002','11111111-aaaa-0000-0000-000000000001','Beto');
 
 do $$ begin
-  if (select disabled_modules from public.organizations where id='11111111-aaaa-0000-0000-000000000001') <> array['walk_ins','reports'] then
+  if not (select disabled_modules from public.organizations where id='11111111-aaaa-0000-0000-000000000001') @> array['walk_ins','reports'] then
     raise exception 'FAIL: negocio nuevo no arranca con walk_ins y reports apagados';
   end if;
   raise notice 'OK: negocio nuevo arranca con walk_ins y reports apagados';

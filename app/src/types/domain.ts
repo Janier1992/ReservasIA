@@ -145,6 +145,10 @@ export interface Reservation {
   google_event_id: string | null;
   payment_status: PaymentStatus;
   deposit_amount: number | null;
+  asset_id?: string | null;
+  stage?: string | null;
+  stage_updated_at?: string | null;
+  conversation_id?: string | null;
   customers?: Customer | null;
   services?: Service | null;
   resources?: Resource | null;
@@ -206,4 +210,16 @@ export interface WalkIn {
   finished_at: string | null;
   services?: Pick<Service, "name" | "duration_minutes"> | null;
   reservations?: { resource_id: string | null; resources: Pick<Resource, "name"> | null } | null;
+}
+
+export interface CustomerAsset {
+  id: string;
+  organization_id: string;
+  customer_id: string;
+  asset_type: "vehicle" | "pet" | "preferences" | "student";
+  label: string;
+  attributes: Record<string, unknown>;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
