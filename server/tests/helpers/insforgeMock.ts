@@ -49,6 +49,9 @@ export function createInsforgeMock(responses: Record<string, TableResponse>, rpc
     },
     auth: {
       getCurrentUser: vi.fn(async () => ({ data: { user: null }, error: null }))
+    },
+    emails: {
+      send: vi.fn(async (_options: { to: string | string[]; subject: string; html: string }) => ({ data: {}, error: null as unknown }))
     }
   };
 }

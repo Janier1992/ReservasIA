@@ -38,6 +38,8 @@ export interface BusinessProfile {
   organization_id: string;
   name: string;
   logo_url: string | null;
+  /** Eslogan corto (máx. 90) que aparece en los correos de reserva. */
+  tagline: string | null;
   description: string | null;
   address: string | null;
   phone: string | null;
