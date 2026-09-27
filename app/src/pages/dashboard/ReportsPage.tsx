@@ -12,6 +12,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { formatCurrency } from "@/lib/currency";
 import { reservationStatusLabel } from "@/lib/reservationStatus";
+import { isModuleEnabled } from "@/lib/modules";
+import { totalByCurrency } from "@/lib/payments";
 import { breakdownBy, countByDay, reportToCsv, sourceLabel, summarize, type Breakdown, type ReportRow } from "@/lib/reports";
 
 const PERIODS = [
@@ -78,7 +80,9 @@ function BreakdownList({ title, items, total }: { title: string; items: Breakdow
 export function ReportsPage() {
   const { currentOrganizationId, memberships } = useOrganization();
   const { vocabulary } = useCurrentBusinessTheme();
-  const timezone = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations.timezone ?? "UTC";
+  const currentOrg = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations;
+  const timezone = currentOrg?.timezone ?? "UTC";
+  const cashEnabled = isModuleEnabled(currentOrg?.disabled_modules, "cash");
   const [periodDays, setPeriodDays] = useState("30");
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
 
@@ -110,6 +114,23 @@ export function ReportsPage() {
     }
   });
 
+  // Con Caja activa se muestra también lo que entró de verdad (incluye planes y cobros sueltos).
+  const { data: cashIn } = useQuery({
+    queryKey: ["reports-cash", currentOrganizationId, periodDays],
+    enabled: !!currentOrganizationId && cashEnabled,
+    queryFn: async () => {
+      const { data, error } = await insforge.database
+        .from("payments")
+        .select("amount, currency")
+        .eq("organization_id", currentOrganizationId)
+        .gte("paid_at", range.from.toISOString())
+        .lte("paid_at", range.to.toISOString())
+        .limit(MAX_ROWS);
+      if (error) throw error;
+      return totalByCurrency((data ?? []) as { amount: number; currency: string }[]);
+    }
+  });
+
   const summary = summarize(rows);
   const byService = breakdownBy(rows, (r) => r.services?.name ?? null);
   const byResource = breakdownBy(rows, (r) => r.resources?.name ?? null);
@@ -133,6 +154,7 @@ export function ReportsPage() {
   const kpis = [
     { label: "Atenciones completadas", value: String(summary.completed) },
     { label: "Ingresos (completadas)", value: formatMoneyMap(summary.revenueByCurrency) },
+    ...(cashEnabled ? [{ label: "Cobrado en caja", value: cashIn ? formatMoneyMap(cashIn) : "…" }] : []),
     { label: "Ticket promedio", value: formatMoneyMap(summary.averageTicketByCurrency) },
     { label: "Cancelaciones", value: String(summary.cancelled) },
     { label: "No asistieron", value: `${noShowRate}%` }
@@ -173,7 +195,7 @@ export function ReportsPage() {
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className={`grid grid-cols-2 gap-3 ${kpis.length > 5 ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-5"}`}>
             {kpis.map((k) => (
               <Card key={k.label}>
                 <CardContent className="space-y-1 p-4">

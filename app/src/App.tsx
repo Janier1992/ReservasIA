@@ -31,6 +31,8 @@ const AgentPage = lazy(() => import("@/pages/dashboard/AgentPage").then((m) => (
 const IntegrationsPage = lazy(() => import("@/pages/dashboard/IntegrationsPage").then((m) => ({ default: m.IntegrationsPage })));
 const WalkInsPage = lazy(() => import("@/pages/dashboard/WalkInsPage").then((m) => ({ default: m.WalkInsPage })));
 const ReportsPage = lazy(() => import("@/pages/dashboard/ReportsPage").then((m) => ({ default: m.ReportsPage })));
+const PlansPage = lazy(() => import("@/pages/dashboard/PlansPage").then((m) => ({ default: m.PlansPage })));
+const CashPage = lazy(() => import("@/pages/dashboard/CashPage").then((m) => ({ default: m.CashPage })));
 const TeamPage = lazy(() => import("@/pages/dashboard/TeamPage").then((m) => ({ default: m.TeamPage })));
 const SettingsPage = lazy(() => import("@/pages/dashboard/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const PublicBookingPage = lazy(() => import("@/pages/public/PublicBookingPage").then((m) => ({ default: m.PublicBookingPage })));
@@ -93,6 +95,12 @@ export default function App() {
                             </Route>
                             <Route element={<RequireModule module="integrations" />}>
                               <Route path="integrations" element={<IntegrationsPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="plans" />}>
+                              <Route path="plans" element={<PlansPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="cash" />}>
+                              <Route path="cash" element={<CashPage />} />
                             </Route>
                             <Route element={<RequireModule module="reports" />}>
                               <Route path="reports" element={<ReportsPage />} />

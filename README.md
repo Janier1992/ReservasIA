@@ -107,8 +107,8 @@ verificado por tests (`app/src/lib/businessThemes.ts`). "Otro" usa la apariencia
 
 ### Módulos por negocio (desde soporte)
 Desde `/soporte/negocios/:id`, soporte activa o desactiva los módulos opcionales de cada negocio: Inbox, Clientes,
-Servicios, Recursos, Agente IA, Integraciones, Equipo, Atención en sitio, Reportes, Página pública de reservas
-(estos tres arrancan apagados), Fichas y Etapas de atención. Inicio, Reservas y Configuración son la base y no se pueden apagar. Un módulo apagado desaparece del menú del negocio y su ruta muestra "Módulo no disponible". Se guarda en
+Servicios, Recursos, Agente IA, Integraciones, Equipo, Fichas, Etapas de atención, y Atención en sitio, Reportes,
+Página pública de reservas, Planes y Caja (estos cinco arrancan apagados). Inicio, Reservas y Configuración son la base y no se pueden apagar. Un módulo apagado desaparece del menú del negocio y su ruta muestra "Módulo no disponible". Se guarda en
 `organizations.disabled_modules`; un trigger impide que el propio negocio lo cambie. Apagar "Agente IA" solo oculta
 la página de configuración: para pausar el agente está el switch de Agente en el mismo panel.
 
@@ -141,6 +141,20 @@ sus notas son datos sensibles (Ley 1581). Catálogo de campos: `app/src/lib/asse
 Taller, lavadero, veterinaria y restaurante tienen su propio flujo (ej. recibido → diagnóstico → cotización enviada →
 aprobado → en reparación → listo para entregar) además del estado de la reserva. Reservas muestra un tablero por
 etapas y, al llegar a "listo", un botón para avisarle al cliente por su chat. Definición: `app/src/lib/workflows.ts`.
+
+### Planes y paquetes (módulo `plans`, apagado por defecto)
+Catálogo de bonos de sesiones ("5 lavados"), membresías con vigencia ("lavado ilimitado mensual") y tarjetas de sellos
+("10 cortes = 1 gratis"), opcionalmente limitados a ciertos servicios. Se venden desde la ficha del cliente (lo vendido
+es una copia: cambiar el catálogo no altera lo ya vendido). Al completar una reserva, un trigger en la base
+(`apply_customer_plans_on_completion`) usa la membresía vigente o descuenta una sesión del bono que vence primero, y
+suma un sello a cada tarjeta; una misma reserva nunca descuenta dos veces. Al completar la tarjeta queda "Premio listo"
+para canjearlo.
+
+### Caja (módulo `cash`, apagado por defecto)
+Registro de lo que realmente entró, con medio de pago (efectivo, Nequi, tarjeta, transferencia, otro): totales del día
+por medio para el cierre, cobro rápido de reservas completadas (las cubiertas por un bono o membresía no lo piden) y
+cobro al vender un plan. Un cobro no se edita (solo owner/admin lo borran), y con Caja activa Reportes muestra también
+"Cobrado en caja".
 
 ### Multi-tenant y seguridad
 - Aislamiento estricto por organización con Row Level Security de PostgreSQL, no con filtros en el código de la

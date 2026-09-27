@@ -16,6 +16,7 @@ import { QueryErrorState } from "@/components/QueryErrorState";
 import { reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
 import { isValidEmail } from "@/lib/validation";
 import { CustomerAssetsSection } from "@/components/CustomerAssetsSection";
+import { CustomerPlansSection } from "@/components/CustomerPlansSection";
 import { getAssetDefinition } from "@/lib/assetTypes";
 import { isModuleEnabled } from "@/lib/modules";
 import type { Customer, Reservation } from "@/types/domain";
@@ -25,6 +26,8 @@ export function CustomersPage() {
   const { vocabulary } = useCurrentBusinessTheme();
   const currentOrg = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations;
   const assetDefinition = isModuleEnabled(currentOrg?.disabled_modules, "assets") ? getAssetDefinition(currentOrg?.business_type) : null;
+  const plansEnabled = isModuleEnabled(currentOrg?.disabled_modules, "plans");
+  const cashEnabled = isModuleEnabled(currentOrg?.disabled_modules, "cash");
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Customer | null>(null);
@@ -194,6 +197,16 @@ export function CustomersPage() {
                 customerId={selected.id}
                 definition={assetDefinition}
                 canDelete={currentRole === "owner" || currentRole === "admin"}
+              />
+            )}
+
+            {plansEnabled && selected && currentOrganizationId && (
+              <CustomerPlansSection
+                organizationId={currentOrganizationId}
+                customerId={selected.id}
+                timezone={currentOrg?.timezone ?? "UTC"}
+                cashEnabled={cashEnabled}
+                canManage={currentRole === "owner" || currentRole === "admin"}
               />
             )}
 

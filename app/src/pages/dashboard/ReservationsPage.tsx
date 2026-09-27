@@ -21,6 +21,7 @@ import { getWorkflow, fillNotifyMessage } from "@/lib/workflows";
 import { isModuleEnabled } from "@/lib/modules";
 import { useBusinessBranding } from "@/hooks/useBusinessBranding";
 import { AssetSelect, ReservationsBoardView, StageSelect, type ReservationWithAsset } from "./reservations/ReservationWorkflow";
+import { PaymentDialog, type PaymentDraft } from "@/components/PaymentDialog";
 import type { CustomerAsset, Reservation } from "@/types/domain";
 
 export function ReservationsPage() {
@@ -30,6 +31,9 @@ export function ReservationsPage() {
   const timezone = currentOrg?.timezone ?? "UTC";
   const workflow = isModuleEnabled(currentOrg?.disabled_modules, "workflow") ? getWorkflow(currentOrg?.business_type) : null;
   const assetDefinition = isModuleEnabled(currentOrg?.disabled_modules, "assets") ? getAssetDefinition(currentOrg?.business_type) : null;
+  const cashEnabled = isModuleEnabled(currentOrg?.disabled_modules, "cash");
+  const plansEnabled = isModuleEnabled(currentOrg?.disabled_modules, "plans");
+  const [paymentDraft, setPaymentDraft] = useState<PaymentDraft | null>(null);
   const branding = useBusinessBranding();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -95,6 +99,42 @@ export function ReservationsPage() {
       return data as CustomerAsset[];
     }
   });
+
+  // Reservas completadas ya cobradas en caja o cubiertas por un plan: no piden "Cobrar".
+  const completedIds = useMemo(() => reservations.filter((r) => r.status === "completed").map((r) => r.id).sort(), [reservations]);
+  const { data: settledIds = new Set<string>() } = useQuery({
+    queryKey: ["reservations-settled", currentOrganizationId, completedIds],
+    enabled: !!currentOrganizationId && cashEnabled && completedIds.length > 0,
+    queryFn: async () => {
+      const [paid, covered] = await Promise.all([
+        insforge.database.from("payments").select("reservation_id").eq("organization_id", currentOrganizationId).in("reservation_id", completedIds),
+        plansEnabled
+          ? insforge.database
+              .from("customer_plan_usages")
+              .select("reservation_id, customer_plans(kind)")
+              .eq("organization_id", currentOrganizationId)
+              .in("reservation_id", completedIds)
+          : Promise.resolve({ data: [], error: null })
+      ]);
+      if (paid.error) throw paid.error;
+      if (covered.error) throw covered.error;
+      // Un sello no paga la atención; un bono o una membresía sí.
+      const prepaid = ((covered.data ?? []) as { reservation_id: string; customer_plans: { kind: string } | null }[]).filter(
+        (u) => u.customer_plans?.kind !== "stamps"
+      );
+      return new Set([...((paid.data ?? []) as { reservation_id: string }[]), ...prepaid].map((row) => row.reservation_id));
+    }
+  });
+
+  function charge(r: Reservation) {
+    setPaymentDraft({
+      amount: r.services?.price ?? null,
+      currency: r.services?.currency ?? null,
+      concept: r.services?.name ?? null,
+      reservationId: r.id,
+      customerId: r.customer_id
+    });
+  }
 
   async function updateReservation(id: string, patch: Partial<Pick<Reservation, "stage" | "asset_id">>, success?: string) {
     const { error } = await insforge.database.from("reservations").update(patch).eq("id", id);
@@ -284,6 +324,11 @@ export function ReservationsPage() {
                         </Button>
                       </>
                     )}
+                    {cashEnabled && r.status === "completed" && !settledIds.has(r.id) && (
+                      <Button size="sm" variant="outline" onClick={() => charge(r)}>
+                        Cobrar
+                      </Button>
+                    )}
                     {(r.status === "cancelled" || r.status === "completed" || r.status === "no_show") && (
                       <Button size="sm" variant="ghost" onClick={() => remove(r.id)} title="Eliminar reserva" aria-label="Eliminar reserva">
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -296,6 +341,16 @@ export function ReservationsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {currentOrganizationId && cashEnabled && (
+        <PaymentDialog
+          open={!!paymentDraft}
+          onOpenChange={(open) => !open && setPaymentDraft(null)}
+          organizationId={currentOrganizationId}
+          draft={paymentDraft ?? {}}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ["reservations-settled", currentOrganizationId] })}
+        />
       )}
 
       {currentOrganizationId && (
