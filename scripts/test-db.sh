@@ -29,7 +29,7 @@ echo "== usuarios de prueba"
   ('00000000-0000-0000-0000-00000000000a', 'support@test.local')
   on conflict do nothing"
 
-for test_file in "$ROOT"/db-tests/tenant-isolation.sql "$ROOT"/db-tests/modules-billing-walkins.sql "$ROOT"/db-tests/assets-stages.sql "$ROOT"/db-tests/plans-payments.sql "$ROOT"/db-tests/hours-blocks.sql "$ROOT"/db-tests/surveys-reactivation.sql "$ROOT"/db-tests/backend-rpcs.sql; do
+for test_file in "$ROOT"/db-tests/tenant-isolation.sql "$ROOT"/db-tests/modules-billing-walkins.sql "$ROOT"/db-tests/assets-stages.sql "$ROOT"/db-tests/plans-payments.sql "$ROOT"/db-tests/hours-blocks.sql "$ROOT"/db-tests/surveys-reactivation.sql "$ROOT"/db-tests/backend-rpcs.sql "$ROOT"/db-tests/walk-in-checkin.sql; do
   echo "== $(basename "$test_file")"
   "${PSQL[@]}" -f "$test_file" 2>&1 | grep -E "OK:|FAIL|ERROR" | sed 's/.*NOTICE:  /   /'
   test "${PIPESTATUS[0]}" -eq 0

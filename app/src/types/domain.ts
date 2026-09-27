@@ -208,11 +208,12 @@ export interface WalkIn {
   notes: string | null;
   status: WalkInStatus;
   reservation_id: string | null;
+  party_size: number | null;
   arrived_at: string;
   served_at: string | null;
   finished_at: string | null;
   services?: Pick<Service, "name" | "duration_minutes"> | null;
-  reservations?: { resource_id: string | null; resources: Pick<Resource, "name"> | null } | null;
+  reservations?: { resource_id: string | null; start_at: string; source: string; resources: Pick<Resource, "name"> | null } | null;
 }
 
 export interface CustomerAsset {

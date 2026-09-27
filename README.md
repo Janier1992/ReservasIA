@@ -119,6 +119,14 @@ atención, `serve_walk_in` crea una reserva real con `book_reservation` (origen 
 disponibilidad del recurso y queda en el historial, los reportes y la ficha del cliente. Muestra espera promedio y
 se refresca sola para que varias personas del equipo atiendan la misma fila.
 
+**Reservas del día y dictado por voz.** La misma pantalla lista las reservas de hoy (de cualquier canal) con "Llegó" y
+"No vino": `check_in_reservation` pone a quien llegó en la fila sin crear otra reserva, y al atenderlo/finalizarlo se
+usa su reserva original. En restaurantes se registra el número de personas. El botón "Dictar" usa el reconocimiento
+de voz del navegador y la Edge Function `voice-intake` (Gemini) para llenar nombre, teléfono, servicio, personas y
+notas; si entendió el nombre, registra la llegada sola a los 3 segundos (se puede cancelar o corregir). Requiere el
+secreto `GEMINI_API_KEY` en InsForge (opcional `GEMINI_MODEL`, por defecto `gemini-2.5-flash`); sin él, el botón avisa
+que el dictado no está activado.
+
 ### Reportes (módulo, apagado por defecto)
 Atenciones completadas, ingresos, ticket promedio, cancelaciones y no-show por período (7/30/90 días), reservas por
 día, y desglose por servicio, recurso y canal, con exportación a CSV.
