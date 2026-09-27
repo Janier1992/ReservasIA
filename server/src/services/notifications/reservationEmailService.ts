@@ -1,6 +1,7 @@
 import { env } from "../../config/env.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
+import { sendEmail } from "../../lib/mailer.js";
 import type { Reservation } from "../../types/domain.js";
 import { buildReservationEmail, type ReservationEmailKind } from "./reservationEmailTemplate.js";
 
@@ -61,13 +62,8 @@ export async function sendReservationEmail(reservation: Reservation, kind: Reser
       notes: reservation.special_requests
     });
 
-    // Si el cliente responde el correo, le llega al negocio (no a la plataforma).
-    const replyTo = p?.email?.trim() || undefined;
-    const { error } = await insforgeAdmin.emails.send({ to: c.email, subject, html, replyTo });
-    if (error) {
-      logger.warn({ reservationId: reservation.id, kind, err: error }, "reservation_email_failed");
-      return false;
-    }
+    // Sale a nombre del negocio; si el cliente responde, le llega al negocio.
+    await sendEmail({ to: c.email, subject, html, fromName: p?.name ?? o?.name, replyTo: p?.email?.trim() || undefined });
     return true;
   } catch (err) {
     logger.warn({ reservationId: reservation.id, kind, err }, "reservation_email_failed");

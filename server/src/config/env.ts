@@ -46,6 +46,16 @@ const envSchema = z.object({
     .default("false")
     .transform((v) => v === "true"),
 
+  // Correo saliente (confirmaciones de reserva). InsForge no envía correos
+  // propios en el plan gratis, así que se usa SMTP: con Gmail, SMTP_USER es
+  // la cuenta (ej. synflow.ia@gmail.com) y SMTP_PASS una "contraseña de
+  // aplicación" de 16 letras (no la contraseña normal). Sin SMTP_USER/PASS se
+  // intenta con InsForge y, si falla, Google Calendar invita como respaldo.
+  SMTP_HOST: z.string().optional().default("smtp.gmail.com"),
+  SMTP_PORT: z.coerce.number().int().positive().optional().default(465),
+  SMTP_USER: z.string().optional().default(""),
+  SMTP_PASS: z.string().optional().default(""),
+
   // Railway lo inyecta solo en cada deploy; se expone en /api/health para
   // poder confirmar qué commit está corriendo.
   RAILWAY_GIT_COMMIT_SHA: z.string().optional().default("")
