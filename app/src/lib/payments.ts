@@ -36,6 +36,36 @@ export function parseAmount(raw: string): number | null {
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
 }
 
+/** Cantidad tipeada a entero entre 1 y 999; null si no es válida. */
+export function parseQuantity(raw: string): number | null {
+  const n = Number(raw.trim());
+  return Number.isInteger(n) && n >= 1 && n <= 999 ? n : null;
+}
+
+export interface ProductSales {
+  /** id del producto, o el concepto cuando la venta no tiene producto. */
+  key: string;
+  name: string;
+  quantity: number;
+  totals: Record<string, number>;
+}
+
+/** Productos vendidos: cantidades y totales por moneda, del más vendido al menos. */
+export function salesByProduct(
+  payments: Pick<Payment, "service_id" | "quantity" | "amount" | "currency" | "concept" | "services">[]
+): ProductSales[] {
+  const byKey = new Map<string, ProductSales>();
+  for (const p of payments) {
+    const name = p.services?.name ?? p.concept?.trim() ?? "";
+    const key = p.service_id ?? `concept:${name.toLowerCase() || "sin-concepto"}`;
+    const row = byKey.get(key) ?? { key, name: name || "Otros cobros", quantity: 0, totals: {} };
+    row.quantity += p.quantity ?? 1;
+    row.totals[p.currency] = (row.totals[p.currency] ?? 0) + Number(p.amount);
+    byKey.set(key, row);
+  }
+  return [...byKey.values()].sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name));
+}
+
 function offsetMinutes(instant: number, timezone: string): number {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat("en-US", {

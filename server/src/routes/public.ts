@@ -4,6 +4,7 @@ import { z } from "zod";
 import { publicApiRateLimiter } from "../middleware/rateLimit.js";
 import { ErrorCodes } from "../utils/AppError.js";
 import { createPublicReservation, getPublicAvailability, getPublicBusiness } from "../services/publicBooking/publicBookingService.js";
+import { createPublicOrder } from "../services/publicOrders/publicOrderService.js";
 
 /**
  * API de la página pública de reservas (/r/:slug en el frontend). Sin
@@ -24,7 +25,21 @@ const bookingRateLimiter = rateLimit({
   }
 });
 
-const slugSchema = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).max(80);
+// Pedidos desde el QR del local: muchos clientes comparten el wifi (misma IP),
+// así que el límite es más amplio que el de reservas.
+const orderRateLimiter = rateLimit({
+  windowMs: 10 * 60_000,
+  limit: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      error: { code: ErrorCodes.RATE_LIMITED, message: "Demasiados pedidos desde esta conexión. Pedí en el mostrador o intentá en unos minutos." }
+    });
+  }
+});
+
+const slugSchema =z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).max(80);
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const availabilityQuerySchema = z.object({
@@ -48,7 +63,20 @@ const bookingBodySchema = z.object({
   website: z.string().max(0).optional()
 });
 
-type Handler = (req: Request, res: Response) => Promise<void>;
+const orderBodySchema = z.object({
+  serviceId: z.string().uuid(),
+  name: z.string().trim().min(2).max(80),
+  phone: z
+    .string()
+    .trim()
+    .max(20)
+    .refine((v) => v === "" || v.replace(/\D/g, "").length >= 7, "Teléfono inválido")
+    .optional(),
+  notes: z.string().trim().max(300).optional(),
+  website: z.string().max(0).optional()
+});
+
+type Handler =(req: Request, res: Response) => Promise<void>;
 const wrap = (fn: Handler) => (req: Request, res: Response, next: NextFunction) => fn(req, res).catch(next);
 
 publicRouter.get(
@@ -85,5 +113,20 @@ publicRouter.post(
       notes: body.notes
     });
     res.status(201).json(reservation);
+  })
+);
+
+publicRouter.post(
+  "/businesses/:slug/orders",
+  orderRateLimiter,
+  wrap(async (req, res) => {
+    const body = orderBodySchema.parse(req.body);
+    const order = await createPublicOrder(slugSchema.parse(req.params.slug), {
+      serviceId: body.serviceId,
+      name: body.name,
+      phone: body.phone || undefined,
+      notes: body.notes
+    });
+    res.status(201).json(order);
   })
 );

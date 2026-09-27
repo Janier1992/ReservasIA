@@ -5,6 +5,7 @@ import { runAgentTurn } from "../agent/agentRuntime.js";
 import { markAwaitingPaymentAsAwaitingConfirmation } from "../reservations/reservationsService.js";
 import { notifyPaymentReceiptReceived } from "../notifications/pushService.js";
 import { uploadPaymentReceipt } from "../storage/receiptsService.js";
+import { extractOrderCode, handleOrderCodeMessage } from "../publicOrders/publicOrderService.js";
 import {
   downloadTelegramPhoto,
   getTelegramUpdates,
@@ -182,6 +183,22 @@ export async function processUpdate(organizationId: string, botToken: string, up
   // correr un segundo turno del agente duplicaría respuestas y reservas.
   if (inbound.duplicate) return;
   const { conversationId, customerId } = inbound;
+
+  // "/start <código>" llega desde el botón "Avisame por Telegram" de un pedido
+  // por QR: se vincula el chat al pedido sin pasar por el agente.
+  const orderCode = extractOrderCode(message.text);
+  if (orderCode) {
+    const reply = await handleOrderCodeMessage({
+      organizationId,
+      code: orderCode,
+      channel: "telegram",
+      identity: externalIdentity,
+      customerId,
+      conversationId
+    });
+    await sendTelegramMessage(botToken, chatId, reply);
+    return;
+  }
 
   const result = await withTypingIndicator(
     botToken,

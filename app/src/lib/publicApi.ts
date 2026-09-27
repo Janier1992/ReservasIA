@@ -14,6 +14,8 @@ export interface PublicService {
 
 export interface PublicBusiness {
   slug: string;
+  /** "order": pedido inmediato a la fila (QR del local); "booking": reserva con día y hora. */
+  mode: "order" | "booking";
   businessType: string;
   timezone: string;
   name: string;
@@ -28,6 +30,14 @@ export interface PublicBusiness {
 export interface PublicSlot {
   start: string;
   end: string;
+}
+
+export interface PublicOrder {
+  code: string;
+  position: number;
+  serviceName: string;
+  telegramUrl: string | null;
+  whatsappUrl: string | null;
 }
 
 export class PublicApiError extends Error {
@@ -66,5 +76,7 @@ export const publicApi = {
     call<{ id: string; start_at: string; end_at: string; timezone: string }>(`/businesses/${encodeURIComponent(slug)}/reservations`, {
       method: "POST",
       body: JSON.stringify(body)
-    })
+    }),
+  order: (slug: string, body: { serviceId: string; name: string; phone?: string; notes?: string; website?: string }) =>
+    call<PublicOrder>(`/businesses/${encodeURIComponent(slug)}/orders`, { method: "POST", body: JSON.stringify(body) })
 };

@@ -11,6 +11,15 @@ export function upcomingDates(timezone: string, count: number, now = new Date())
   return dates;
 }
 
+/**
+ * Qué muestra la página pública: pedido inmediato a la fila (restaurante con
+ * Atención en sitio) o reserva con día y hora. Misma regla que
+ * publicPageMode en server/src/services/publicBooking/publicBookingService.ts.
+ */
+export function publicPageMode(businessType: string, disabledModules: readonly string[] | null | undefined): "order" | "booking" {
+  return businessType === "restaurant" && !(disabledModules ?? []).includes("walk_ins") ? "order" : "booking";
+}
+
 export function publicBookingUrl(slug: string, origin = window.location.origin): string {
   return `${origin}/r/${slug}`;
 }

@@ -1,7 +1,7 @@
 import { env } from "../../config/env.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
-import { sendTelegramMessage } from "../telegram/telegramService.js";
+import { loadConnectedTelegramBotToken, sendTelegramMessage } from "../telegram/telegramService.js";
 import { sendWhatsAppMessage } from "../twilio/twilioService.js";
 
 const TELEGRAM_PREFIX = "telegram:";
@@ -137,17 +137,6 @@ export async function findSurveyCandidates(now = new Date()): Promise<SurveyCand
   return candidates;
 }
 
-async function loadTelegramBotToken(organizationId: string): Promise<string | null> {
-  const { data } = await insforgeAdmin.database
-    .from("integrations")
-    .select("credentials")
-    .eq("organization_id", organizationId)
-    .eq("provider", "telegram")
-    .eq("status", "connected")
-    .maybeSingle();
-  return (data?.credentials as { bot_token?: string } | null)?.bot_token ?? null;
-}
-
 /**
  * Crea la encuesta ANTES de enviar: la restricción única por reserva evita
  * que dos instancias del server la manden dos veces. Si el envío falla, la
@@ -165,7 +154,7 @@ async function sendOne(c: SurveyCandidate): Promise<boolean> {
   const text = buildSurveyText(c.customerName, c.businessName, surveyLink(token));
   try {
     if (c.channel === "telegram") {
-      const botToken = await loadTelegramBotToken(c.organizationId);
+      const botToken = await loadConnectedTelegramBotToken(c.organizationId);
       if (!botToken) return false;
       await sendTelegramMessage(botToken, c.phone.slice(TELEGRAM_PREFIX.length), text);
     } else {

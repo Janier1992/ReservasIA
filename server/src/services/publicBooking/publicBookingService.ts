@@ -14,9 +14,23 @@ import { createReservation } from "../reservations/reservationsService.js";
  * horario que el motor de disponibilidad confirme libre en ese momento.
  */
 
+/**
+ * Rubros donde el QR es para pedir YA (comida rápida, restaurante) y no para
+ * reservar con hora: el pedido entra a la fila de Atención en sitio, así que
+ * ese módulo tiene que estar encendido.
+ */
+const ORDER_MODE_BUSINESS_TYPES = new Set(["restaurant"]);
+
+export type PublicPageMode = "order" | "booking";
+
+export function publicPageMode(businessType: string, disabledModules: readonly string[]): PublicPageMode {
+  return ORDER_MODE_BUSINESS_TYPES.has(businessType) && !disabledModules.includes("walk_ins") ? "order" : "booking";
+}
+
 export interface PublicBusiness {
   organizationId: string;
   slug: string;
+  mode: PublicPageMode;
   businessType: string;
   timezone: string;
   name: string;
@@ -31,7 +45,7 @@ export interface PublicBusiness {
 const NOT_AVAILABLE = () =>
   new AppError(ErrorCodes.ORGANIZATION_NOT_FOUND, "Este negocio no tiene reservas en línea disponibles.", 404);
 
-async function resolveOrganization(slug: string) {
+export async function resolveOrganization(slug: string) {
   const { data: org, error } = await insforgeAdmin.database
     .from("organizations")
     .select("id, slug, business_type, timezone, status, disabled_modules")
@@ -42,7 +56,7 @@ async function resolveOrganization(slug: string) {
   // Mismo 404 para "no existe", "suspendido" y "módulo apagado": no revela
   // qué negocios existen ni su estado de cuenta.
   if (!org || org.status !== "active" || disabled.includes("public_booking")) throw NOT_AVAILABLE();
-  return org as { id: string; slug: string; business_type: string; timezone: string };
+  return { ...(org as { id: string; slug: string; business_type: string; timezone: string }), disabled_modules: disabled };
 }
 
 export async function getPublicBusiness(slug: string): Promise<PublicBusiness> {
@@ -66,6 +80,7 @@ export async function getPublicBusiness(slug: string): Promise<PublicBusiness> {
   return {
     organizationId: org.id,
     slug: org.slug,
+    mode: publicPageMode(org.business_type, org.disabled_modules),
     businessType: org.business_type,
     timezone: org.timezone,
     name: profile.name,
@@ -85,7 +100,7 @@ export async function getPublicBusiness(slug: string): Promise<PublicBusiness> {
   };
 }
 
-async function assertActiveService(organizationId: string, serviceId: string) {
+export async function assertActiveService(organizationId: string, serviceId: string) {
   const { data: service } = await insforgeAdmin.database
     .from("services")
     .select("id, duration_minutes")

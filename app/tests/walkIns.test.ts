@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatWait, minutesBetween, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
+import { formatWait, minutesBetween, notifyStatus, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
 import type { WalkIn } from "@/types/domain";
 
 function walkIn(partial: Partial<WalkIn>): WalkIn {
@@ -16,6 +16,13 @@ function walkIn(partial: Partial<WalkIn>): WalkIn {
     arrived_at: "2026-09-26T10:00:00Z",
     served_at: null,
     finished_at: null,
+    party_size: null,
+    source: "staff",
+    notify_channel: null,
+    notify_identity: null,
+    ready_at: null,
+    notified_at: null,
+    notify_error: null,
     ...partial
   };
 }
@@ -50,5 +57,17 @@ describe("walk-in helpers", () => {
     expect(walkInErrorMessage({ message: "RESERVATION_NOT_AVAILABLE" })).toContain("ocupado");
     expect(walkInErrorMessage(new Error("WALK_IN_NOT_WAITING"))).toContain("ya fue atendida");
     expect(walkInErrorMessage({ message: "network down" })).toBe("network down");
+    expect(walkInErrorMessage({ message: "FORBIDDEN" })).toContain("administrador");
+  });
+
+  it("describes the ready notification at each step", () => {
+    expect(notifyStatus(walkIn({}))).toBeNull();
+    expect(notifyStatus(walkIn({ source: "qr" }))?.label).toBe("Sin aviso");
+    expect(notifyStatus(walkIn({ notify_channel: "telegram" }))?.label).toBe("Aviso por Telegram");
+    const ready = { ready_at: "2026-09-26T10:30:00Z" };
+    expect(notifyStatus(walkIn({ ...ready, notify_channel: "telegram" }))?.label).toBe("Avisando…");
+    expect(notifyStatus(walkIn({ ...ready, notify_channel: "whatsapp", notified_at: "2026-09-26T10:30:05Z" }))?.label).toBe("Avisado por WhatsApp");
+    expect(notifyStatus(walkIn({ ...ready, notify_channel: "telegram", notify_error: "blocked" }))?.variant).toBe("destructive");
+    expect(notifyStatus(walkIn(ready))?.label).toBe("Listo · llamalo en persona");
   });
 });

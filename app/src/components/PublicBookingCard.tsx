@@ -5,8 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { publicBookingUrl } from "@/lib/publicBookingUtils";
 
-/** Enlace y QR de la página pública de reservas del negocio, para compartir o imprimir. */
-export function PublicBookingCard({ slug, businessName }: { slug: string; businessName: string }) {
+const COPY = {
+  booking: {
+    title: "Tu página de reservas",
+    text: "Compartilo en redes, WhatsApp o imprimí el QR para el mostrador: tus clientes reservan sin escribirte."
+  },
+  order: {
+    title: "Tu QR para pedir",
+    text: "Imprimilo para las mesas o el mostrador: el cliente pide desde su celular, entra a Atención en sitio y le avisamos por Telegram o WhatsApp cuando esté listo."
+  }
+};
+
+/** Enlace y QR de la página pública del negocio (reservas o pedidos), para compartir o imprimir. */
+export function PublicBookingCard({ slug, businessName, mode = "booking" }: { slug: string; businessName: string; mode?: "order" | "booking" }) {
+  const texts = COPY[mode];
   const url = publicBookingUrl(slug);
   const [qr, setQr] = useState<string | null>(null);
 
@@ -36,15 +48,19 @@ export function PublicBookingCard({ slug, businessName }: { slug: string; busine
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <QrCode className="h-4 w-4" /> Tu página de reservas
+          <QrCode className="h-4 w-4" /> {texts.title}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        {qr && <img src={qr} alt={`Código QR para reservar en ${businessName}`} className="h-28 w-28 shrink-0 rounded-lg border border-border" />}
+        {qr && (
+          <img
+            src={qr}
+            alt={`Código QR para ${mode === "order" ? "pedir" : "reservar"} en ${businessName}`}
+            className="h-28 w-28 shrink-0 rounded-lg border border-border"
+          />
+        )}
         <div className="min-w-0 flex-1 space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Compartilo en redes, WhatsApp o imprimí el QR para el mostrador: tus clientes reservan sin escribirte.
-          </p>
+          <p className="text-sm text-muted-foreground">{texts.text}</p>
           <p className="truncate rounded-md bg-muted px-3 py-2 font-mono text-xs">{url}</p>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={copy}>

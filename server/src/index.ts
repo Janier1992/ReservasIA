@@ -4,6 +4,7 @@ import { logger } from "./lib/logger.js";
 import { startTelegramPollingManager, stopTelegramPollingManager } from "./services/telegram/telegramPollingManager.js";
 import { startReminderScheduler, stopReminderScheduler } from "./services/reminders/reminderScheduler.js";
 import { startSurveyScheduler, stopSurveyScheduler } from "./services/surveys/surveyScheduler.js";
+import { startOrderReadyNotifier, stopOrderReadyNotifier } from "./services/publicOrders/orderReadyNotifier.js";
 import { startSubscriptionScheduler, stopSubscriptionScheduler } from "./services/subscription/subscriptionScheduler.js";
 import {
   startInboundClaimsCleanupScheduler,
@@ -21,6 +22,7 @@ const server = app.listen(env.PORT, () => {
   startTelegramPollingManager();
   startReminderScheduler();
   startSurveyScheduler();
+  startOrderReadyNotifier();
   startSubscriptionScheduler();
   startInboundClaimsCleanupScheduler();
 });
@@ -30,6 +32,7 @@ function shutdown() {
     stopTelegramPollingManager();
     stopReminderScheduler();
     stopSurveyScheduler();
+    stopOrderReadyNotifier();
     stopSubscriptionScheduler();
     stopInboundClaimsCleanupScheduler();
   }

@@ -55,7 +55,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/dashboard/services", label: "Servicios", icon: Sparkles, module: "services", vocabulary: "services" },
   { to: "/dashboard/resources", label: "Recursos", icon: Boxes, module: "resources", vocabulary: "resources" },
   { to: "/dashboard/plans", label: "Planes", icon: Ticket, module: "plans" },
-  { to: "/dashboard/cash", label: "Caja", icon: Wallet, module: "cash" },
+  { to: "/dashboard/cash", label: "Ventas", icon: Wallet, module: "cash" },
   { to: "/dashboard/surveys", label: "Opiniones", icon: Star, module: "surveys" },
   { to: "/dashboard/reactivation", label: "Recuperar clientes", icon: HeartHandshake, module: "reactivation" },
   { to: "/dashboard/reports", label: "Reportes", icon: BarChart3, module: "reports" },

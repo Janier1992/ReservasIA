@@ -33,7 +33,7 @@ export const OPTIONAL_MODULES = [
     label: "Planes y paquetes",
     description: "Bonos de sesiones, membresías y tarjetas de sellos que se descuentan solos al completar cada atención."
   },
-  { key: "cash", label: "Caja", description: "Registro de cobros reales por medio de pago (efectivo, Nequi, tarjeta) y cierre del día." },
+  { key: "cash", label: "Ventas", description: "Productos vendidos del día con su precio, y lo que entró por cada medio de pago (efectivo, Nequi, tarjeta)." },
   { key: "surveys", label: "Opiniones", description: "Encuesta de 1 a 5 estrellas después de cada atención; quien califica alto recibe la invitación a dejar su reseña en Google." },
   { key: "reactivation", label: "Recuperar clientes", description: "Lista de clientes que dejaron de venir, con mensaje listo para escribirles por WhatsApp o por el chat." }
 ] as const;

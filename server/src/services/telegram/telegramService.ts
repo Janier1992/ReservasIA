@@ -54,6 +54,18 @@ export async function listConnectedTelegramBots(): Promise<ConnectedTelegramBot[
     }));
 }
 
+/** Token del bot conectado de un negocio, o null si no tiene Telegram conectado. */
+export async function loadConnectedTelegramBotToken(organizationId: string): Promise<string | null> {
+  const { data } = await insforgeAdmin.database
+    .from("integrations")
+    .select("credentials")
+    .eq("organization_id", organizationId)
+    .eq("provider", "telegram")
+    .eq("status", "connected")
+    .maybeSingle();
+  return (data?.credentials as Partial<TelegramCredentials> | null)?.bot_token ?? null;
+}
+
 /**
  * La respuesta del agente ya quedó guardada en la conversación (y visible
  * en el Inbox) antes de llamar a esta función — si el envío real a

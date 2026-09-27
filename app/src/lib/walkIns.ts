@@ -40,7 +40,32 @@ export function walkInStats(walkIns: WalkIn[]): WalkInStats {
   return stats;
 }
 
+export interface NotifyStatus {
+  label: string;
+  variant: "success" | "warning" | "destructive" | "muted" | "default";
+}
+
+const CHANNEL_LABEL = { telegram: "Telegram", whatsapp: "WhatsApp" } as const;
+
+/**
+ * Estado del aviso de "listo" para mostrar en la fila. null cuando no aplica
+ * (registro del equipo sin canal y todavía no marcado listo).
+ */
+export function notifyStatus(w: Pick<WalkIn, "source" | "notify_channel" | "ready_at" | "notified_at" | "notify_error">): NotifyStatus | null {
+  const channel = w.notify_channel ? CHANNEL_LABEL[w.notify_channel] : null;
+  if (w.ready_at) {
+    if (w.notify_error) return { label: "No se pudo avisar", variant: "destructive" };
+    if (w.notified_at) return { label: `Avisado por ${channel ?? "chat"}`, variant: "success" };
+    if (channel) return { label: "Avisando…", variant: "warning" };
+    return { label: "Listo · llamalo en persona", variant: "muted" };
+  }
+  if (channel) return { label: `Aviso por ${channel}`, variant: "default" };
+  if (w.source === "qr") return { label: "Sin aviso", variant: "muted" };
+  return null;
+}
+
 const ERROR_MESSAGES: Record<string, string> = {
+  FORBIDDEN: "Solo el dueño o un administrador puede hacer esto.",
   RESERVATION_NOT_AVAILABLE: "Ese recurso está ocupado en este momento. Elegí otro o esperá a que se libere.",
   TIME_BLOCKED: "Ese recurso tiene la agenda bloqueada ahora (almuerzo, vacaciones). Elegí otro o quitá el bloqueo.",
   WALK_IN_NOT_WAITING: "Esta llegada ya fue atendida por otra persona del equipo.",

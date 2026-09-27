@@ -7,6 +7,7 @@ import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
 import { useBusinessBranding } from "@/hooks/useBusinessBranding";
 import { isModuleEnabled } from "@/lib/modules";
 import { PublicBookingCard } from "@/components/PublicBookingCard";
+import { publicPageMode } from "@/lib/publicBookingUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -173,7 +174,11 @@ export function DashboardHome() {
       </section>
 
       {currentOrg && isModuleEnabled(currentOrg.disabled_modules, "public_booking") && (
-        <PublicBookingCard slug={currentOrg.slug} businessName={branding?.name ?? currentOrg.name} />
+        <PublicBookingCard
+          slug={currentOrg.slug}
+          businessName={branding?.name ?? currentOrg.name}
+          mode={publicPageMode(currentOrg.business_type, currentOrg.disabled_modules)}
+        />
       )}
 
       {statsError ? (

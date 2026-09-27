@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { formatCurrency } from "@/lib/currency";
-import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL, totalByCurrency, totalsByMethod, zonedDayRange } from "@/lib/payments";
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL, salesByProduct, totalByCurrency, totalsByMethod, zonedDayRange } from "@/lib/payments";
 import { upcomingDates } from "@/lib/publicBookingUtils";
 import type { Payment } from "@/types/domain";
 
@@ -44,7 +44,7 @@ export function CashPage() {
       const { from, to } = zonedDayRange(date, timezone);
       const { data, error } = await insforge.database
         .from("payments")
-        .select("*, customers(name)")
+        .select("*, customers(name), services(name)")
         .eq("organization_id", currentOrganizationId)
         .gte("paid_at", from)
         .lt("paid_at", to)
@@ -56,16 +56,18 @@ export function CashPage() {
 
   const byMethod = totalsByMethod(payments);
   const total = totalByCurrency(payments);
+  const products = salesByProduct(payments);
+  const itemsSold = products.reduce((sum, p) => sum + p.quantity, 0);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["payments", currentOrganizationId] });
 
   async function remove(payment: Payment) {
-    if (!window.confirm(`¿Borrar el cobro de ${formatCurrency(payment.amount, payment.currency)}?`)) return;
+    if (!window.confirm(`¿Borrar la venta de ${formatCurrency(payment.amount, payment.currency)}?`)) return;
     const { error } = await insforge.database.from("payments").delete().eq("id", payment.id);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success("Cobro borrado.");
+    toast.success("Venta borrada.");
     refresh();
   }
 
@@ -75,8 +77,8 @@ export function CashPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Caja</h1>
-          <p className="text-sm text-muted-foreground">Lo que realmente entró, por medio de pago. Al final del día, compará con lo que hay en caja.</p>
+          <h1 className="font-display text-2xl font-semibold">Ventas</h1>
+          <p className="text-sm text-muted-foreground">Qué productos se vendieron y cuánto entró por cada medio de pago.</p>
         </div>
         <div className="flex items-end gap-2">
           <div className="space-y-1.5">
@@ -84,7 +86,7 @@ export function CashPage() {
             <Input id="cash-date" type="date" max={today} value={date} onChange={(e) => setDate(e.target.value || today)} />
           </div>
           <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4" /> Registrar cobro
+            <Plus className="h-4 w-4" /> Registrar venta
           </Button>
         </div>
       </div>
@@ -95,7 +97,7 @@ export function CashPage() {
             <p className="text-xs text-muted-foreground">Total del día</p>
             <p className="font-display text-2xl font-semibold">{formatTotals(total)}</p>
             <p className="text-xs text-muted-foreground">
-              {payments.length} {payments.length === 1 ? "cobro" : "cobros"}
+              {itemsSold} {itemsSold === 1 ? "producto vendido" : "productos vendidos"}
             </p>
           </CardContent>
         </Card>
@@ -110,19 +112,38 @@ export function CashPage() {
       </div>
 
       {isError ? (
-        <QueryErrorState onRetry={() => refetch()} message="No se pudo cargar la caja." />
+        <QueryErrorState onRetry={() => refetch()} message="No se pudieron cargar las ventas." />
       ) : (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Productos vendidos</CardTitle>
+          </CardHeader>
+          <CardContent className="divide-y divide-border">
+            {!isLoading && products.length === 0 && <p className="text-sm text-muted-foreground">Todavía no hay ventas este día.</p>}
+            {products.map((p) => (
+              <div key={p.key} className="flex items-center gap-3 py-2 text-sm first:pt-0 last:pb-0">
+                <span className="w-10 shrink-0 font-display text-base font-semibold tabular-nums">{p.quantity}×</span>
+                <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
+                <span className="shrink-0 text-right font-medium tabular-nums">{formatTotals(p.totals)}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>Movimientos</CardTitle>
           </CardHeader>
           <CardContent className="divide-y divide-border">
-            {!isLoading && payments.length === 0 && <p className="text-sm text-muted-foreground">No hay cobros registrados este día.</p>}
+            {!isLoading && payments.length === 0 && <p className="text-sm text-muted-foreground">No hay ventas registradas este día.</p>}
             {payments.map((p) => (
               <div key={p.id} className="flex items-center gap-3 py-2 text-sm first:pt-0 last:pb-0">
                 <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground sm:w-16">{time(p.paid_at)}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{p.concept || p.customers?.name || "Cobro"}</p>
+                  <p className="truncate font-medium">
+                    {p.quantity > 1 && `${p.quantity} × `}
+                    {p.services?.name || p.concept || p.customers?.name || "Venta"}
+                  </p>
                   <p className="truncate text-xs text-muted-foreground">
                     <span className="sm:hidden">{PAYMENT_METHOD_LABEL[p.method]}</span>
                     {p.concept && p.customers?.name && (
@@ -138,7 +159,7 @@ export function CashPage() {
                 </Badge>
                 <span className="shrink-0 text-right font-medium tabular-nums sm:w-28">{formatCurrency(p.amount, p.currency)}</span>
                 {canDelete && (
-                  <Button size="icon" variant="ghost" aria-label="Borrar cobro" onClick={() => remove(p)}>
+                  <Button size="icon" variant="ghost" aria-label="Borrar venta" onClick={() => remove(p)}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 )}
@@ -146,6 +167,7 @@ export function CashPage() {
             ))}
           </CardContent>
         </Card>
+        </div>
       )}
 
       {currentOrganizationId && (

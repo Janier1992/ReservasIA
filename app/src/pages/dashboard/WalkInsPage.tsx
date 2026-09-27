@@ -1,32 +1,30 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CalendarCheck, Clock, DoorOpen, Hourglass, UserCheck, UserX } from "lucide-react";
+import { CalendarCheck, Clock, DoorOpen, Hourglass, Trash2, UserCheck, Wallet } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QueryErrorState } from "@/components/QueryErrorState";
-import { VoiceIntakeButton, type VoiceFields } from "@/components/VoiceIntakeButton";
-import { formatWait, minutesBetween, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
+import { PaymentDialog } from "@/components/PaymentDialog";
+import { WalkInCard } from "@/components/walk-ins/WalkInCard";
+import { WalkInEditDialog } from "@/components/walk-ins/WalkInEditDialog";
+import { WalkInRegisterForm } from "@/components/walk-ins/WalkInRegisterForm";
+import { isModuleEnabled } from "@/lib/modules";
+import { formatWait, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
 import { zonedDayRange } from "@/lib/payments";
 import { upcomingDates } from "@/lib/publicBookingUtils";
 import type { Reservation, Resource, Service, WalkIn } from "@/types/domain";
 
 // Radix Select no admite un item con value "": este valor representa "sin elegir".
 const NONE = "none";
-const WALK_IN_SELECT = "*, services(name, duration_minutes), reservations(resource_id, start_at, source, resources(name))";
-// Segundos antes de registrar solo lo que se dictó (se puede cancelar o corregir).
-const AUTO_SUBMIT_SECONDS = 3;
+const WALK_IN_SELECT = "*, services(name, duration_minutes, price, currency), reservations(resource_id, start_at, source, resources(name))";
 
 type TodayReservation = Reservation;
-
-const EMPTY_FORM = { name: "", phone: "", serviceId: NONE, notes: "", partySize: "" };
 
 function startOfToday(): Date {
   const d = new Date();
@@ -35,37 +33,25 @@ function startOfToday(): Date {
 }
 
 export function WalkInsPage() {
-  const { currentOrganizationId, memberships } = useOrganization();
+  const { currentOrganizationId, currentRole, memberships } = useOrganization();
   const currentOrg = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations;
   const timezone = currentOrg?.timezone ?? "UTC";
   const showPartySize = currentOrg?.business_type === "restaurant";
+  const canDelete = currentRole === "owner" || currentRole === "admin";
+  const salesEnabled = isModuleEnabled(currentOrg?.disabled_modules, "cash");
+  const [editing, setEditing] = useState<WalkIn | null>(null);
+  const [saleFor, setSaleFor] = useState<WalkIn | null>(null);
   const { vocabulary } = useCurrentBusinessTheme();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [resourceChoice, setResourceChoice] = useState<Record<string, string>>({});
   const [now, setNow] = useState(() => new Date());
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
 
   // Refresca los tiempos de espera sin volver a pedir datos.
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(timer);
   }, []);
-
-  // Cuenta regresiva del registro automático después de dictar.
-  useEffect(() => {
-    if (countdown === null) return;
-    if (countdown <= 0) {
-      setCountdown(null);
-      formRef.current?.requestSubmit();
-      return;
-    }
-    const t = setTimeout(() => setCountdown(countdown - 1), 1000);
-    return () => clearTimeout(t);
-  }, [countdown]);
 
   const queryKey = ["walk-ins", currentOrganizationId];
   const {
@@ -167,57 +153,6 @@ export function WalkInsPage() {
 
   const time = (iso: string) => new Date(iso).toLocaleTimeString("es-CO", { timeZone: timezone, hour: "2-digit", minute: "2-digit" });
 
-  function applyVoice(fields: VoiceFields) {
-    setForm((prev) => ({
-      name: fields.customer_name ?? prev.name,
-      phone: fields.phone ?? prev.phone,
-      serviceId: fields.service_id ?? prev.serviceId,
-      notes: fields.notes ?? prev.notes,
-      partySize: fields.party_size ? String(fields.party_size) : prev.partySize
-    }));
-    if (fields.customer_name) {
-      setCountdown(AUTO_SUBMIT_SECONDS);
-    } else {
-      toast.info("No se entendió el nombre. Completalo y tocá Agregar a la fila.");
-    }
-  }
-
-  function updateForm(patch: Partial<typeof EMPTY_FORM>) {
-    // Si alguien corrige un campo, el registro automático espera a que confirme.
-    setCountdown(null);
-    setForm((prev) => ({ ...prev, ...patch }));
-  }
-
-  async function registerArrival(e: React.FormEvent) {
-    e.preventDefault();
-    setCountdown(null);
-    if (!form.name.trim() || !currentOrganizationId) return;
-    const party = form.partySize.trim() ? Number(form.partySize) : null;
-    if (party !== null && (!Number.isInteger(party) || party < 1 || party > 200)) {
-      toast.error("El número de personas no es válido.");
-      return;
-    }
-    setSaving(true);
-    const { error } = await insforge.database.from("walk_ins").insert([
-      {
-        organization_id: currentOrganizationId,
-        customer_name: form.name.trim(),
-        customer_phone: form.phone.trim() || null,
-        service_id: form.serviceId === NONE ? null : form.serviceId,
-        notes: form.notes.trim() || null,
-        party_size: party
-      }
-    ]);
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success(`${form.name.trim()} quedó en la fila.`);
-    setForm(EMPTY_FORM);
-    refresh();
-  }
-
   async function checkIn(r: TodayReservation) {
     setBusyId(r.id);
     const { error } = await insforge.database.rpc("check_in_reservation", { p_reservation_id: r.id });
@@ -262,17 +197,55 @@ export function WalkInsPage() {
     queryClient.invalidateQueries({ queryKey: ["reservations"] });
   }
 
-  async function finish(walkIn: WalkIn) {
+  /** Finalizar (en atención) o "Atendido" directo desde la espera: complete_walk_in hace ambos. */
+  async function complete(walkIn: WalkIn) {
     setBusyId(walkIn.id);
-    const { error } = await insforge.database.rpc("finish_walk_in", { p_walk_in_id: walkIn.id });
+    const { data, error } = await insforge.database.rpc("complete_walk_in", { p_walk_in_id: walkIn.id });
     setBusyId(null);
     if (error) {
       toast.error(walkInErrorMessage(error));
       refresh();
       return;
     }
-    toast.success(`Atención de ${walkIn.customer_name} finalizada.`);
+    const done = (data ?? walkIn) as WalkIn;
+    const message = `Atención de ${walkIn.customer_name} finalizada.`;
+    if (salesEnabled) {
+      toast.success(message, { action: { label: "Registrar venta", onClick: () => setSaleFor({ ...walkIn, ...done }) } });
+    } else {
+      toast.success(message);
+    }
     refresh();
+    queryClient.invalidateQueries({ queryKey: ["reservations"] });
+  }
+
+  async function markReady(walkIn: WalkIn) {
+    setBusyId(walkIn.id);
+    const { error } = await insforge.database.from("walk_ins").update({ ready_at: new Date().toISOString() }).eq("id", walkIn.id);
+    setBusyId(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(
+      walkIn.notify_channel
+        ? `Listo: le avisamos a ${walkIn.customer_name} por ${walkIn.notify_channel === "telegram" ? "Telegram" : "WhatsApp"}.`
+        : `Listo. ${walkIn.customer_name} no pidió aviso por chat: llamalo en persona.`
+    );
+    refresh();
+  }
+
+  async function remove(walkIn: WalkIn) {
+    if (!window.confirm(`¿Eliminar el registro de ${walkIn.customer_name}? No se puede deshacer.`)) return;
+    setBusyId(walkIn.id);
+    const { error } = await insforge.database.rpc("delete_walk_in", { p_walk_in_id: walkIn.id });
+    setBusyId(null);
+    if (error) {
+      toast.error(walkInErrorMessage(error));
+      return;
+    }
+    toast.success("Registro eliminado.");
+    refresh();
+    queryClient.invalidateQueries({ queryKey: ["reservations"] });
   }
 
   async function markLeft(walkIn: WalkIn) {
@@ -290,10 +263,17 @@ export function WalkInsPage() {
     refresh();
   }
 
-  const detail = (w: WalkIn) =>
-    [w.services?.name ?? "Servicio sin definir", w.party_size ? `${w.party_size} personas` : null, w.reservations?.resources?.name, w.notes]
-      .filter(Boolean)
-      .join(" · ");
+  const cardProps = (w: WalkIn) => ({
+    walkIn: w,
+    now,
+    busy: busyId === w.id,
+    canDelete,
+    timeLabel: time,
+    onComplete: () => complete(w),
+    onReady: () => markReady(w),
+    onEdit: () => setEditing(w),
+    onDelete: () => remove(w)
+  });
 
   return (
     <div className="space-y-6">
@@ -326,79 +306,9 @@ export function WalkInsPage() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
-          <CardTitle>Registrar llegada sin reserva</CardTitle>
-          {currentOrganizationId && <VoiceIntakeButton organizationId={currentOrganizationId} onResult={applyVoice} />}
-        </CardHeader>
-        <CardContent>
-          <form
-            ref={formRef}
-            onSubmit={registerArrival}
-            className={`grid grid-cols-1 gap-3 sm:grid-cols-2 lg:items-end ${showPartySize ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}
-          >
-            <div className="space-y-1.5">
-              <Label htmlFor="walkin-name">Nombre *</Label>
-              <Input id="walkin-name" value={form.name} onChange={(e) => updateForm({ name: e.target.value })} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="walkin-phone">Teléfono</Label>
-              <Input
-                id="walkin-phone"
-                inputMode="tel"
-                value={form.phone}
-                onChange={(e) => updateForm({ phone: e.target.value })}
-                placeholder="Para guardarlo como cliente"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="walkin-service">Servicio</Label>
-              <Select value={form.serviceId} onValueChange={(v) => updateForm({ serviceId: v })}>
-                <SelectTrigger id="walkin-service">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>Sin definir</SelectItem>
-                  {services.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name} · {s.duration_minutes} min
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {showPartySize && (
-              <div className="space-y-1.5">
-                <Label htmlFor="walkin-party">Personas</Label>
-                <Input id="walkin-party" inputMode="numeric" value={form.partySize} onChange={(e) => updateForm({ partySize: e.target.value })} />
-              </div>
-            )}
-            <div className="space-y-1.5">
-              <Label htmlFor="walkin-notes">Notas</Label>
-              <Input
-                id="walkin-notes"
-                value={form.notes}
-                onChange={(e) => updateForm({ notes: e.target.value })}
-                placeholder="Ej: placa, pedido especial"
-              />
-            </div>
-            {countdown !== null ? (
-              <div className="flex gap-2">
-                <Button type="submit" className="flex-1" disabled={saving}>
-                  Registrando en {countdown}…
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => setCountdown(null)}>
-                  Cancelar
-                </Button>
-              </div>
-            ) : (
-              <Button type="submit" disabled={saving || !form.name.trim()}>
-                Agregar a la fila
-              </Button>
-            )}
-          </form>
-        </CardContent>
-      </Card>
+      {currentOrganizationId && (
+        <WalkInRegisterForm organizationId={currentOrganizationId} services={services} showPartySize={showPartySize} onRegistered={refresh} />
+      )}
 
       {pendingArrivals.length > 0 && (
         <Card>
@@ -450,24 +360,14 @@ export function WalkInsPage() {
             <CardContent className="space-y-3">
               {waiting.length === 0 && <p className="text-sm text-muted-foreground">No hay nadie esperando.</p>}
               {waiting.map((w, index) => (
-                <div key={w.id} className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-center">
-                  <div className="flex flex-1 items-start gap-3">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-primary-foreground">
-                      {index + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="flex flex-wrap items-center gap-2 font-medium">
-                        {w.customer_name}
-                        {w.reservations && w.reservations.source !== "walk_in" && (
-                          <Badge variant="default">Reserva {time(w.reservations.start_at)}</Badge>
-                        )}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{detail(w)}</p>
-                      <p className="text-xs text-muted-foreground">Esperando: {formatWait(minutesBetween(w.arrived_at, now))}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {resources.length > 0 && (
+                <WalkInCard
+                  key={w.id}
+                  {...cardProps(w)}
+                  position={index + 1}
+                  onServe={() => serve(w)}
+                  onLeft={() => markLeft(w)}
+                  resourceSelect={
+                    resources.length > 0 && (
                       <Select
                         value={resourceChoice[w.id] ?? w.reservations?.resource_id ?? NONE}
                         onValueChange={(v) => setResourceChoice({ ...resourceChoice, [w.id]: v })}
@@ -485,22 +385,9 @@ export function WalkInsPage() {
                           ))}
                         </SelectContent>
                       </Select>
-                    )}
-                    <Button size="sm" onClick={() => serve(w)} disabled={busyId === w.id}>
-                      Atender
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => markLeft(w)}
-                      disabled={busyId === w.id}
-                      title="Se fue sin ser atendido"
-                      aria-label={`${w.customer_name} se fue sin ser atendido`}
-                    >
-                      <UserX className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+                    )
+                  }
+                />
               ))}
             </CardContent>
           </Card>
@@ -512,18 +399,7 @@ export function WalkInsPage() {
             <CardContent className="space-y-3">
               {inService.length === 0 && <p className="text-sm text-muted-foreground">Nadie en atención ahora.</p>}
               {inService.map((w) => (
-                <div key={w.id} className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{w.customer_name}</p>
-                    <p className="text-sm text-muted-foreground">{detail(w)}</p>
-                    {w.served_at && (
-                      <p className="text-xs text-muted-foreground">En atención hace {formatWait(minutesBetween(w.served_at, now))}</p>
-                    )}
-                  </div>
-                  <Button size="sm" onClick={() => finish(w)} disabled={busyId === w.id}>
-                    Finalizar
-                  </Button>
-                </div>
+                <WalkInCard key={w.id} {...cardProps(w)} />
               ))}
             </CardContent>
           </Card>
@@ -542,10 +418,47 @@ export function WalkInsPage() {
                 <span className="hidden text-muted-foreground sm:inline">{w.services?.name ?? "—"}</span>
                 <span className="text-muted-foreground">{time(w.arrived_at)}</span>
                 <Badge variant={w.status === "done" ? "success" : "muted"}>{w.status === "done" ? "Atendido" : "Se fue"}</Badge>
+                {salesEnabled && w.status === "done" && (
+                  <Button size="icon" variant="ghost" title="Registrar venta" aria-label={`Registrar venta de ${w.customer_name}`} onClick={() => setSaleFor(w)}>
+                    <Wallet className="h-4 w-4" />
+                  </Button>
+                )}
+                {canDelete && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Eliminar registro"
+                    aria-label={`Eliminar el registro de ${w.customer_name}`}
+                    disabled={busyId === w.id}
+                    onClick={() => remove(w)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
               </div>
             ))}
           </CardContent>
         </Card>
+      )}
+
+      <WalkInEditDialog walkIn={editing} services={services} showPartySize={showPartySize} onClose={() => setEditing(null)} onSaved={refresh} />
+      {currentOrganizationId && (
+        <PaymentDialog
+          open={!!saleFor}
+          onOpenChange={(open) => !open && setSaleFor(null)}
+          organizationId={currentOrganizationId}
+          title="Registrar venta"
+          draft={
+            saleFor
+              ? {
+                  serviceId: saleFor.service_id,
+                  customerId: saleFor.customer_id,
+                  reservationId: saleFor.reservation_id,
+                  concept: saleFor.services?.name ?? null
+                }
+              : {}
+          }
+        />
       )}
     </div>
   );

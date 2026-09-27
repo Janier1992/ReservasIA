@@ -212,7 +212,14 @@ export interface WalkIn {
   arrived_at: string;
   served_at: string | null;
   finished_at: string | null;
-  services?: Pick<Service, "name" | "duration_minutes"> | null;
+  /** "qr": pedido del cliente desde la página pública; "staff": lo registró el equipo. */
+  source: "staff" | "qr";
+  notify_channel: "telegram" | "whatsapp" | null;
+  notify_identity: string | null;
+  ready_at: string | null;
+  notified_at: string | null;
+  notify_error: string | null;
+  services?: Pick<Service, "name" | "duration_minutes" | "price" | "currency"> | null;
   reservations?: { resource_id: string | null; start_at: string; source: string; resources: Pick<Resource, "name"> | null } | null;
 }
 
@@ -276,7 +283,10 @@ export interface Payment {
   method: PaymentMethod;
   concept: string | null;
   paid_at: string;
+  service_id: string | null;
+  quantity: number;
   customers?: Pick<Customer, "name"> | null;
+  services?: Pick<Service, "name"> | null;
 }
 
 export interface ResourceHourPeriod {

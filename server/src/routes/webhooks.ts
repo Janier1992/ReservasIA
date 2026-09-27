@@ -6,6 +6,7 @@ import { AppError, ErrorCodes } from "../utils/AppError.js";
 import { resolveOrganizationForIncomingNumber, sendWhatsAppMessage, validateTwilioSignature } from "../services/twilio/twilioService.js";
 import { handleInboundMessage } from "../services/conversations/inboundMessageHandler.js";
 import { runAgentTurn } from "../services/agent/agentRuntime.js";
+import { extractOrderCode, handleOrderCodeMessage } from "../services/publicOrders/publicOrderService.js";
 import { webhookRateLimiter } from "../middleware/rateLimit.js";
 
 export const webhooksRouter = Router();
@@ -75,6 +76,23 @@ webhooksRouter.post(
       // Twilio. Esto evita timeouts del webhook cuando el loop de tool
       // calling necesita varias rondas.
       res.status(200).type("text/xml").send("<Response></Response>");
+
+      // "Pedido #<código>" llega desde el botón "Avisame por WhatsApp" de un
+      // pedido por QR: se vincula el chat al pedido sin pasar por el agente.
+      const orderCode = extractOrderCode(Body);
+      if (orderCode) {
+        handleOrderCodeMessage({
+          organizationId: routing.organizationId,
+          code: orderCode,
+          channel: "whatsapp",
+          identity: fromPhone,
+          customerId,
+          conversationId
+        })
+          .then((reply) => sendWhatsAppMessage(routing.organizationId, fromPhone, reply))
+          .catch((err) => logger.error({ organizationId: routing.organizationId, conversationId, err }, "order_code_link_failed"));
+        return;
+      }
 
       runAgentTurn({
         organizationId: routing.organizationId,

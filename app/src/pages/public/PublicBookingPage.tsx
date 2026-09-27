@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { formatInTimeZone } from "date-fns-tz";
 import { es } from "date-fns/locale";
-import { CalendarCheck, Check, Clock, MapPin, Phone } from "lucide-react";
+import { CalendarCheck, Check, Clock, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,8 @@ import { getBusinessTheme } from "@/lib/businessThemes";
 import { useApplyTheme } from "@/hooks/useBusinessTheme";
 import { PublicApiError, publicApi, type PublicService, type PublicSlot } from "@/lib/publicApi";
 import { upcomingDates } from "@/lib/publicBookingUtils";
+import { PublicBusinessHeader } from "./PublicBusinessHeader";
+import { PublicOrderView } from "./PublicOrderView";
 
 const DAYS_SHOWN = 14;
 
@@ -111,6 +113,10 @@ export function PublicBookingPage() {
     );
   }
 
+  if (business.mode === "order") {
+    return <PublicOrderView slug={slug} business={business} icon={Icon} />;
+  }
+
   if (confirmed) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 px-4 text-center">
@@ -133,31 +139,7 @@ export function PublicBookingPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-16 pt-10 sm:pt-16">
-      <header className="mb-10 flex items-start gap-4">
-        {business.logoUrl ? (
-          <img src={business.logoUrl} alt="" className="h-14 w-14 shrink-0 rounded-2xl object-cover" />
-        ) : (
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <Icon className="h-7 w-7" />
-          </div>
-        )}
-        <div className="min-w-0 space-y-1">
-          <h1 className="font-display text-3xl font-semibold leading-tight sm:text-4xl">{business.name}</h1>
-          {business.description && <p className="text-muted-foreground">{business.description}</p>}
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            {business.address && (
-              <span className="flex items-center gap-1.5">
-                <MapPin className="h-4 w-4" /> {business.address}
-              </span>
-            )}
-            {business.phone && (
-              <span className="flex items-center gap-1.5">
-                <Phone className="h-4 w-4" /> {business.phone}
-              </span>
-            )}
-          </div>
-        </div>
-      </header>
+      <PublicBusinessHeader business={business} icon={Icon} />
 
       <div className="space-y-10">
         <section className="space-y-4">
