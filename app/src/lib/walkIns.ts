@@ -45,7 +45,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   TIME_BLOCKED: "Ese recurso tiene la agenda bloqueada ahora (almuerzo, vacaciones). Elegí otro o quitá el bloqueo.",
   WALK_IN_NOT_WAITING: "Esta llegada ya fue atendida por otra persona del equipo.",
   WALK_IN_NOT_IN_SERVICE: "Esta atención ya fue finalizada.",
-  WALK_IN_NOT_FOUND: "No se encontró esta llegada. Recargá la página."
+  WALK_IN_NOT_FOUND: "No se encontró esta llegada. Recargá la página.",
+  RESERVATION_NOT_MODIFIABLE: "Esa reserva ya no está activa (fue cancelada o completada). Recargá la página.",
+  RESERVATION_NOT_FOUND: "No se encontró la reserva. Recargá la página."
 };
 
 /** Traduce los códigos de error de serve_walk_in / finish_walk_in a un mensaje para el equipo. */
