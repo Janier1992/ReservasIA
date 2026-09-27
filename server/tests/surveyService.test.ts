@@ -3,6 +3,11 @@ import { createInsforgeMock } from "./helpers/insforgeMock.js";
 
 const customer = (name: string, phone: string) => ({ name, phone });
 
+// Encuestas ya creadas en las últimas horas; cada test puede cambiarlas.
+const recent = vi.hoisted(() => ({
+  surveys: [] as { organization_id: string; customer_id: string; reservation_id: string }[]
+}));
+
 vi.mock("../src/lib/insforge.js", () => ({
   get insforgeAdmin() {
     return createInsforgeMock({
@@ -31,7 +36,7 @@ vi.mock("../src/lib/insforge.js", () => ({
         ],
         error: null
       },
-      survey_requests: { data: [{ reservation_id: "r5" }], error: null },
+      survey_requests: { data: recent.surveys, error: null },
       // Solo Luis escribió por WhatsApp en las últimas 24 horas.
       messages: { data: [{ conversation_id: "w2" }], error: null }
     });
@@ -42,12 +47,19 @@ const { buildSurveyText, findSurveyCandidates } = await import("../src/services/
 
 describe("surveyService", () => {
   it("picks Telegram customers and WhatsApp customers inside the 24h window, once per customer, only where the module is on", async () => {
+    recent.surveys = [{ organization_id: "org-1", customer_id: "c5", reservation_id: "r5" }];
     const candidates = await findSurveyCandidates(new Date("2026-09-27T12:00:00Z"));
     expect(candidates.map((c) => [c.reservationId, c.channel])).toEqual([
       ["r1", "telegram"],
       ["r2", "whatsapp"]
     ]);
     expect(candidates[0]).toMatchObject({ customerName: "Ana Ruiz", businessName: "Barbería Z" });
+  });
+
+  it("skips a customer already surveyed for another visit in an earlier run", async () => {
+    recent.surveys = [{ organization_id: "org-1", customer_id: "c1", reservation_id: "r0" }];
+    const candidates = await findSurveyCandidates(new Date("2026-09-27T12:00:00Z"));
+    expect(candidates.map((c) => c.reservationId)).toEqual(["r2", "r5"]);
   });
 
   it("writes a short message with the first name and link", () => {

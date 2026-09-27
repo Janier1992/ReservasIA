@@ -102,6 +102,58 @@ do $$ declare p public.customer_plans; n int; begin
     raise exception 'FAIL: se pudo editar un cobro';
   exception when insufficient_privilege then null; end;
   raise notice 'OK: un cobro registrado no se puede editar';
+
+  -- Vencimiento con la fecha del negocio: el que vence HOY (Bogotá) sigue
+  -- contando a cualquier hora; el que venció ayer queda vencido.
+  insert into public.customer_plans (id, organization_id, customer_id, name, kind, sessions_total, service_ids, expires_on) values
+    ('aaaaaaaa-0000-0000-0000-000000000003', '11111111-aaaa-0000-0000-000000000001', '55555555-0000-0000-0000-000000000001',
+     'Bono hoy', 'sessions', 5, array['88888888-0000-0000-0000-000000000001']::uuid[], (now() at time zone 'America/Bogota')::date),
+    ('aaaaaaaa-0000-0000-0000-000000000004', '11111111-aaaa-0000-0000-000000000001', '55555555-0000-0000-0000-000000000001',
+     'Bono ayer', 'sessions', 5, array['88888888-0000-0000-0000-000000000001']::uuid[], (now() at time zone 'America/Bogota')::date - 1);
+  update public.reservations set status = 'completed' where id = '66666666-0000-0000-0000-000000000003';
+  select * into p from public.customer_plans where id = 'aaaaaaaa-0000-0000-0000-000000000003';
+  if p.status <> 'active' or p.sessions_used <> 1 then raise exception 'FAIL: el bono que vence hoy no contó (%/%)', p.sessions_used, p.status; end if;
+  select * into p from public.customer_plans where id = 'aaaaaaaa-0000-0000-0000-000000000004';
+  if p.status <> 'expired' then raise exception 'FAIL: el bono vencido ayer sigue %', p.status; end if;
+  raise notice 'OK: el vencimiento usa la fecha del negocio';
+end $$;
+
+-- Staff: canjea premios, pero no toca usos, estados ni cancela.
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000003';
+do $$ declare p public.customer_plans; begin
+  begin
+    update public.customer_plans set sessions_used = 0 where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+    raise exception 'FAIL: staff devolvió sesiones usadas';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.customer_plans set status = 'active' where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+    raise exception 'FAIL: staff reactivó un bono agotado';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.customer_plans set status = 'cancelled' where id = 'aaaaaaaa-0000-0000-0000-000000000003';
+    raise exception 'FAIL: staff canceló un plan';
+  exception when insufficient_privilege then null; end;
+  begin
+    insert into public.customer_plans (organization_id, customer_id, name, kind, sessions_total, sessions_used)
+      values ('11111111-aaaa-0000-0000-000000000001', '55555555-0000-0000-0000-000000000001', 'Tarjeta casi llena', 'stamps', 5, 4);
+    raise exception 'FAIL: staff vendió un plan con usos cargados';
+  exception when insufficient_privilege then null; end;
+  raise notice 'OK: staff no edita usos, no reactiva, no cancela ni vende planes con usos';
+
+  update public.customer_plans set status = 'redeemed' where id = 'aaaaaaaa-0000-0000-0000-000000000002';
+  select * into p from public.customer_plans where id = 'aaaaaaaa-0000-0000-0000-000000000002';
+  if p.status <> 'redeemed' then raise exception 'FAIL: staff no pudo canjear el premio'; end if;
+  insert into public.customer_plans (organization_id, customer_id, name, kind, sessions_total)
+    values ('11111111-aaaa-0000-0000-000000000001', '55555555-0000-0000-0000-000000000001', 'Bono staff', 'sessions', 3);
+  raise notice 'OK: staff canjea premios y vende planes nuevos';
+end $$;
+
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000001';
+do $$ declare p public.customer_plans; begin
+  update public.customer_plans set status = 'cancelled' where id = 'aaaaaaaa-0000-0000-0000-000000000003';
+  select * into p from public.customer_plans where id = 'aaaaaaaa-0000-0000-0000-000000000003';
+  if p.status <> 'cancelled' then raise exception 'FAIL: el dueño no pudo cancelar'; end if;
+  raise notice 'OK: el dueño cancela planes activos';
 end $$;
 
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-000000000002';

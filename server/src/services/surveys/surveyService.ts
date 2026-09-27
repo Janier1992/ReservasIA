@@ -10,6 +10,8 @@ const MIN_DELAY_MS = 2 * 60 * 60 * 1000;
 const MAX_DELAY_MS = 48 * 60 * 60 * 1000;
 /** Meta solo permite texto libre por WhatsApp dentro de las 24h del último mensaje del cliente. */
 const WHATSAPP_WINDOW_MS = 24 * 60 * 60 * 1000;
+/** Margen extra al buscar encuestas previas: una reserva puede marcarse completada antes de su hora de fin. */
+const RECENT_SURVEY_MARGIN_MS = 24 * 60 * 60 * 1000;
 const BATCH_LIMIT = 200;
 
 interface CompletedRow {
@@ -68,13 +70,14 @@ export async function findSurveyCandidates(now = new Date()): Promise<SurveyCand
   const [orgs, profiles, existing] = await Promise.all([
     insforgeAdmin.database.from("organizations").select("id, status, disabled_modules").in("id", orgIds),
     insforgeAdmin.database.from("business_profiles").select("organization_id, name, survey_auto_send").in("organization_id", orgIds),
+    // Encuestas recientes de estos clientes: cubre la de esta misma reserva
+    // y la de otra atención del mismo día (que se pidió en una corrida
+    // anterior). La restricción única por reserva sigue siendo la garantía.
     insforgeAdmin.database
       .from("survey_requests")
-      .select("reservation_id")
-      .in(
-        "reservation_id",
-        rows.map((r) => r.id)
-      )
+      .select("organization_id, customer_id, reservation_id")
+      .in("customer_id", [...new Set(rows.map((r) => r.customer_id))])
+      .gte("created_at", new Date(now.getTime() - MAX_DELAY_MS - RECENT_SURVEY_MARGIN_MS).toISOString())
   ]);
   if (orgs.error || profiles.error || existing.error) {
     logger.warn({ err: orgs.error ?? profiles.error ?? existing.error }, "survey_candidates_context_failed");
@@ -89,7 +92,8 @@ export async function findSurveyCandidates(now = new Date()): Promise<SurveyCand
   const profileByOrg = new Map(
     ((profiles.data ?? []) as { organization_id: string; name: string; survey_auto_send: boolean | null }[]).map((p) => [p.organization_id, p])
   );
-  const alreadyAsked = new Set(((existing.data ?? []) as { reservation_id: string }[]).map((s) => s.reservation_id));
+  const recentSurveys = (existing.data ?? []) as { organization_id: string; customer_id: string | null; reservation_id: string | null }[];
+  const alreadyAsked = new Set(recentSurveys.map((s) => s.reservation_id));
 
   const eligible = rows.filter(
     (r) => enabledOrgs.has(r.organization_id) && profileByOrg.get(r.organization_id)?.survey_auto_send !== false && !alreadyAsked.has(r.id)
@@ -108,13 +112,14 @@ export async function findSurveyCandidates(now = new Date()): Promise<SurveyCand
     for (const m of (recent ?? []) as { conversation_id: string }[]) openWindow.add(m.conversation_id);
   }
 
-  const seenCustomers = new Set<string>();
+  // Un cliente con dos atenciones cercanas recibe una sola encuesta, aunque
+  // la otra se haya pedido en una corrida anterior.
+  const seenCustomers = new Set(recentSurveys.map((s) => `${s.organization_id}:${s.customer_id}`));
   const candidates: SurveyCandidate[] = [];
   for (const r of eligible) {
     const phone = r.customers!.phone!;
     const isTelegram = phone.startsWith(TELEGRAM_PREFIX);
     if (!isTelegram && !(r.conversation_id && openWindow.has(r.conversation_id))) continue;
-    // Un cliente con dos atenciones el mismo día recibe una sola encuesta.
     const customerKey = `${r.organization_id}:${r.customer_id}`;
     if (seenCustomers.has(customerKey)) continue;
     seenCustomers.add(customerKey);
