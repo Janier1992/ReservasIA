@@ -12,6 +12,8 @@ create extension if not exists pgcrypto;
 do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+  -- Rol de la clave admin del compute service (sin superusuario, igual que en InsForge).
+  if not exists (select 1 from pg_roles where rolname = 'project_admin') then create role project_admin nologin; end if;
 end $$;
 
 create schema if not exists auth;

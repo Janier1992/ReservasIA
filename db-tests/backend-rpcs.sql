@@ -66,6 +66,24 @@ do $$ declare n int; begin
   raise notice 'OK: el server sigue viendo los recordatorios';
 end $$;
 
+-- El server de verdad NO es superusuario: corre como project_admin. Si
+-- pierde EXECUTE sobre estas funciones, el agente deja de reservar y los
+-- recordatorios dejan de salir, sin que ninguna otra prueba lo note.
+set local role project_admin;
+do $$ declare n int; r public.reservations; begin
+  if not public.is_backend_caller() then raise exception 'FAIL: project_admin no se reconoce como server'; end if;
+  select count(*) into n from public.get_due_reservation_reminders();
+  if n <> 1 then raise exception 'FAIL: project_admin ve % recordatorios', n; end if;
+  r := public.book_reservation('11111111-aaaa-0000-0000-000000000001', null, null, null, null,
+    now() + interval '3 days', now() + interval '3 days 1 hour', null, 'Desde el agente', null, 'telegram');
+  r := public.reschedule_reservation(r.id, now() + interval '4 days', now() + interval '4 days 1 hour');
+  r := public.cancel_reservation(r.id);
+  if r.status <> 'cancelled' then raise exception 'FAIL: project_admin no pudo cancelar'; end if;
+  raise notice 'OK: el server (project_admin) reserva, reprograma, cancela y ve recordatorios';
+end $$;
+reset role;
+set local role postgres;
+
 set local role anon;
 do $$ begin
   if public.is_backend_caller() then raise exception 'FAIL: anon pasa por server'; end if;
