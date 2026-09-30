@@ -1,5 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { EMERGENCY_FALLBACK_REPLY, HEALTH_PRIVACY_NOTICE, MEDICAL_ADVICE_FALLBACK_REPLY } from "../src/services/agent/safetyGuardrails.js";
+import {
+  EMERGENCY_FALLBACK_REPLY,
+  HEALTH_CONSENT_REQUEST,
+  HEALTH_PRIVACY_NOTICE,
+  MEDICAL_ADVICE_FALLBACK_REPLY,
+  VETERINARY_EMERGENCY_FALLBACK_REPLY
+} from "../src/services/agent/safetyGuardrails.js";
 
 // Ejercita runAgentTurn de punta a punta para los guardrails de código de
 // salud/veterinaria (no solo texto del prompt, ver safetyGuardrails.ts):
@@ -9,6 +15,7 @@ const log: string[] = [];
 let businessType = "barbershop";
 let lastUserMessageContent = "hola";
 let conversationPrivacyNoticeSentAt: string | null = null;
+let customerConsentAt: string | null = null;
 
 vi.mock("../src/services/agent/promptBuilder.js", () => ({
   loadAgentPromptData: async () => ({
@@ -64,6 +71,7 @@ function makeQuery(table: string) {
     };
   });
   obj.maybeSingle = vi.fn(async () => {
+    if (table === "customers") return { data: { health_data_consent_at: customerConsentAt }, error: null };
     if (table !== "conversations") return { data: null, error: null };
     return { data: { privacy_notice_sent_at: conversationPrivacyNoticeSentAt }, error: null };
   });
@@ -75,6 +83,10 @@ function makeQuery(table: string) {
     if (table === "conversations" && "privacy_notice_sent_at" in patch) {
       conversationPrivacyNoticeSentAt = patch.privacy_notice_sent_at as string;
       log.push("privacy_notice_marked_sent");
+    }
+    if (table === "customers" && "health_data_consent_at" in patch) {
+      customerConsentAt = patch.health_data_consent_at as string;
+      log.push(`consent_saved:${patch.health_data_consent_source}`);
     }
     return obj;
   });
@@ -114,6 +126,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     businessType = "barbershop";
     lastUserMessageContent = "hola";
     conversationPrivacyNoticeSentAt = null;
+    customerConsentAt = null;
   });
 
   it("redirects to emergency services WITHOUT calling the model when the customer describes an emergency at a health-niche business", async () => {
@@ -122,9 +135,19 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
 
     const result = await turn();
 
+    expect(result.reply).toBe(VETERINARY_EMERGENCY_FALLBACK_REPLY);
+    expect(createMock).not.toHaveBeenCalled();
+    expect(log).toContain(`persist:assistant:${VETERINARY_EMERGENCY_FALLBACK_REPLY}`);
+  });
+
+  it("uses the human emergency message for clinics", async () => {
+    businessType = "clinic";
+    lastUserMessageContent = "tengo un dolor muy fuerte en el pecho";
+
+    const result = await turn();
+
     expect(result.reply).toBe(EMERGENCY_FALLBACK_REPLY);
     expect(createMock).not.toHaveBeenCalled();
-    expect(log).toContain(`persist:assistant:${EMERGENCY_FALLBACK_REPLY}`);
   });
 
   it("does NOT trigger the emergency guardrail for a non-health niche (scoped on purpose)", async () => {
@@ -157,12 +180,47 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     createMock.mockResolvedValue({ choices: [{ message: { content: "¡Claro! ¿Qué día te viene bien?", tool_calls: undefined } }] });
 
     const first = await turn();
-    expect(first.reply).toBe(`${HEALTH_PRIVACY_NOTICE}¡Claro! ¿Qué día te viene bien?`);
+    expect(first.reply).toBe(`${HEALTH_CONSENT_REQUEST}¡Claro! ¿Qué día te viene bien?`);
     expect(log).toContain("privacy_notice_marked_sent");
 
     log.length = 0;
     const second = await turn();
     expect(second.reply).toBe("¡Claro! ¿Qué día te viene bien?");
     expect(log).not.toContain("privacy_notice_marked_sent");
+  });
+
+  it("veterinaries get the plain privacy notice (pet data is not personal health data)", async () => {
+    businessType = "veterinary";
+    lastUserMessageContent = "quiero vacunar a mi gato";
+    createMock.mockResolvedValueOnce({ choices: [{ message: { content: "¡Claro!", tool_calls: undefined } }] });
+
+    const result = await turn();
+    expect(result.reply).toBe(`${HEALTH_PRIVACY_NOTICE}¡Claro!`);
+  });
+
+  it("records the patient's consent when they answer yes after being asked, and lifts the privacy restriction", async () => {
+    businessType = "dental";
+    conversationPrivacyNoticeSentAt = new Date(Date.now() - 60_000).toISOString();
+    lastUserMessageContent = "Sí, autorizo";
+    createMock.mockResolvedValueOnce({ choices: [{ message: { content: "Perfecto. ¿Cuál es el motivo de la consulta?", tool_calls: undefined } }] });
+
+    await turn();
+
+    expect(log).toContain("consent_saved:chat");
+    const systemPrompt = (createMock.mock.calls[0][0] as { messages: { content: string }[] }).messages[0].content;
+    expect(systemPrompt).not.toContain("NO autorizó");
+  });
+
+  it("without consent, tells the model not to ask for or record the reason for the visit", async () => {
+    businessType = "physiotherapy";
+    conversationPrivacyNoticeSentAt = new Date(Date.now() - 60_000).toISOString();
+    lastUserMessageContent = "quiero una cita el martes";
+    createMock.mockResolvedValueOnce({ choices: [{ message: { content: "¿A qué hora?", tool_calls: undefined } }] });
+
+    await turn();
+
+    expect(log.some((l) => l.startsWith("consent_saved"))).toBe(false);
+    const systemPrompt = (createMock.mock.calls[0][0] as { messages: { content: string }[] }).messages[0].content;
+    expect(systemPrompt).toContain("NO autorizó guardar datos de salud");
   });
 });

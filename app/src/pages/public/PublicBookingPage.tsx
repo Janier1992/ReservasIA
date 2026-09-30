@@ -14,6 +14,7 @@ import { getBusinessTheme } from "@/lib/businessThemes";
 import { useApplyTheme } from "@/hooks/useBusinessTheme";
 import { PublicApiError, publicApi, type PublicService, type PublicSlot } from "@/lib/publicApi";
 import { upcomingDates } from "@/lib/publicBookingUtils";
+import { HEALTH_CONSENT_LABEL, requiresHealthDataConsent } from "@/lib/healthData";
 import { PublicBusinessHeader } from "./PublicBusinessHeader";
 import { PublicOrderView } from "./PublicOrderView";
 
@@ -34,6 +35,7 @@ export function PublicBookingPage() {
   const [date, setDate] = useState<string | null>(null);
   const [slot, setSlot] = useState<PublicSlot | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "", website: "" });
+  const [healthConsent, setHealthConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<{ start_at: string } | null>(null);
@@ -45,6 +47,7 @@ export function PublicBookingPage() {
   });
   const business = businessQuery.data;
   const theme = getBusinessTheme(business?.businessType);
+  const needsHealthConsent = requiresHealthDataConsent(business?.businessType);
   useApplyTheme(theme);
   const Icon = theme.icon;
 
@@ -78,6 +81,7 @@ export function PublicBookingPage() {
         phone: form.phone,
         email: form.email || undefined,
         notes: form.notes || undefined,
+        healthDataConsent: needsHealthConsent ? healthConsent : undefined,
         website: form.website || undefined
       });
       setConfirmed({ start_at: result.start_at });
@@ -251,9 +255,29 @@ export function PublicBookingPage() {
                   <Input id="pb-email" type="email" autoComplete="email" maxLength={120} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="pb-notes">Notas (opcional)</Label>
-                  <Input id="pb-notes" maxLength={300} placeholder="Algo que el negocio deba saber" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                  <Label htmlFor="pb-notes">{needsHealthConsent ? "Motivo de la consulta (opcional)" : "Notas (opcional)"}</Label>
+                  <Input
+                    id="pb-notes"
+                    maxLength={300}
+                    placeholder={needsHealthConsent ? "Ej: control, dolor, limpieza" : "Algo que el negocio deba saber"}
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  />
                 </div>
+                {needsHealthConsent && (
+                  <label className="flex items-start gap-2 text-sm sm:col-span-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                      checked={healthConsent}
+                      onChange={(e) => setHealthConsent(e.target.checked)}
+                    />
+                    <span>
+                      {HEALTH_CONSENT_LABEL}{" "}
+                      <span className="text-muted-foreground">Si no lo marcás, igual podés reservar; el motivo no se guarda.</span>
+                    </span>
+                  </label>
+                )}
                 {/* Campo trampa para bots: fuera de pantalla y fuera del orden de tabulación. */}
                 <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
                   <label htmlFor="pb-website">Sitio web</label>

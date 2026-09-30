@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { requiresHealthDataConsent } from "@/lib/healthData";
 import type { Resource, Service } from "@/types/domain";
 
 const schema = z.object({
@@ -22,7 +23,8 @@ const schema = z.object({
   serviceId: z.string().optional(),
   resourceId: z.string().optional(),
   partySize: z.coerce.number().int().positive().optional(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  healthConsent: z.boolean().optional()
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -34,6 +36,7 @@ export function ReservationFormDialog({
   timezone,
   services,
   resources,
+  businessType,
   onCreated
 }: {
   open: boolean;
@@ -42,6 +45,7 @@ export function ReservationFormDialog({
   timezone: string;
   services: Service[];
   resources: Resource[];
+  businessType?: string | null;
   onCreated: () => void;
 }) {
   const {
@@ -51,6 +55,7 @@ export function ReservationFormDialog({
     control,
     formState: { errors, isSubmitting }
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  const needsHealthConsent = requiresHealthDataConsent(businessType);
 
   const onSubmit = async (values: FormValues) => {
     try {
@@ -61,10 +66,19 @@ export function ReservationFormDialog({
       // email desde la reserva.
       const { data: existingCustomer } = await insforge.database
         .from("customers")
-        .select("id, name, email")
+        .select("id, name, email, health_data_consent_at")
         .eq("organization_id", organizationId)
         .eq("phone", values.customerPhone)
         .maybeSingle();
+
+      // Datos de salud (Ley 1581): el motivo de consulta solo se guarda con
+      // autorización expresa del paciente.
+      const hasNotes = !!values.notes?.trim();
+      const alreadyConsented = !!existingCustomer?.health_data_consent_at;
+      if (needsHealthConsent && hasNotes && !alreadyConsented && !values.healthConsent) {
+        toast.error("Para guardar el motivo de consulta, marcá que el paciente lo autorizó (o dejá las notas vacías).");
+        return;
+      }
 
       let customerId: string;
       if (existingCustomer) {
@@ -90,6 +104,13 @@ export function ReservationFormDialog({
           .single();
         if (createCustomerError || !created) throw createCustomerError ?? new Error("No se pudo crear el cliente.");
         customerId = created.id;
+      }
+
+      if (needsHealthConsent && values.healthConsent && !alreadyConsented) {
+        await insforge.database
+          .from("customers")
+          .update({ health_data_consent_at: new Date().toISOString(), health_data_consent_source: "panel" })
+          .eq("id", customerId);
       }
 
       const service = services.find((s) => s.id === values.serviceId);
@@ -212,8 +233,17 @@ export function ReservationFormDialog({
             <Input type="number" {...register("partySize")} />
           </div>
           <div className="space-y-1.5">
-            <Label>Notas</Label>
+            <Label>{needsHealthConsent ? "Motivo de consulta / notas" : "Notas"}</Label>
             <Textarea {...register("notes")} />
+            {needsHealthConsent && (
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-primary" {...register("healthConsent")} />
+                <span>
+                  El paciente autorizó expresamente guardar el motivo de su consulta.{" "}
+                  <span className="text-muted-foreground">Sin autorización, dejá las notas vacías.</span>
+                </span>
+              </label>
+            )}
           </div>
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? "Creando..." : "Crear reserva"}

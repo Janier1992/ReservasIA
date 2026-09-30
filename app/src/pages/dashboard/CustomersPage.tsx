@@ -17,6 +17,8 @@ import { reservationStatusLabel, reservationStatusVariant } from "@/lib/reservat
 import { isValidEmail } from "@/lib/validation";
 import { CustomerAssetsSection } from "@/components/CustomerAssetsSection";
 import { CustomerPlansSection } from "@/components/CustomerPlansSection";
+import { HealthConsentSection } from "@/components/HealthConsentSection";
+import { requiresHealthDataConsent } from "@/lib/healthData";
 import { getAssetDefinition } from "@/lib/assetTypes";
 import { isModuleEnabled } from "@/lib/modules";
 import type { Customer, Reservation } from "@/types/domain";
@@ -197,6 +199,17 @@ export function CustomersPage() {
                 customerId={selected.id}
                 definition={assetDefinition}
                 canDelete={currentRole === "owner" || currentRole === "admin"}
+              />
+            )}
+
+            {requiresHealthDataConsent(currentOrg?.business_type) && selected && (
+              <HealthConsentSection
+                customer={selected}
+                timezone={currentOrg?.timezone ?? "UTC"}
+                onChanged={(patch) => {
+                  setSelected({ ...selected, ...patch });
+                  queryClient.invalidateQueries({ queryKey: ["customers", currentOrganizationId] });
+                }}
               />
             )}
 

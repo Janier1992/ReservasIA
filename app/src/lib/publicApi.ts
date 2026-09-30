@@ -71,7 +71,7 @@ export const publicApi = {
     ),
   book: (
     slug: string,
-    body: { serviceId: string; date: string; start: string; name: string; phone: string; email?: string; notes?: string; website?: string }
+    body: { serviceId: string; date: string; start: string; name: string; phone: string; email?: string; notes?: string; website?: string; healthDataConsent?: boolean }
   ) =>
     call<{ id: string; start_at: string; end_at: string; timezone: string }>(`/businesses/${encodeURIComponent(slug)}/reservations`, {
       method: "POST",

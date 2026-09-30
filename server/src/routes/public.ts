@@ -59,6 +59,7 @@ const bookingBodySchema = z.object({
     .refine((v) => v.replace(/\D/g, "").length >= 7, "Teléfono inválido"),
   email: z.string().trim().email().max(120).optional().or(z.literal("")),
   notes: z.string().trim().max(300).optional(),
+  healthDataConsent: z.boolean().optional(),
   // Campo trampa: invisible para personas, los bots lo llenan.
   website: z.string().max(0).optional()
 });
@@ -110,7 +111,8 @@ publicRouter.post(
       name: body.name,
       phone: body.phone,
       email: body.email || undefined,
-      notes: body.notes
+      notes: body.notes,
+      healthDataConsent: body.healthDataConsent
     });
     res.status(201).json(reservation);
   })

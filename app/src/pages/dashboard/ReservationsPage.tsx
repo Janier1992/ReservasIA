@@ -469,6 +469,7 @@ export function ReservationsPage() {
 
       {currentOrganizationId && (
         <ReservationFormDialog
+          businessType={currentOrg?.business_type}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           organizationId={currentOrganizationId}

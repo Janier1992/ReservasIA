@@ -9,6 +9,33 @@ export function isHealthNiche(businessType: string): boolean {
   return HEALTH_NICHE_TYPES.has(businessType);
 }
 
+// Rubros donde se anotan datos de salud de PERSONAS (dato sensible, Ley 1581):
+// ahí el motivo de consulta solo se guarda con autorización expresa. La
+// historia de una mascota no es un dato personal sensible, así que la
+// veterinaria conserva solo el aviso.
+const HUMAN_HEALTH_TYPES = new Set(["dental", "clinic", "physiotherapy"]);
+
+export function requiresHealthDataConsent(businessType: string): boolean {
+  return HUMAN_HEALTH_TYPES.has(businessType);
+}
+
+/**
+ * Respuesta del cliente al pedido de autorización. Solo cuenta si el mensaje
+ * EMPIEZA con una afirmación o negación clara ("sí", "si claro", "acepto",
+ * "autorizo", "no"); cualquier otra cosa ("sí, para el martes a las 3" sí
+ * cuenta, "quisiera una cita" no) no se interpreta como respuesta.
+ */
+export function parseConsentAnswer(customerMessage: string): "yes" | "no" | null {
+  const text = customerMessage
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (/^(no\b|no autorizo|no acepto)/.test(text)) return "no";
+  if (/^(si\b|sip\b|dale\b|acepto\b|autorizo\b|de acuerdo\b|claro\b|ok\b|okay\b|vale\b|listo\b)/.test(text)) return "yes";
+  return null;
+}
+
 // Frases en el mensaje del CLIENTE que sugieren una emergencia real (humana
 // o de una mascota). No es exhaustivo ni reemplaza criterio médico: es un
 // segundo seguro además de la instrucción del prompt, para el caso en que el
@@ -40,6 +67,13 @@ export function detectEmergency(customerMessage: string): boolean {
 
 export const EMERGENCY_FALLBACK_REPLY =
   "Por lo que describís, esto podría ser una emergencia. No puedo agendarte un turno para esto: comunicate de inmediato con la línea de emergencias de tu zona o dirigite al servicio de urgencias más cercano.";
+
+export const VETERINARY_EMERGENCY_FALLBACK_REPLY =
+  "Por lo que describís, tu mascota podría estar en una emergencia. No esperes un turno: llamá ya mismo al negocio o llevala de inmediato a la clínica veterinaria de urgencias más cercana.";
+
+export function emergencyReplyFor(businessType: string): string {
+  return businessType === "veterinary" ? VETERINARY_EMERGENCY_FALLBACK_REPLY : EMERGENCY_FALLBACK_REPLY;
+}
 
 // Heurística de "esto suena a indicación clínica" (nombre de medicamento o
 // patrón de dosis/frecuencia) — no es un parser clínico. El agente
@@ -81,3 +115,13 @@ export const MEDICAL_ADVICE_FALLBACK_REPLY =
 // el agente anota son datos sensibles.
 export const HEALTH_PRIVACY_NOTICE =
   "Antes de continuar: la información que compartas acá (motivo de la consulta u otros datos relacionados) se usa solo para gestionar tu turno, y únicamente el equipo del negocio puede verla.\n\n";
+
+// Para salud de personas el aviso además PIDE la autorización: sin un "sí"
+// explícito el código no guarda el motivo de consulta (ver
+// toolExecutors.executeCrearReserva). No autorizar no impide agendar.
+export const HEALTH_CONSENT_REQUEST =
+  "Antes de continuar: para preparar tu cita podemos anotar el motivo de consulta, que es un dato de salud. ¿Nos autorizás a guardarlo? Respondé SÍ para autorizar. Si preferís no hacerlo, igual podés agendar: simplemente no guardaremos esa información. Solo el equipo del consultorio puede verla y podés pedir que la borremos cuando quieras.\n\n";
+
+export function privacyNoticeFor(businessType: string): string {
+  return requiresHealthDataConsent(businessType) ? HEALTH_CONSENT_REQUEST : HEALTH_PRIVACY_NOTICE;
+}

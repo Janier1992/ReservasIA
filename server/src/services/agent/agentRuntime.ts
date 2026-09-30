@@ -10,10 +10,12 @@ import { MAX_TOOL_ROUNDS } from "./coreRules.js";
 import {
   containsMedicalAdvice,
   detectEmergency,
-  EMERGENCY_FALLBACK_REPLY,
-  HEALTH_PRIVACY_NOTICE,
+  emergencyReplyFor,
   isHealthNiche,
-  MEDICAL_ADVICE_FALLBACK_REPLY
+  MEDICAL_ADVICE_FALLBACK_REPLY,
+  parseConsentAnswer,
+  privacyNoticeFor,
+  requiresHealthDataConsent
 } from "./safetyGuardrails.js";
 import type { Message } from "../../types/domain.js";
 
@@ -63,7 +65,7 @@ async function persistMessage(input: {
  * (columna `conversations.privacy_notice_sent_at`), de forma determinística
  * —lo hace el código, no una instrucción que el modelo podría olvidar—.
  */
-async function withHealthPrivacyNotice(conversationId: string, reply: string): Promise<string> {
+async function withHealthPrivacyNotice(conversationId: string, businessType: string, reply: string): Promise<string> {
   const { data: conversation } = await insforgeAdmin.database
     .from("conversations")
     .select("privacy_notice_sent_at")
@@ -77,7 +79,46 @@ async function withHealthPrivacyNotice(conversationId: string, reply: string): P
     .update({ privacy_notice_sent_at: new Date().toISOString() })
     .eq("id", conversationId);
 
-  return `${HEALTH_PRIVACY_NOTICE}${reply}`;
+  return `${privacyNoticeFor(businessType)}${reply}`;
+}
+
+/**
+ * Autorización para guardar datos de salud (consultorios, clínicas,
+ * fisioterapia). Si el cliente todavía no autorizó y su último mensaje,
+ * posterior al pedido de autorización, empieza con un "sí" claro, se registra
+ * acá — lo decide el código, no el modelo. Devuelve si hay autorización
+ * vigente. Sin cliente identificado no hay autorización.
+ */
+async function resolveHealthDataConsent(conversationId: string, customerId: string | null, history: Message[]): Promise<boolean> {
+  if (!customerId) return false;
+  const { data: customer } = await insforgeAdmin.database
+    .from("customers")
+    .select("health_data_consent_at")
+    .eq("id", customerId)
+    .maybeSingle();
+  if (customer?.health_data_consent_at) return true;
+
+  const { data: conversation } = await insforgeAdmin.database
+    .from("conversations")
+    .select("privacy_notice_sent_at")
+    .eq("id", conversationId)
+    .maybeSingle();
+  const askedAt = conversation?.privacy_notice_sent_at as string | null | undefined;
+  if (!askedAt) return false;
+
+  const lastUserMessage = [...history].reverse().find((m) => m.role === "user");
+  if (!lastUserMessage || new Date(lastUserMessage.created_at).getTime() <= new Date(askedAt).getTime()) return false;
+  if (parseConsentAnswer(lastUserMessage.content) !== "yes") return false;
+
+  const { error } = await insforgeAdmin.database
+    .from("customers")
+    .update({ health_data_consent_at: new Date().toISOString(), health_data_consent_source: "chat" })
+    .eq("id", customerId);
+  if (error) {
+    logger.warn({ conversationId, customerId, err: error }, "health_consent_save_failed");
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -203,13 +244,23 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
   if (isHealthNiche(businessType)) {
     const lastUserMessage = [...orderedHistory].reverse().find((m) => m.role === "user");
     if (lastUserMessage && detectEmergency(lastUserMessage.content)) {
-      await persistMessage({ organizationId, conversationId, role: "assistant", content: EMERGENCY_FALLBACK_REPLY });
+      const emergencyReply = emergencyReplyFor(businessType);
+      await persistMessage({ organizationId, conversationId, role: "assistant", content: emergencyReply });
       logAgentEvent(logCtx, { scope: "agent", result: "success", message: "emergency_redirect" });
-      return { reply: EMERGENCY_FALLBACK_REPLY, roundsUsed: 0 };
+      return { reply: emergencyReply, roundsUsed: 0 };
     }
   }
 
-  const systemPrompt = buildSystemPrompt(data, new Date());
+  const consentGiven =
+    requiresHealthDataConsent(businessType) && !previewMode
+      ? await resolveHealthDataConsent(conversationId, customerId, orderedHistory)
+      : true;
+
+  let systemPrompt = buildSystemPrompt(data, new Date());
+  if (!consentGiven) {
+    systemPrompt +=
+      "\n\nPRIVACIDAD (obligatorio): este paciente NO autorizó guardar datos de salud. No le preguntes el motivo de consulta ni lo pongas en las notas de crear_reserva. Si lo cuenta igual, no lo repitas ni lo anotes; agendá con los demás datos.";
+  }
   const tools = getToolDefinitionsForAgent(data.agentConfig, {
     previewMode,
     hasServices: data.services.length > 0,
@@ -321,7 +372,7 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
     }
 
     if (isHealthNiche(businessType)) {
-      finalReply = await withHealthPrivacyNotice(conversationId, finalReply);
+      finalReply = await withHealthPrivacyNotice(conversationId, businessType, finalReply);
     }
 
     await persistMessage({ organizationId, conversationId, role: "assistant", content: finalReply });
