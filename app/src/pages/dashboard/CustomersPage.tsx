@@ -10,11 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { reservationStatusLabel, reservationStatusVariant } from "@/lib/reservationStatus";
+import { formatCurrency } from "@/lib/currency";
 import { isValidEmail } from "@/lib/validation";
-import type { Customer, Reservation } from "@/types/domain";
+import type { Customer, CustomerPackage, Reservation, ServicePackage } from "@/types/domain";
 
 export function CustomersPage() {
   const { currentOrganizationId } = useOrganization();
@@ -22,9 +24,11 @@ export function CustomersPage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Customer | null>(null);
   const [editForm, setEditForm] = useState({ name: "", email: "", notes: "" });
+  const [sellPackageId, setSellPackageId] = useState<string>("");
 
   useEffect(() => {
     if (selected) setEditForm({ name: selected.name ?? "", email: selected.email ?? "", notes: selected.notes ?? "" });
+    setSellPackageId("");
   }, [selected]);
 
   const {
@@ -61,6 +65,73 @@ export function CustomersPage() {
       return data as Reservation[];
     }
   });
+
+  const { data: activePackageTypes = [] } = useQuery({
+    queryKey: ["service-packages-active", currentOrganizationId],
+    enabled: !!currentOrganizationId,
+    queryFn: async () => {
+      const { data, error } = await insforge.database
+        .from("service_packages")
+        .select("*")
+        .eq("organization_id", currentOrganizationId)
+        .eq("is_active", true);
+      if (error) throw error;
+      return data as ServicePackage[];
+    }
+  });
+
+  const {
+    data: customerPackages = [],
+    refetch: refetchCustomerPackages
+  } = useQuery({
+    queryKey: ["customer-packages", selected?.id],
+    enabled: !!selected,
+    queryFn: async () => {
+      const { data, error } = await insforge.database
+        .from("customer_packages")
+        .select("*")
+        .eq("customer_id", selected!.id)
+        .order("purchased_at", { ascending: false });
+      if (error) throw error;
+      const packages = data as CustomerPackage[];
+      // sessions_used no se guarda como contador: se cuenta cada vez para no
+      // desincronizarse si una reserva se cancela (esa sesión vuelve al cupo).
+      return Promise.all(
+        packages.map(async (pkg) => {
+          const { data: used } = await insforge.database
+            .from("reservations")
+            .select("id")
+            .eq("customer_package_id", pkg.id)
+            .neq("status", "cancelled");
+          return { ...pkg, sessions_used: used?.length ?? 0 };
+        })
+      );
+    }
+  });
+
+  async function sellPackage() {
+    if (!selected || !sellPackageId || !currentOrganizationId) return;
+    const packageType = activePackageTypes.find((p) => p.id === sellPackageId);
+    if (!packageType) return;
+    const { error } = await insforge.database.from("customer_packages").insert([
+      {
+        organization_id: currentOrganizationId,
+        customer_id: selected.id,
+        package_id: packageType.id,
+        package_name: packageType.name,
+        sessions_total: packageType.total_sessions,
+        price: packageType.price,
+        currency: packageType.currency
+      }
+    ]);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Paquete vendido.");
+    setSellPackageId("");
+    refetchCustomerPackages();
+  }
 
   async function removeCustomer(customer: Customer) {
     const { error } = await insforge.database.from("customers").delete().eq("id", customer.id);
@@ -179,6 +250,46 @@ export function CustomersPage() {
               <Button size="sm" onClick={saveCustomerDetails}>
                 Guardar
               </Button>
+            </div>
+
+            <div>
+              <h4 className="mb-2 font-medium">Paquetes de sesiones</h4>
+              <div className="space-y-2">
+                {customerPackages.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between rounded-md border border-border p-2">
+                    <div>
+                      <p className="font-medium">{p.package_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(p.sessions_used ?? 0)}/{p.sessions_total} sesiones usadas
+                        {p.price ? ` · ${formatCurrency(p.price, p.currency)}` : ""}
+                      </p>
+                    </div>
+                    <Badge variant={p.status === "active" ? "success" : "muted"}>
+                      {p.status === "active" ? "Activo" : p.status === "completed" ? "Completado" : "Cancelado"}
+                    </Badge>
+                  </div>
+                ))}
+                {customerPackages.length === 0 && <p className="text-muted-foreground">Sin paquetes.</p>}
+              </div>
+              {activePackageTypes.length > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Select value={sellPackageId} onValueChange={setSellPackageId}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Vender un paquete..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activePackageTypes.map((pt) => (
+                        <SelectItem key={pt.id} value={pt.id}>
+                          {pt.name} ({pt.total_sessions} sesiones)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" onClick={sellPackage} disabled={!sellPackageId}>
+                    Vender
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div>

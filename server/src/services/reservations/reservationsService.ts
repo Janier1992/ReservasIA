@@ -23,6 +23,8 @@ export interface CreateReservationInput {
   customerName: string | null;
   specialRequests: string | null;
   source?: string;
+  recurrenceGroupId?: string | null;
+  customerPackageId?: string | null;
 }
 
 export async function createReservation(input: CreateReservationInput): Promise<Reservation> {
@@ -37,7 +39,9 @@ export async function createReservation(input: CreateReservationInput): Promise<
     p_party_size: input.partySize,
     p_customer_name: input.customerName,
     p_special_requests: input.specialRequests,
-    p_source: input.source ?? "whatsapp"
+    p_source: input.source ?? "whatsapp",
+    p_recurrence_group_id: input.recurrenceGroupId ?? null,
+    p_customer_package_id: input.customerPackageId ?? null
   });
 
   if (error) translateRpcError(error);

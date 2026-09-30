@@ -4,8 +4,10 @@ import { toast } from "sonner";
 import { Plus, Trash2, UploadCloud, Pencil, Check, X } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CURRENCY_OPTIONS, DEFAULT_CURRENCY, formatCurrency } from "@/lib/currency";
@@ -13,7 +15,7 @@ import { BulkUploadServicesDialog } from "./services/BulkUploadServicesDialog";
 import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { isNonNegativeNumber, isPositiveInteger } from "@/lib/validation";
-import type { Service } from "@/types/domain";
+import type { Service, ServicePackage } from "@/types/domain";
 
 export function ServicesPage() {
   const { currentOrganizationId } = useOrganization();
@@ -22,6 +24,7 @@ export function ServicesPage() {
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: "", duration_minutes: 60, price: "", currency: DEFAULT_CURRENCY });
+  const [packageForm, setPackageForm] = useState({ name: "", serviceId: "", totalSessions: 10, price: "", currency: DEFAULT_CURRENCY });
 
   const {
     data: services = [],
@@ -43,6 +46,62 @@ export function ServicesPage() {
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["services-page", currentOrganizationId] });
+
+  const {
+    data: packages = [],
+    isError: packagesError,
+    refetch: refetchPackages
+  } = useQuery({
+    queryKey: ["service-packages", currentOrganizationId],
+    enabled: !!currentOrganizationId,
+    queryFn: async () => {
+      const { data, error } = await insforge.database
+        .from("service_packages")
+        .select("*")
+        .eq("organization_id", currentOrganizationId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as ServicePackage[];
+    }
+  });
+
+  async function addPackage() {
+    if (!packageForm.name.trim() || !currentOrganizationId) return;
+    if (!isPositiveInteger(packageForm.totalSessions)) {
+      toast.error("La cantidad de sesiones debe ser un número entero mayor a 0.");
+      return;
+    }
+    if (packageForm.price && !isNonNegativeNumber(Number(packageForm.price))) {
+      toast.error("El precio debe ser un número mayor o igual a 0.");
+      return;
+    }
+    const { error } = await insforge.database.from("service_packages").insert([
+      {
+        organization_id: currentOrganizationId,
+        service_id: packageForm.serviceId || null,
+        name: packageForm.name.trim(),
+        total_sessions: packageForm.totalSessions,
+        price: packageForm.price ? Number(packageForm.price) : null,
+        currency: packageForm.currency
+      }
+    ]);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setPackageForm({ name: "", serviceId: "", totalSessions: 10, price: "", currency: packageForm.currency });
+    refetchPackages();
+  }
+
+  async function togglePackageActive(pkg: ServicePackage) {
+    await insforge.database.from("service_packages").update({ is_active: !pkg.is_active }).eq("id", pkg.id);
+    refetchPackages();
+  }
+
+  async function removePackage(pkg: ServicePackage) {
+    await insforge.database.from("service_packages").delete().eq("id", pkg.id);
+    refetchPackages();
+  }
 
   async function addService() {
     if (!form.name.trim() || !currentOrganizationId) return;
@@ -248,6 +307,115 @@ export function ServicesPage() {
         </table>
       </div>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Paquetes de sesiones</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Para negocios que venden sesiones por adelantado (ej. "10 sesiones de fisioterapia"). Se venden a un cliente puntual
+            desde su ficha en Clientes, y el agente descuenta una sesión cada vez que reserva usando el paquete.
+          </p>
+          <div className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3">
+            <div className="flex-1 space-y-1">
+              <Label className="text-xs text-muted-foreground">Nombre del paquete</Label>
+              <Input
+                value={packageForm.name}
+                onChange={(e) => setPackageForm({ ...packageForm, name: e.target.value })}
+                placeholder="Ej: 10 sesiones de fisioterapia"
+              />
+            </div>
+            <div className="w-48 space-y-1">
+              <Label className="text-xs text-muted-foreground">Servicio (opcional)</Label>
+              <Select
+                value={packageForm.serviceId || "none"}
+                onValueChange={(v) => setPackageForm({ ...packageForm, serviceId: v === "none" ? "" : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin servicio específico</SelectItem>
+                  {services.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-28 space-y-1">
+              <Label className="text-xs text-muted-foreground">Sesiones</Label>
+              <Input
+                type="number"
+                value={packageForm.totalSessions}
+                onChange={(e) => setPackageForm({ ...packageForm, totalSessions: Number(e.target.value) })}
+              />
+            </div>
+            <div className="w-32 space-y-1">
+              <Label className="text-xs text-muted-foreground">Precio</Label>
+              <Input type="number" value={packageForm.price} onChange={(e) => setPackageForm({ ...packageForm, price: e.target.value })} />
+            </div>
+            <div className="w-28 space-y-1">
+              <Label className="text-xs text-muted-foreground">Moneda</Label>
+              <Select value={packageForm.currency} onValueChange={(currency) => setPackageForm({ ...packageForm, currency })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCY_OPTIONS.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={addPackage}>
+              <Plus className="h-4 w-4" /> Agregar
+            </Button>
+          </div>
+
+          {packagesError ? (
+            <QueryErrorState onRetry={() => refetchPackages()} message="No se pudieron cargar los paquetes." />
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3">Nombre</th>
+                    <th className="px-4 py-3">Servicio</th>
+                    <th className="px-4 py-3">Sesiones</th>
+                    <th className="px-4 py-3">Precio</th>
+                    <th className="px-4 py-3">Activo</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {packages.map((p) => (
+                    <tr key={p.id} className="border-b border-border last:border-0">
+                      <td className="px-4 py-3 font-medium">{p.name}</td>
+                      <td className="px-4 py-3">{services.find((s) => s.id === p.service_id)?.name ?? "—"}</td>
+                      <td className="px-4 py-3">{p.total_sessions}</td>
+                      <td className="px-4 py-3">{p.price ? formatCurrency(p.price, p.currency) : "—"}</td>
+                      <td className="px-4 py-3">
+                        <Switch checked={p.is_active} onCheckedChange={() => togglePackageActive(p)} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <Button variant="ghost" size="icon" onClick={() => removePackage(p)} title="Eliminar" aria-label="Eliminar">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {packages.length === 0 && <EmptyTableRow colSpan={6} message="Todavía no creaste ningún paquete." />}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {currentOrganizationId && (
         <BulkUploadServicesDialog

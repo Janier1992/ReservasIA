@@ -340,6 +340,7 @@ export function SupportBusinessDetailPage() {
                 <tr>
                   <th className="px-4 py-2">Fecha</th>
                   <th className="px-4 py-2">Cliente</th>
+                  <th className="px-4 py-2">Notas</th>
                   <th className="px-4 py-2">Estado</th>
                   <th className="px-4 py-2">Pago</th>
                 </tr>
@@ -349,6 +350,7 @@ export function SupportBusinessDetailPage() {
                   <tr key={r.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-2">{new Date(r.start_at).toLocaleString()}</td>
                     <td className="px-4 py-2">{r.customer_name || "—"}</td>
+                    <td className="max-w-xs px-4 py-2 text-muted-foreground">{r.special_requests || "—"}</td>
                     <td className="px-4 py-2">
                       <Badge variant={reservationStatusVariant(r.status)}>{reservationStatusLabel(r.status)}</Badge>
                     </td>
@@ -357,7 +359,7 @@ export function SupportBusinessDetailPage() {
                     </td>
                   </tr>
                 ))}
-                {reservations.length === 0 && <EmptyTableRow colSpan={4} message="Sin reservas todavía." />}
+                {reservations.length === 0 && <EmptyTableRow colSpan={5} message="Sin reservas todavía." />}
               </tbody>
             </table>
           </div>

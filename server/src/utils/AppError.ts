@@ -25,6 +25,9 @@ export const ErrorCodes = {
   CUSTOMER_NOT_FOUND: "CUSTOMER_NOT_FOUND",
   SERVICE_NOT_FOUND: "SERVICE_NOT_FOUND",
   RESOURCE_NOT_FOUND: "RESOURCE_NOT_FOUND",
+  PACKAGE_NOT_FOUND: "PACKAGE_NOT_FOUND",
+  PACKAGE_NOT_ACTIVE: "PACKAGE_NOT_ACTIVE",
+  PACKAGE_EXHAUSTED: "PACKAGE_EXHAUSTED",
   INTEGRATION_NOT_CONNECTED: "INTEGRATION_NOT_CONNECTED",
   WEBHOOK_INVALID_SIGNATURE: "WEBHOOK_INVALID_SIGNATURE",
   WEBHOOK_INVALID_PAYLOAD: "WEBHOOK_INVALID_PAYLOAD",
@@ -74,6 +77,21 @@ export function mapPostgresErrorMessage(message: string): AppError | null {
       code: ErrorCodes.RESOURCE_NOT_FOUND,
       status: 422,
       friendly: "El recurso seleccionado no existe."
+    },
+    PACKAGE_NOT_FOUND: {
+      code: ErrorCodes.PACKAGE_NOT_FOUND,
+      status: 422,
+      friendly: "El paquete indicado no existe o no pertenece a este cliente."
+    },
+    PACKAGE_NOT_ACTIVE: {
+      code: ErrorCodes.PACKAGE_NOT_ACTIVE,
+      status: 422,
+      friendly: "Ese paquete ya no está activo."
+    },
+    PACKAGE_EXHAUSTED: {
+      code: ErrorCodes.PACKAGE_EXHAUSTED,
+      status: 422,
+      friendly: "El cliente ya usó todas las sesiones de ese paquete."
     }
   };
 

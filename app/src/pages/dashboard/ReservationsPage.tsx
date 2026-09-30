@@ -42,6 +42,41 @@ export function ReservationsPage() {
     }
   });
 
+  const { data: capacityTotal = null } = useQuery({
+    queryKey: ["business-profile-capacity", currentOrganizationId],
+    enabled: !!currentOrganizationId,
+    queryFn: async () => {
+      const { data } = await insforge.database
+        .from("business_profiles")
+        .select("capacity_total")
+        .eq("organization_id", currentOrganizationId)
+        .maybeSingle();
+      return (data?.capacity_total as number | null) ?? null;
+    }
+  });
+
+  // Cupo por horario (clases grupales, sin recursos individuales): la
+  // ocupación real siempre cuenta pending+confirmed, sin importar el filtro
+  // de estado que esté mirando el dueño en la tabla — si no, filtrar por
+  // "cancelada" mostraría el cupo en 0/10 de forma engañosa.
+  const { data: slotOccupancy = new Map<string, number>() } = useQuery({
+    queryKey: ["reservations-slot-occupancy", currentOrganizationId, capacityTotal],
+    enabled: !!currentOrganizationId && capacityTotal !== null,
+    queryFn: async () => {
+      const { data } = await insforge.database
+        .from("reservations")
+        .select("start_at, party_size")
+        .eq("organization_id", currentOrganizationId)
+        .is("resource_id", null)
+        .in("status", ["pending", "confirmed"]);
+      const map = new Map<string, number>();
+      for (const r of (data ?? []) as { start_at: string; party_size: number | null }[]) {
+        map.set(r.start_at, (map.get(r.start_at) ?? 0) + (r.party_size ?? 1));
+      }
+      return map;
+    }
+  });
+
   const {
     data: reservations = [],
     refetch,
@@ -144,6 +179,8 @@ export function ReservationsPage() {
       ) : view === "calendar" ? (
         <ReservationsCalendarView
           reservations={upcoming}
+          capacityTotal={capacityTotal}
+          slotOccupancy={slotOccupancy}
           onComplete={(id) => updateStatus(id, "completed")}
           onNoShow={(id) => updateStatus(id, "no_show")}
           onCancel={cancel}
@@ -167,7 +204,12 @@ export function ReservationsPage() {
             <tbody>
               {upcoming.map((r) => (
                 <tr key={r.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3">{new Date(r.start_at).toLocaleString()}</td>
+                  <td className="px-4 py-3">
+                    {new Date(r.start_at).toLocaleString()}
+                    {capacityTotal !== null && !r.resource_id && (r.status === "pending" || r.status === "confirmed") && (
+                      <p className="text-xs text-muted-foreground">Cupo: {slotOccupancy.get(r.start_at) ?? 0}/{capacityTotal}</p>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     {r.customer_name || r.customers?.name || r.customers?.phone}
                     {r.special_requests && <p className="max-w-xs text-xs text-muted-foreground">{r.special_requests}</p>}

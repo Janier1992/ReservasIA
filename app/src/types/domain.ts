@@ -143,9 +143,36 @@ export interface Reservation {
   google_event_id: string | null;
   payment_status: PaymentStatus;
   deposit_amount: number | null;
+  recurrence_group_id: string | null;
+  customer_package_id: string | null;
   customers?: Customer | null;
   services?: Service | null;
   resources?: Resource | null;
+}
+
+export interface ServicePackage {
+  id: string;
+  organization_id: string;
+  service_id: string | null;
+  name: string;
+  total_sessions: number;
+  price: number | null;
+  currency: string;
+  is_active: boolean;
+}
+
+export interface CustomerPackage {
+  id: string;
+  organization_id: string;
+  customer_id: string;
+  package_id: string | null;
+  package_name: string;
+  sessions_total: number;
+  price: number | null;
+  currency: string;
+  status: "active" | "completed" | "cancelled";
+  purchased_at: string;
+  sessions_used?: number;
 }
 
 export interface AgentConfig {

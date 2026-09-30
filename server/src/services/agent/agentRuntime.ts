@@ -7,6 +7,14 @@ import { buildSystemPrompt, loadAgentPromptData } from "./promptBuilder.js";
 import { getToolDefinitionsForAgent } from "./tools.js";
 import { executeTool, type AgentExecutionContext } from "./toolExecutors.js";
 import { MAX_TOOL_ROUNDS } from "./coreRules.js";
+import {
+  containsMedicalAdvice,
+  detectEmergency,
+  EMERGENCY_FALLBACK_REPLY,
+  HEALTH_PRIVACY_NOTICE,
+  isHealthNiche,
+  MEDICAL_ADVICE_FALLBACK_REPLY
+} from "./safetyGuardrails.js";
 import type { Message } from "../../types/domain.js";
 
 const FALLBACK_REPLY =
@@ -48,6 +56,28 @@ async function persistMessage(input: {
       metadata: input.metadata ?? {}
     }
   ]);
+}
+
+/**
+ * Antepone el aviso de privacidad de salud una sola vez por conversación
+ * (columna `conversations.privacy_notice_sent_at`), de forma determinística
+ * —lo hace el código, no una instrucción que el modelo podría olvidar—.
+ */
+async function withHealthPrivacyNotice(conversationId: string, reply: string): Promise<string> {
+  const { data: conversation } = await insforgeAdmin.database
+    .from("conversations")
+    .select("privacy_notice_sent_at")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (conversation?.privacy_notice_sent_at) return reply;
+
+  await insforgeAdmin.database
+    .from("conversations")
+    .update({ privacy_notice_sent_at: new Date().toISOString() })
+    .eq("id", conversationId);
+
+  return `${HEALTH_PRIVACY_NOTICE}${reply}`;
 }
 
 function mapHistoryToOpenAiMessages(rows: Message[]): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
@@ -119,6 +149,22 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
   }
 
   const orderedHistory = ((historyRows ?? []) as Message[]).slice().reverse();
+  const businessType = data.organization.businessType;
+
+  // Guardrail de código (no solo del prompt): si el negocio es de un nicho
+  // de salud/veterinaria y el ÚLTIMO mensaje del cliente describe una
+  // emergencia, cortamos acá mismo y nunca le pedimos nada al LLM — la
+  // respuesta es fija y determinística, no depende de que el modelo la
+  // respete (ver server/src/services/agent/safetyGuardrails.ts).
+  if (isHealthNiche(businessType)) {
+    const lastUserMessage = [...orderedHistory].reverse().find((m) => m.role === "user");
+    if (lastUserMessage && detectEmergency(lastUserMessage.content)) {
+      await persistMessage({ organizationId, conversationId, role: "assistant", content: EMERGENCY_FALLBACK_REPLY });
+      logAgentEvent(logCtx, { scope: "agent", result: "success", message: "emergency_redirect" });
+      return { reply: EMERGENCY_FALLBACK_REPLY, roundsUsed: 0 };
+    }
+  }
+
   const systemPrompt = buildSystemPrompt(data, new Date());
   const tools = getToolDefinitionsForAgent(data.agentConfig, {
     previewMode,
@@ -222,7 +268,18 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
       continue;
     }
 
-    const finalReply = stripLeakedControlTokens(responseMessage.content ?? "").slice(0, MAX_MESSAGE_LENGTH);
+    let finalReply = stripLeakedControlTokens(responseMessage.content ?? "").slice(0, MAX_MESSAGE_LENGTH);
+
+    if (isHealthNiche(businessType) && containsMedicalAdvice(finalReply)) {
+      logAgentEvent(logCtx, { scope: "agent", result: "error", message: "medical_advice_blocked" });
+      logger.warn({ ...logCtx, blockedReply: finalReply }, "agent_medical_advice_blocked");
+      finalReply = MEDICAL_ADVICE_FALLBACK_REPLY;
+    }
+
+    if (isHealthNiche(businessType)) {
+      finalReply = await withHealthPrivacyNotice(conversationId, finalReply);
+    }
+
     await persistMessage({ organizationId, conversationId, role: "assistant", content: finalReply });
     logAgentEvent(logCtx, { scope: "agent", result: "success", durationMs: Date.now() - start, message: "final_reply" });
     return { reply: finalReply, roundsUsed: round };

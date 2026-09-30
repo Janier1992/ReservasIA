@@ -62,6 +62,37 @@ describe("agent tool argument validation", () => {
       })
     ).toThrow();
   });
+
+  it("accepts crear_reserva with repetir_semanas and paquete_id", () => {
+    expect(() =>
+      crearReservaSchema.parse({
+        fecha: "2026-09-07",
+        hora: "10:00",
+        nombre_cliente: "Camila",
+        telefono_cliente: "+573001112233",
+        repetir_semanas: 4,
+        paquete_id: "11111111-1111-1111-1111-111111111111"
+      })
+    ).not.toThrow();
+  });
+
+  it("rejects repetir_semanas below 2 or above 12", () => {
+    const base = { fecha: "2026-09-07", hora: "10:00", nombre_cliente: "Camila", telefono_cliente: "+573001112233" };
+    expect(() => crearReservaSchema.parse({ ...base, repetir_semanas: 1 })).toThrow();
+    expect(() => crearReservaSchema.parse({ ...base, repetir_semanas: 13 })).toThrow();
+  });
+
+  it("rejects paquete_id that isn't a valid uuid", () => {
+    expect(() =>
+      crearReservaSchema.parse({
+        fecha: "2026-09-07",
+        hora: "10:00",
+        nombre_cliente: "Camila",
+        telefono_cliente: "+573001112233",
+        paquete_id: "not-a-uuid"
+      })
+    ).toThrow();
+  });
 });
 
 describe("getToolDefinitionsForAgent", () => {
@@ -70,6 +101,7 @@ describe("getToolDefinitionsForAgent", () => {
     expect(names).toContain("crear_reserva");
     expect(names).toContain("cancelar_reserva");
     expect(names).toContain("reprogramar_reserva");
+    expect(names).toContain("consultar_paquetes_cliente");
   });
 
   it("omits crear_reserva when booking is disabled", () => {

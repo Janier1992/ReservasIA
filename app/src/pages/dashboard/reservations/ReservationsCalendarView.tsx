@@ -34,6 +34,8 @@ function blockColorClass(status: Reservation["status"]): string {
 
 export function ReservationsCalendarView({
   reservations,
+  capacityTotal = null,
+  slotOccupancy,
   onComplete,
   onNoShow,
   onCancel,
@@ -41,6 +43,8 @@ export function ReservationsCalendarView({
   onConfirmPayment
 }: {
   reservations: Reservation[];
+  capacityTotal?: number | null;
+  slotOccupancy?: Map<string, number>;
   onComplete: (id: string) => void;
   onNoShow: (id: string) => void;
   onCancel: (id: string) => void;
@@ -190,6 +194,9 @@ export function ReservationsCalendarView({
                 </div>
                 {selected.services?.name && <p>Servicio: {selected.services.name}</p>}
                 {selected.resources?.name && <p>Recurso: {selected.resources.name}</p>}
+                {capacityTotal !== null && !selected.resource_id && (
+                  <p className="text-muted-foreground">Cupo: {slotOccupancy?.get(selected.start_at) ?? 0}/{capacityTotal}</p>
+                )}
                 {selected.special_requests && <p className="text-muted-foreground">Notas: {selected.special_requests}</p>}
                 {selected.deposit_amount !== null && <p>Anticipo: {selected.deposit_amount}</p>}
 
