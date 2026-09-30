@@ -117,3 +117,16 @@ export function summarizeHourPeriods(periods: Pick<HourPeriodDraft, "day_of_week
   const days = WEEK_ORDER.filter((d) => periods.some((p) => p.day_of_week === d));
   return days.map((d) => DAY_NAMES[d].slice(0, 3)).join(", ");
 }
+
+export const MAX_WEEKLY_REPEATS = 12;
+
+/**
+ * Fechas (YYYY-MM-DD) de una serie semanal que empieza en `startDate`:
+ * `weeks` fechas, una cada 7 días. Se trabaja con la fecha de calendario (no
+ * sumando 7×24h a un instante), así la hora local se mantiene aunque en
+ * medio haya un cambio de horario.
+ */
+export function weeklyDates(startDate: string, weeks: number): string[] {
+  const [y, m, d] = startDate.split("-").map(Number);
+  return Array.from({ length: weeks }, (_, i) => new Date(Date.UTC(y, m - 1, d + i * 7)).toISOString().slice(0, 10));
+}

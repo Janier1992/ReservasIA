@@ -61,3 +61,11 @@ describe("bookingErrorMessage", () => {
     expect(bookingErrorMessage(new Error("otra cosa"))).toBe("otra cosa");
   });
 });
+
+describe("weeklyDates", () => {
+  it("returns one calendar date per week, crossing months and years", async () => {
+    const { weeklyDates } = await import("@/lib/schedule");
+    expect(weeklyDates("2026-12-21", 3)).toEqual(["2026-12-21", "2026-12-28", "2027-01-04"]);
+    expect(weeklyDates("2026-10-05", 1)).toEqual(["2026-10-05"]);
+  });
+});
