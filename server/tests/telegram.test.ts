@@ -67,6 +67,18 @@ describe("telegramPollingManager.processUpdate", () => {
     expect(sendTelegramTypingActionMock).toHaveBeenCalledWith("bot-token-abc", 999);
   });
 
+  it("skips the agent entirely when another process already claimed the update", async () => {
+    handleInboundMessageMock.mockResolvedValue({ duplicate: true });
+
+    await processUpdate("org-1", "bot-token-abc", {
+      update_id: 45,
+      message: { message_id: 10, date: 1234567890, chat: { id: 999, type: "private" }, text: "Si" }
+    });
+
+    expect(runAgentTurnMock).not.toHaveBeenCalled();
+    expect(sendTelegramMessageMock).not.toHaveBeenCalled();
+  });
+
   it("joins first_name and last_name into a single customerName", async () => {
     await processUpdate("org-1", "bot-token-abc", {
       update_id: 45,

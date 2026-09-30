@@ -34,7 +34,21 @@ const envSchema = z.object({
 
   DEFAULT_TIMEZONE: z.string().default("America/Bogota"),
 
-  OAUTH_STATE_SECRET: z.string().min(8).default("change-me-in-production")
+  OAUTH_STATE_SECRET: z.string().min(8).default("change-me-in-production"),
+
+  // "true" en el .env LOCAL: no arranca el poller de Telegram ni los
+  // schedulers. Si no, un server local con las credenciales de producción
+  // lee los mismos bots que Railway (Telegram entrega cada mensaje a ambos) —
+  // causa de los incidentes del 25 y 26 de septiembre. Por defecto activos.
+  DISABLE_BACKGROUND_WORKERS: z
+    .string()
+    .optional()
+    .default("false")
+    .transform((v) => v === "true"),
+
+  // Railway lo inyecta solo en cada deploy; se expone en /api/health para
+  // poder confirmar qué commit está corriendo.
+  RAILWAY_GIT_COMMIT_SHA: z.string().optional().default("")
 });
 
 const parsed = envSchema.safeParse(process.env);

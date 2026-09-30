@@ -12,5 +12,8 @@ export const env = {
   // Opcional a propósito: sin esta clave las notificaciones push simplemente
   // quedan deshabilitadas (ver lib/pushNotifications.ts), el resto de la app
   // funciona igual.
-  VAPID_PUBLIC_KEY: import.meta.env.VITE_VAPID_PUBLIC_KEY ?? ""
+  VAPID_PUBLIC_KEY: import.meta.env.VITE_VAPID_PUBLIC_KEY ?? "",
+  // URL del compute service (Railway), sin barra final. Opcional: sin ella
+  // la página pública de reservas (/r/:slug) muestra que no está disponible.
+  API_URL: (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "")
 };

@@ -1,4 +1,5 @@
 import { insforgeAdmin } from "../../lib/insforge.js";
+import { logger } from "../../lib/logger.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 import { findOrCreateCustomerByPhone } from "../customers/customersService.js";
 import { MAX_MESSAGE_LENGTH } from "../../config/env.js";
@@ -89,12 +90,66 @@ export interface InboundMessageInput {
   customerName?: string;
 }
 
-export interface InboundMessageResult {
-  conversationId: string;
-  customerId: string;
+export type InboundMessageResult =
+  | { duplicate: false; conversationId: string; customerId: string }
+  | { duplicate: true };
+
+/**
+ * Reclama el mensaje de forma atómica en la base compartida. Devuelve false
+ * si otro proceso ya lo reclamó (ver migración inbound-message-claims:
+ * dos instancias leyendo el mismo bot reciben el mismo update). Ante
+ * cualquier otro error falla "abierto" — perder un mensaje del cliente es
+ * peor que arriesgar un duplicado.
+ */
+async function claimInboundMessage(input: InboundMessageInput): Promise<boolean> {
+  if (!input.externalMessageId) return true;
+  const { error } = await insforgeAdmin.database.from("inbound_message_claims").insert([
+    {
+      organization_id: input.organizationId,
+      channel: input.channel,
+      external_conversation_id: input.externalConversationId,
+      external_message_id: input.externalMessageId
+    }
+  ]);
+  if (!error) return true;
+  if ((error as { code?: string }).code === "23505") return false;
+  logger.warn({ organizationId: input.organizationId, err: error }, "inbound_message_claim_failed_processing_anyway");
+  return true;
 }
 
 export async function handleInboundMessage(input: InboundMessageInput): Promise<InboundMessageResult> {
+  if (!(await claimInboundMessage(input))) {
+    logger.warn(
+      { organizationId: input.organizationId, channel: input.channel, externalMessageId: input.externalMessageId },
+      "inbound_message_duplicate_skipped"
+    );
+    return { duplicate: true };
+  }
+
+  try {
+    return await persistInboundMessage(input);
+  } catch (err) {
+    // El claim ya se tomó pero el mensaje no quedó guardado: si no se libera,
+    // una reentrega del mismo mensaje (reintento de Twilio, otro proceso) se
+    // descartaría como duplicado y el mensaje del cliente se perdería.
+    await releaseInboundMessageClaim(input);
+    throw err;
+  }
+}
+
+async function releaseInboundMessageClaim(input: InboundMessageInput): Promise<void> {
+  if (!input.externalMessageId) return;
+  const { error } = await insforgeAdmin.database
+    .from("inbound_message_claims")
+    .delete()
+    .eq("organization_id", input.organizationId)
+    .eq("channel", input.channel)
+    .eq("external_conversation_id", input.externalConversationId)
+    .eq("external_message_id", input.externalMessageId);
+  if (error) logger.warn({ organizationId: input.organizationId, err: error }, "inbound_message_claim_release_failed");
+}
+
+async function persistInboundMessage(input: InboundMessageInput): Promise<InboundMessageResult> {
   const customer = await findOrCreateCustomerByPhone(input.organizationId, input.externalIdentity, input.customerName);
   const conversation = await findOrCreateActiveConversation(
     input.organizationId,
@@ -104,7 +159,10 @@ export async function handleInboundMessage(input: InboundMessageInput): Promise<
   );
 
   const content = input.content.slice(0, MAX_MESSAGE_LENGTH);
-  await insforgeAdmin.database.from("messages").insert([
+  // El SDK devuelve { error } en vez de lanzar: sin este chequeo, un fallo al
+  // guardar el mensaje no llegaría al catch de handleInboundMessage y el
+  // claim nunca se liberaría — justo el caso que esa liberación cubre.
+  const { error: messageError } = await insforgeAdmin.database.from("messages").insert([
     {
       organization_id: input.organizationId,
       conversation_id: conversation.id,
@@ -115,6 +173,18 @@ export async function handleInboundMessage(input: InboundMessageInput): Promise<
       metadata: input.metadata ?? {}
     }
   ]);
+  if (messageError) throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudo guardar el mensaje entrante.", 500);
 
-  return { conversationId: conversation.id, customerId: customer.id };
+  return { duplicate: false, conversationId: conversation.id, customerId: customer.id };
+}
+
+// Un claim solo sirve mientras el mismo mensaje pueda volver a llegar
+// (reintentos de Twilio, otro proceso leyendo el bot): eso pasa en minutos,
+// así que una semana de retención sobra y evita que la tabla crezca sin fin.
+export const INBOUND_CLAIM_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function purgeOldInboundMessageClaims(now: Date = new Date()): Promise<void> {
+  const cutoff = new Date(now.getTime() - INBOUND_CLAIM_RETENTION_MS).toISOString();
+  const { error } = await insforgeAdmin.database.from("inbound_message_claims").delete().lt("claimed_at", cutoff);
+  if (error) throw error;
 }

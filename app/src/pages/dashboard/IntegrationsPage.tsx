@@ -151,7 +151,7 @@ export function IntegrationsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Integraciones</h1>
+        <h1 className="font-display text-2xl font-semibold">Integraciones</h1>
         <p className="text-sm text-muted-foreground">Conectá los canales que usa tu agente para atender clientes.</p>
       </div>
 

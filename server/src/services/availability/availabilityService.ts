@@ -1,6 +1,7 @@
 import { addMinutes, isBefore } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { insforgeAdmin } from "../../lib/insforge.js";
+import { logger } from "../../lib/logger.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 import type { BusinessHourPeriod, BusinessProfile, Reservation, Resource, Service } from "../../types/domain.js";
 
@@ -13,6 +14,19 @@ export interface Slot {
   availableResourceIds: string[];
 }
 
+interface ResourceHourPeriod {
+  resource_id: string;
+  day_of_week: number;
+  opening_time: string;
+  closing_time: string;
+}
+
+interface ScheduleBlock {
+  resource_id: string | null;
+  starts_at: string;
+  ends_at: string;
+}
+
 interface AvailabilityContext {
   organizationId: string;
   businessProfile: BusinessProfile;
@@ -20,6 +34,8 @@ interface AvailabilityContext {
   resources: Resource[];
   reservations: Reservation[];
   durationMinutes: number;
+  resourceHours: ResourceHourPeriod[];
+  blocks: ScheduleBlock[];
 }
 
 async function loadBusinessProfile(organizationId: string): Promise<BusinessProfile> {
@@ -69,6 +85,39 @@ async function loadActiveReservationsForDay(
 
   if (error) throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudieron cargar las reservas existentes.", 500);
   return (data ?? []) as Reservation[];
+}
+
+/**
+ * Horario propio de los recursos (todos los días: un recurso con horario
+ * propio que no tiene filas un día, ese día no trabaja). Si la consulta
+ * falla se sigue con el horario del negocio: el horario por recurso es una
+ * preferencia, no una garantía (esa la dan los bloqueos en la base).
+ */
+async function loadResourceHours(organizationId: string): Promise<ResourceHourPeriod[]> {
+  const { data, error } = await insforgeAdmin.database
+    .from("resource_hour_periods")
+    .select("resource_id, day_of_week, opening_time, closing_time")
+    .eq("organization_id", organizationId);
+  if (error) {
+    logger.warn({ organizationId, err: error }, "No se pudo cargar el horario por recurso; se usa el del negocio");
+    return [];
+  }
+  return (data ?? []) as ResourceHourPeriod[];
+}
+
+/** Bloqueos que tocan el día. Si fallan, la base igual rechaza la reserva (TIME_BLOCKED). */
+async function loadBlocksForDay(organizationId: string, dayStartUtc: Date, dayEndUtc: Date): Promise<ScheduleBlock[]> {
+  const { data, error } = await insforgeAdmin.database
+    .from("schedule_blocks")
+    .select("resource_id, starts_at, ends_at")
+    .eq("organization_id", organizationId)
+    .lt("starts_at", dayEndUtc.toISOString())
+    .gt("ends_at", dayStartUtc.toISOString());
+  if (error) {
+    logger.warn({ organizationId, err: error }, "No se pudieron cargar los bloqueos de agenda");
+    return [];
+  }
+  return (data ?? []) as ScheduleBlock[];
 }
 
 async function resolveServiceDuration(organizationId: string, serviceId?: string, fallback = 60): Promise<number> {
@@ -147,6 +196,32 @@ function isResourceFree(resourceId: string, start: Date, end: Date, reservations
   );
 }
 
+function isBlocked(resourceId: string | null, start: Date, end: Date, blocks: ScheduleBlock[]): boolean {
+  return blocks.some(
+    (b) => (b.resource_id === null || b.resource_id === resourceId) && overlaps(start, end, new Date(b.starts_at), new Date(b.ends_at))
+  );
+}
+
+/** true si el recurso trabaja en todo el slot (sin horario propio = sigue el del negocio). */
+function isWithinResourceHours(
+  resourceId: string,
+  start: Date,
+  end: Date,
+  date: string,
+  dayOfWeek: number,
+  timezone: string,
+  resourceHours: ResourceHourPeriod[]
+): boolean {
+  const own = resourceHours.filter((h) => h.resource_id === resourceId);
+  if (own.length === 0) return true;
+  return own.some((h) => {
+    if (h.day_of_week !== dayOfWeek) return false;
+    const opens = fromZonedTime(`${date}T${h.opening_time}`, timezone);
+    const closes = fromZonedTime(`${date}T${h.closing_time}`, timezone);
+    return !isBefore(start, opens) && !isBefore(closes, end);
+  });
+}
+
 function capacityUsedAt(start: Date, end: Date, reservations: Reservation[]): number {
   return reservations
     .filter((r) => r.resource_id === null && overlaps(start, end, new Date(r.start_at), new Date(r.end_at)))
@@ -169,8 +244,19 @@ async function buildContext(organizationId: string, dateYmd: string, serviceId?:
 
   const dayEndUtc = fromZonedTime(`${dateYmd}T23:59:59`, businessProfile.timezone);
   const reservations = await loadActiveReservationsForDay(organizationId, zonedMidnight, dayEndUtc);
+  const resourceHours = resources.length > 0 ? await loadResourceHours(organizationId) : [];
+  const blocks = await loadBlocksForDay(organizationId, zonedMidnight, dayEndUtc);
 
-  const context: AvailabilityContext = { organizationId, businessProfile, periods, resources, reservations, durationMinutes };
+  const context: AvailabilityContext = {
+    organizationId,
+    businessProfile,
+    periods,
+    resources,
+    reservations,
+    durationMinutes,
+    resourceHours,
+    blocks
+  };
   return context;
 }
 
@@ -189,7 +275,8 @@ export async function getAvailableSlots(params: {
 }): Promise<{ slots: Slot[]; reason?: string; timezone: string }> {
   const now = params.now ?? new Date();
   const ctx = await buildContext(params.organizationId, params.date, params.serviceId, params.resourceId);
-  const { businessProfile, periods, resources, reservations, durationMinutes } = ctx;
+  const { businessProfile, periods, resources, reservations, durationMinutes, resourceHours, blocks } = ctx;
+  const dayOfWeek = dayOfWeekInTimeZone(fromZonedTime(`${params.date}T12:00:00`, businessProfile.timezone), businessProfile.timezone);
 
   const openPeriods = periods.filter((p) => !p.is_closed && p.opening_time && p.closing_time);
   if (openPeriods.length === 0) {
@@ -213,8 +300,17 @@ export async function getAvailableSlots(params: {
       try {
         validateReservationWindow(businessProfile, slotStart, now);
 
-        if (usesResources) {
-          const free = resources.filter((r) => isResourceFree(r.id, slotStart, slotEnd, reservations)).map((r) => r.id);
+        if (isBlocked(null, slotStart, slotEnd, blocks.filter((b) => b.resource_id === null))) {
+          // Todo el negocio bloqueado (festivo, cierre): no hay slot.
+        } else if (usesResources) {
+          const free = resources
+            .filter(
+              (r) =>
+                isResourceFree(r.id, slotStart, slotEnd, reservations) &&
+                !isBlocked(r.id, slotStart, slotEnd, blocks) &&
+                isWithinResourceHours(r.id, slotStart, slotEnd, params.date, dayOfWeek, businessProfile.timezone, resourceHours)
+            )
+            .map((r) => r.id);
           if (free.length > 0) {
             slots.push({ start: slotStart.toISOString(), end: slotEnd.toISOString(), availableResourceIds: free });
           }

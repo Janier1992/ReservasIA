@@ -3,21 +3,39 @@ import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { startTelegramPollingManager, stopTelegramPollingManager } from "./services/telegram/telegramPollingManager.js";
 import { startReminderScheduler, stopReminderScheduler } from "./services/reminders/reminderScheduler.js";
+import { startSurveyScheduler, stopSurveyScheduler } from "./services/surveys/surveyScheduler.js";
+import { startOrderReadyNotifier, stopOrderReadyNotifier } from "./services/publicOrders/orderReadyNotifier.js";
 import { startSubscriptionScheduler, stopSubscriptionScheduler } from "./services/subscription/subscriptionScheduler.js";
+import {
+  startInboundClaimsCleanupScheduler,
+  stopInboundClaimsCleanupScheduler
+} from "./services/conversations/inboundClaimsCleanupScheduler.js";
 
 const app = createApp();
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, env: env.NODE_ENV }, "server_started");
+  if (env.DISABLE_BACKGROUND_WORKERS) {
+    logger.warn("background_workers_disabled: sin poller de Telegram ni schedulers (DISABLE_BACKGROUND_WORKERS=true)");
+    return;
+  }
   startTelegramPollingManager();
   startReminderScheduler();
+  startSurveyScheduler();
+  startOrderReadyNotifier();
   startSubscriptionScheduler();
+  startInboundClaimsCleanupScheduler();
 });
 
 function shutdown() {
-  stopTelegramPollingManager();
-  stopReminderScheduler();
-  stopSubscriptionScheduler();
+  if (!env.DISABLE_BACKGROUND_WORKERS) {
+    stopTelegramPollingManager();
+    stopReminderScheduler();
+    stopSurveyScheduler();
+    stopOrderReadyNotifier();
+    stopSubscriptionScheduler();
+    stopInboundClaimsCleanupScheduler();
+  }
   server.close(() => process.exit(0));
 }
 

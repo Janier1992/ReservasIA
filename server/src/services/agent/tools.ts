@@ -7,7 +7,6 @@ export const ToolName = {
   ObtenerInfoNegocio: "obtener_info_negocio",
   ConsultarServicios: "consultar_servicios",
   ConsultarReservasCliente: "consultar_reservas_cliente",
-  ConsultarPaquetesCliente: "consultar_paquetes_cliente",
   CrearReserva: "crear_reserva",
   CancelarReserva: "cancelar_reserva",
   ReprogramarReserva: "reprogramar_reserva"
@@ -38,10 +37,6 @@ export const consultarReservasClienteSchema = z.object({
   telefono: z.string().min(5).max(30).optional()
 });
 
-export const consultarPaquetesClienteSchema = z.object({
-  telefono: z.string().min(5).max(30).optional()
-});
-
 export const crearReservaSchema = z.object({
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "fecha debe tener formato YYYY-MM-DD"),
   hora: z.string().regex(/^\d{2}:\d{2}$/, "hora debe tener formato HH:mm"),
@@ -53,7 +48,6 @@ export const crearReservaSchema = z.object({
   resource_id: z.string().uuid().optional(),
   notas: z.string().max(1000).optional(),
   metodo_pago: z.enum(["anticipado", "en_sitio"]).optional(),
-  paquete_id: z.string().uuid().optional(),
   repetir_semanas: z.number().int().min(2).max(12).optional()
 });
 
@@ -116,20 +110,6 @@ const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCom
       }
     }
   },
-  [ToolName.ConsultarPaquetesCliente]: {
-    type: "function",
-    function: {
-      name: ToolName.ConsultarPaquetesCliente,
-      description:
-        "Devuelve los paquetes de sesiones activos del cliente actual (ej: '10 sesiones de fisioterapia'), con cuántas sesiones le quedan. Llamala si el cliente menciona un paquete, un bono de sesiones, o antes de ofrecerle pagar por separado si el negocio vende paquetes.",
-      parameters: {
-        type: "object",
-        properties: {
-          telefono: { type: "string", description: "Teléfono del cliente, si es distinto al de la conversación." }
-        }
-      }
-    }
-  },
   [ToolName.CrearReserva]: {
     type: "function",
     function: {
@@ -161,11 +141,6 @@ const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCom
             enum: ["anticipado", "en_sitio"],
             description:
               "Solo si la sección PAGOS indica que el negocio pide anticipo. 'anticipado' si el cliente va a pagar por Nequi antes del turno, 'en_sitio' si prefiere pagar presencialmente. Si el anticipo es obligatorio, siempre 'anticipado'."
-          },
-          paquete_id: {
-            type: "string",
-            description:
-              "ID de un paquete de sesiones del cliente (obtenido de consultar_paquetes_cliente) si el cliente quiere usar una sesión de un paquete ya comprado en vez de pagar esta reserva por separado. Nunca inventes este ID."
           },
           repetir_semanas: {
             type: "number",
@@ -243,8 +218,7 @@ export function getToolDefinitionsForAgent(
     ToolName.ObtenerInfoNegocio,
     ToolName.ConsultarServicios,
     ToolName.ConsultarDisponibilidad,
-    ToolName.ConsultarReservasCliente,
-    ToolName.ConsultarPaquetesCliente
+    ToolName.ConsultarReservasCliente
   ];
   const bookingEnabled = !options?.previewMode && agentConfig.booking_enabled;
   if (!options?.previewMode) {

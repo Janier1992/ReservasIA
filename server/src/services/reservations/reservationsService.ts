@@ -4,6 +4,7 @@ import { AppError, ErrorCodes, mapPostgresErrorMessage } from "../../utils/AppEr
 import type { Reservation } from "../../types/domain.js";
 import { createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from "../google/googleService.js";
 import { notifyNewReservation } from "../notifications/pushService.js";
+import { sendReservationEmail } from "../notifications/reservationEmailService.js";
 
 function translateRpcError(error: { message: string }): never {
   const mapped = mapPostgresErrorMessage(error.message);
@@ -24,7 +25,6 @@ export interface CreateReservationInput {
   specialRequests: string | null;
   source?: string;
   recurrenceGroupId?: string | null;
-  customerPackageId?: string | null;
 }
 
 export async function createReservation(input: CreateReservationInput): Promise<Reservation> {
@@ -40,17 +40,20 @@ export async function createReservation(input: CreateReservationInput): Promise<
     p_customer_name: input.customerName,
     p_special_requests: input.specialRequests,
     p_source: input.source ?? "whatsapp",
-    p_recurrence_group_id: input.recurrenceGroupId ?? null,
-    p_customer_package_id: input.customerPackageId ?? null
+    p_recurrence_group_id: input.recurrenceGroupId ?? null
   });
 
   if (error) translateRpcError(error);
   const reservation = data as Reservation;
 
+  // Primero el correo con la marca del negocio: si sale, Google no manda
+  // además su invitación genérica (el cliente recibe un solo correo).
+  const emailed = await sendReservationEmail(reservation, "confirmed");
+
   // Google Calendar es best-effort: si falla, la reserva permanece creada
   // (punto 23 del prompt). El error queda registrado pero no se propaga.
   try {
-    const googleEventId = await createCalendarEvent(reservation);
+    const googleEventId = await createCalendarEvent(reservation, { notifyCustomer: !emailed });
     if (googleEventId) {
       await insforgeAdmin.database
         .from("reservations")
@@ -81,10 +84,11 @@ export async function cancelReservation(reservationId: string): Promise<Reservat
   const { data, error } = await insforgeAdmin.database.rpc("cancel_reservation", { p_reservation_id: reservationId });
   if (error) translateRpcError(error);
   const reservation = data as Reservation;
+  const emailed = await sendReservationEmail(reservation, "cancelled");
 
   if (reservation.google_event_id) {
     try {
-      await deleteCalendarEvent(reservation.organization_id, reservation.google_event_id);
+      await deleteCalendarEvent(reservation.organization_id, reservation.google_event_id, { notifyCustomer: !emailed });
     } catch (googleError) {
       logger.warn(
         { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },
@@ -108,10 +112,11 @@ export async function rescheduleReservation(
   });
   if (error) translateRpcError(error);
   const reservation = data as Reservation;
+  const emailed = await sendReservationEmail(reservation, "rescheduled");
 
   if (reservation.google_event_id) {
     try {
-      await updateCalendarEvent(reservation);
+      await updateCalendarEvent(reservation, { notifyCustomer: !emailed });
     } catch (googleError) {
       logger.warn(
         { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },

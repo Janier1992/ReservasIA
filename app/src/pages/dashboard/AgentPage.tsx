@@ -138,7 +138,7 @@ export function AgentPage() {
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
         <div>
-          <h1 className="text-2xl font-semibold">Agente de IA</h1>
+          <h1 className="font-display text-2xl font-semibold">Agente de IA</h1>
           <p className="text-sm text-muted-foreground">Personalizá el comportamiento de tu asistente virtual.</p>
         </div>
 

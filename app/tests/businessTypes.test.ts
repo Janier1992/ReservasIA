@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BUSINESS_TYPES, businessTypeLabel, getBusinessType } from "@/lib/businessTypes";
 
-const NEW_NICHES = ["dental", "veterinary", "physiotherapy", "auto_repair", "academy"];
+const NEW_NICHES = ["dental", "veterinary", "physiotherapy", "auto_repair", "car_wash", "academy"];
 
 describe("business type catalog", () => {
   it("includes every new niche with suggested services for the onboarding", () => {

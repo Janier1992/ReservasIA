@@ -2,7 +2,7 @@
 
 Plataforma SaaS multi-tenant para negocios que trabajan con reservas o turnos (restaurantes, barberías,
 peluquerías/salones de belleza, spas, consultorios odontológicos y médicos, fisioterapia, veterinarias, talleres
-mecánicos, academias, gimnasios, estudios, etc.). Cada negocio configura su
+mecánicos, lavaderos de vehículos, academias, gimnasios, estudios, etc.). Cada negocio configura su
 propio agente de IA, que atiende a sus clientes por **Telegram** (canal recomendado, gratuito) o **WhatsApp**,
 consulta disponibilidad real contra la agenda del negocio y crea, cancela o reprograma reservas — sincronizando
 automáticamente con **Google Calendar**, tanto el del negocio como una invitación al propio calendario del cliente.
@@ -98,6 +98,96 @@ conexión de canales — todo antes de llegar al dashboard.
 ### Configuración del negocio
 - Datos de contacto, moneda (COP por defecto, cualquier otra editable), duración/intervalo de turnos, capacidad,
   anticipación mínima/máxima, política de cancelación, horarios por día.
+
+### Apariencia por rubro
+Estilo minimalista: superficies neutras y un solo color de acento por rubro, más su tipografía de títulos, ícono,
+encabezado de inicio y nombres de secciones ("Mesas" y "Comensales" en un restaurante, "Pacientes" en un consultorio,
+"Bahías de lavado" en un lavadero). Cada rubro del onboarding tiene su tema, en claro y oscuro, con contraste de texto
+verificado por tests (`app/src/lib/businessThemes.ts`). "Otro" usa la apariencia base.
+
+### Módulos por negocio (desde soporte)
+Desde `/soporte/negocios/:id`, soporte activa o desactiva los módulos opcionales de cada negocio: Inbox, Clientes,
+Servicios, Recursos, Agente IA, Integraciones, Equipo, Fichas, Etapas de atención, y Atención en sitio, Reportes,
+Página pública de reservas, Planes, Caja, Opiniones y Recuperar clientes (estos siete arrancan apagados). Inicio, Reservas y Configuración son la base y no se pueden apagar. Un módulo apagado desaparece del menú del negocio y su ruta muestra "Módulo no disponible". Se guarda en
+`organizations.disabled_modules`; un trigger impide que el propio negocio lo cambie. Apagar "Agente IA" solo oculta
+la página de configuración: para pausar el agente está el switch de Agente en el mismo panel.
+
+### Atención en sitio (módulo, apagado por defecto)
+Fila de clientes que llegan sin cita (lavaderos, talleres, barberías): se registra la llegada (nombre, teléfono
+opcional, servicio y notas como la placa), se pasa a atención eligiendo el recurso, y se finaliza. Al pasar a
+atención, `serve_walk_in` crea una reserva real con `book_reservation` (origen `walk_in`), así respeta la
+disponibilidad del recurso y queda en el historial, los reportes y la ficha del cliente. Muestra espera promedio y
+se refresca sola para que varias personas del equipo atiendan la misma fila.
+
+**Reservas del día y dictado por voz.** La misma pantalla lista las reservas de hoy (de cualquier canal) con "Llegó" y
+"No vino": `check_in_reservation` pone a quien llegó en la fila sin crear otra reserva, y al atenderlo/finalizarlo se
+usa su reserva original. En restaurantes se registra el número de personas. El botón "Dictar" usa el reconocimiento
+de voz del navegador y la Edge Function `voice-intake` (Gemini) para llenar nombre, teléfono, servicio, personas y
+notas; si entendió el nombre, registra la llegada sola a los 3 segundos (se puede cancelar o corregir). Requiere el
+secreto `GEMINI_API_KEY` en InsForge (opcional `GEMINI_MODEL`, por defecto `gemini-2.5-flash`); sin él, el botón avisa
+que el dictado no está activado.
+
+### Reportes (módulo, apagado por defecto)
+Atenciones completadas, ingresos, ticket promedio, cancelaciones y no-show por período (7/30/90 días), reservas por
+día, y desglose por servicio, recurso y canal, con exportación a CSV.
+
+### Página pública de reservas (módulo, apagado por defecto)
+Cada negocio tiene una página en `/r/<slug>` para que sus clientes reserven sin chat ni cuenta: eligen servicio, día
+y hora libre, y dejan nombre y celular. El inicio del dashboard muestra el enlace, un botón para copiarlo y el código QR
+para descargar e imprimir. La API vive en el compute service (`/api/public/...`, `server/src/routes/public.ts`): solo
+responde por negocios activos con el módulo encendido (mismo 404 en cualquier otro caso), vuelve a verificar la
+disponibilidad al reservar, limita 5 reservas cada 10 minutos por IP y tiene un campo trampa contra bots. Requiere
+`VITE_API_URL` en el frontend (URL del compute service) y que `APP_URL` del server sea la URL del frontend (CORS).
+
+### Fichas por rubro (módulo `assets`)
+Desde la ficha del cliente se registran vehículos (taller, lavadero: placa única por negocio, marca, modelo,
+kilometraje), mascotas (veterinaria), preferencias (salón, barbería, spa, restaurante) o estudiantes y miembros
+(academia, gimnasio), y cada reserva se puede vincular a una ficha. Los rubros de salud quedan afuera a propósito:
+sus notas son datos sensibles (Ley 1581). Catálogo de campos: `app/src/lib/assetTypes.ts`.
+
+### Etapas de atención y tablero (módulo `workflow`)
+Taller, lavadero, veterinaria y restaurante tienen su propio flujo (ej. recibido → diagnóstico → cotización enviada →
+aprobado → en reparación → listo para entregar) además del estado de la reserva. Reservas muestra un tablero por
+etapas y, al llegar a "listo", un botón para avisarle al cliente por su chat. Definición: `app/src/lib/workflows.ts`.
+
+### Planes y paquetes (módulo `plans`, apagado por defecto)
+Catálogo de bonos de sesiones ("5 lavados"), membresías con vigencia ("lavado ilimitado mensual") y tarjetas de sellos
+("10 cortes = 1 gratis"), opcionalmente limitados a ciertos servicios. Se venden desde la ficha del cliente (lo vendido
+es una copia: cambiar el catálogo no altera lo ya vendido). Al completar una reserva, un trigger en la base
+(`apply_customer_plans_on_completion`) usa la membresía vigente o descuenta una sesión del bono que vence primero, y
+suma un sello a cada tarjeta; una misma reserva nunca descuenta dos veces. Al completar la tarjeta queda "Premio listo"
+para canjearlo.
+
+### Caja (módulo `cash`, apagado por defecto)
+Registro de lo que realmente entró, con medio de pago (efectivo, Nequi, tarjeta, transferencia, otro): totales del día
+por medio para el cierre, cobro rápido de reservas completadas (las cubiertas por un bono o membresía no lo piden) y
+cobro al vender un plan. Un cobro no se edita (solo owner/admin lo borran), y con Caja activa Reportes muestra también
+"Cobrado en caja".
+
+### Horario por recurso y bloqueos de agenda
+- **Horario por recurso** (Recursos → columna Horario, owner/admin): franjas semanales propias de cada recurso (ej. el
+  barbero que solo trabaja mañanas). Sin horario propio, el recurso sigue el horario del negocio. El agente y la página
+  pública solo ofrecen el recurso dentro de sus franjas.
+- **Bloqueos** (Reservas → Bloqueos): vacaciones, almuerzo, festivos o mantenimiento, para un recurso o todo el
+  negocio, por horas o días completos. Es una regla dura: el trigger `check_reservation_not_blocked` rechaza
+  (`TIME_BLOCKED`) cualquier reserva nueva o movida que pise un bloqueo, venga del canal que venga. Las reservas que ya
+  existían no se tocan; al crear el bloqueo el panel avisa cuántas hay. Cualquiera del equipo puede bloquear; borrar,
+  solo owner/admin o quien lo creó.
+
+### Opiniones (módulo `surveys`, apagado por defecto)
+Encuesta de 1 a 5 estrellas en `/o/<token>` (sin cuenta; token de 64 caracteres, vence a los 60 días). Se pide desde
+cada reserva completada ("Pedir opinión": WhatsApp, chat o copiar enlace) y, con el compute service corriendo, se
+manda sola 2 a 48 horas después de la atención a clientes de Telegram, o de WhatsApp que escribieron en las últimas 24
+horas (fuera de esa ventana Meta rechaza texto libre; esas se piden a mano). Quien califica 4 o 5 recibe la invitación
+a dejar la reseña en Google (`business_profiles.review_url`). El cliente responde por las RPC `get_public_survey` /
+`submit_public_survey` (habilitadas para anon, una sola respuesta); el negocio no puede escribir calificaciones. La
+página Opiniones muestra promedio, tasa de respuesta, distribución y comentarios.
+
+### Recuperar clientes (módulo `reactivation`, apagado por defecto)
+Lista (`get_reactivation_candidates`) de clientes cuya última atención completada fue hace más de
+`business_profiles.reactivation_days` días (45 por defecto), sin reservas futuras y sin contacto reciente, ordenados
+por cantidad de visitas. Cada uno se contacta con un mensaje editable por WhatsApp (enlace wa.me desde el celular del
+negocio) o por el chat, y queda registrado en `reactivation_contacts`.
 
 ### Multi-tenant y seguridad
 - Aislamiento estricto por organización con Row Level Security de PostgreSQL, no con filtros en el código de la
@@ -429,17 +519,28 @@ npm test
 Corre la suite de `server` (vitest: motor de disponibilidad, reglas y herramientas del agente, prompt builder,
 webhook de Twilio, procesamiento de Telegram — con InsForge mockeado, no requiere proyecto real) y de `app`.
 
-### Tests de aislamiento multi-tenant / RLS
+### Tests de base de datos (migraciones + RLS)
 
 ```bash
-psql "<connection-string-de-tu-proyecto-InsForge>" -f db-tests/tenant-isolation.sql
+PGHOST=localhost PGUSER=postgres PGPASSWORD=postgres PGDATABASE=postgres scripts/test-db.sh
 ```
 
-Verifica que un owner/staff de una organización no puede leer, insertar, actualizar ni borrar datos de otra, que
-staff no puede ver integraciones ni eliminar la organización, y que el `EXCLUDE` constraint bloquea reservas
-solapadas. Requiere reemplazar los UUID de usuarios de prueba por cuentas reales ya registradas y ejecutarse en una
-única sesión `psql` (no como una secuencia de `db query` sueltos, porque necesita mantener `SET LOCAL ROLE` dentro
-de una misma transacción).
+Sobre un Postgres **vacío** (nunca un proyecto InsForge real: crea roles, esquemas y datos), aplica
+`db-tests/insforge-stub.sql` (roles, `auth.uid()`, `auth.users`, storage), todas las migraciones en orden, y corre:
+
+- `db-tests/tenant-isolation.sql`: un owner/staff de una organización no puede leer, insertar, actualizar ni
+  borrar datos de otra; staff no ve integraciones ni puede eliminar la organización; el `EXCLUDE` constraint
+  bloquea reservas solapadas.
+- `db-tests/modules-billing-walkins.sql`: solo soporte cambia módulos, estado y vencimiento de la suscripción;
+  Atención en sitio y Reportes arrancan apagados; la fila de atención queda aislada por negocio; atender crea
+  una reserva real, una bahía ocupada se rechaza y finalizar la completa.
+- `db-tests/assets-stages.sql`: fichas aisladas por negocio, placa única, no se vincula una ficha ni un cliente de
+  otro negocio, y el cambio de etapa queda registrado.
+
+### CI
+
+`.github/workflows/ci.yml` corre en cada push a `main` y en cada pull request: lint, typecheck, tests, build,
+`npm audit` (falla con vulnerabilidades altas) y los tests de base de datos de arriba contra un Postgres 16.
 
 ## Build y producción
 
@@ -486,8 +587,6 @@ npm run build
 
 ## Simplificaciones conocidas / próximos pasos
 
-- **Vista de reservas**: sólo hay vista de **lista** con filtros por estado. La vista de calendario
-  mensual/semanal queda como siguiente paso de UI.
 - **`check-availability` duplicado**: la Edge Function y el servicio interno del compute service implementan el
   mismo algoritmo por separado (Deno y Node) en vez de compartir una única fuente de verdad en SQL.
 - **Invitaciones de equipo sin email automático**: "invitar" crea un registro en `organization_invites` que la

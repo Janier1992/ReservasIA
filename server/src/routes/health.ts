@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { env } from "../config/env.js";
 import { getTelegramPollerHealth } from "../services/telegram/telegramPollingManager.js";
 
 export const healthRouter = Router();
@@ -15,6 +16,18 @@ healthRouter.get("/", (_req, res) => {
     telegram.activeOrgCount > 0 &&
     (!telegram.lastPollSuccessAt || Date.now() - new Date(telegram.lastPollSuccessAt).getTime() > TELEGRAM_STALE_THRESHOLD_MS);
 
-  const status = telegramStale ? "degraded" : "ok";
-  res.status(telegramStale ? 503 : 200).json({ status, telegram, timestamp: new Date().toISOString() });
+  // Otro proceso leyendo los mismos bots (409 de Telegram) duplica mensajes
+  // y respuestas aunque el poll "funcione" a ratos — también es degradado,
+  // y el motivo queda explícito en el body que muestra UptimeRobot.
+  const telegramConflict = telegram.conflictOrgCount > 0;
+  const degraded = telegramStale || telegramConflict;
+  const reason = telegramConflict ? "telegram_poll_conflict_another_instance_running" : telegramStale ? "telegram_poller_stale" : undefined;
+
+  res.status(degraded ? 503 : 200).json({
+    status: degraded ? "degraded" : "ok",
+    reason,
+    version: env.RAILWAY_GIT_COMMIT_SHA ? env.RAILWAY_GIT_COMMIT_SHA.slice(0, 7) : null,
+    telegram,
+    timestamp: new Date().toISOString()
+  });
 });

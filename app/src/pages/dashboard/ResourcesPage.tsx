@@ -1,19 +1,25 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Clock, Plus, Trash2 } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
+import { ResourceHoursDialog } from "@/components/ResourceHoursDialog";
 import { isPositiveInteger } from "@/lib/validation";
-import type { Resource } from "@/types/domain";
+import { summarizeHourPeriods } from "@/lib/schedule";
+import type { Resource, ResourceHourPeriod } from "@/types/domain";
 
 export function ResourcesPage() {
-  const { currentOrganizationId } = useOrganization();
+  const { currentOrganizationId, currentRole } = useOrganization();
+  const canManage = currentRole === "owner" || currentRole === "admin";
+  const [hoursFor, setHoursFor] = useState<Resource | null>(null);
+  const { vocabulary } = useCurrentBusinessTheme();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", resource_type: "", capacity: 1 });
 
@@ -33,6 +39,22 @@ export function ResourcesPage() {
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data as Resource[];
+    }
+  });
+
+  const hoursKey = ["resource-hours", currentOrganizationId];
+  const { data: hours = [] } = useQuery({
+    queryKey: hoursKey,
+    enabled: !!currentOrganizationId,
+    queryFn: async () => {
+      const { data, error } = await insforge.database
+        .from("resource_hour_periods")
+        .select("*")
+        .eq("organization_id", currentOrganizationId)
+        .order("opening_time", { ascending: true });
+      // Sin la migración de horarios todavía aplicada, la tabla simplemente no aparece.
+      if (error) return [];
+      return data as ResourceHourPeriod[];
     }
   });
 
@@ -73,7 +95,7 @@ export function ResourcesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold">Recursos</h1>
+        <h1 className="font-display text-2xl font-semibold">{vocabulary.resources}</h1>
         <p className="text-sm text-muted-foreground">Mesas, personal o cualquier unidad que se reserva individualmente.</p>
       </div>
 
@@ -105,6 +127,7 @@ export function ResourcesPage() {
                 <th className="px-4 py-3">Nombre</th>
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Capacidad</th>
+                <th className="px-4 py-3">Horario</th>
                 <th className="px-4 py-3">Activo</th>
                 <th className="px-4 py-3" />
               </tr>
@@ -116,6 +139,16 @@ export function ResourcesPage() {
                   <td className="px-4 py-3">{r.resource_type || "—"}</td>
                   <td className="px-4 py-3">{r.capacity}</td>
                   <td className="px-4 py-3">
+                    {canManage ? (
+                      <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setHoursFor(r)}>
+                        <Clock className="h-3.5 w-3.5" />
+                        {summarizeHourPeriods(hours.filter((h) => h.resource_id === r.id))}
+                      </Button>
+                    ) : (
+                      <span className="text-muted-foreground">{summarizeHourPeriods(hours.filter((h) => h.resource_id === r.id))}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
                     <Switch checked={r.is_active} onCheckedChange={() => toggleActive(r)} />
                   </td>
                   <td className="px-4 py-3">
@@ -125,11 +158,18 @@ export function ResourcesPage() {
                   </td>
                 </tr>
               ))}
-              {!isLoading && resources.length === 0 && <EmptyTableRow colSpan={5} message="Todavía no cargaste ningún recurso." />}
+              {!isLoading && resources.length === 0 && <EmptyTableRow colSpan={6} message="Todavía no cargaste ningún recurso." />}
             </tbody>
           </table>
         </div>
       )}
+
+      <ResourceHoursDialog
+        resource={hoursFor}
+        periods={hours}
+        onOpenChange={(open) => !open && setHoursFor(null)}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: hoursKey })}
+      />
     </div>
   );
 }

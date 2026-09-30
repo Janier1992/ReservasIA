@@ -3,6 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarCheck, MessageSquare, UserPlus, Bot, MessageCircle, CalendarDays, Send, TrendingUp } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
+import { useBusinessBranding } from "@/hooks/useBusinessBranding";
+import { isModuleEnabled } from "@/lib/modules";
+import { PublicBookingCard } from "@/components/PublicBookingCard";
+import { publicPageMode } from "@/lib/publicBookingUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,7 +40,7 @@ function StatCard({
           <Icon className="h-5 w-5" />
         </div>
         <div className="flex-1">
-          {loading ? <Skeleton className="h-7 w-12" /> : <p className="text-2xl font-semibold">{value}</p>}
+          {loading ? <Skeleton className="h-7 w-12" /> : <p className="font-display text-2xl font-semibold">{value}</p>}
           <p className="text-sm text-muted-foreground">{label}</p>
         </div>
       </CardContent>
@@ -50,8 +55,13 @@ const PERIOD_OPTIONS = [
 ];
 
 export function DashboardHome() {
-  const { currentOrganizationId, currentRole } = useOrganization();
+  const { currentOrganizationId, currentRole, memberships } = useOrganization();
+  const currentOrg = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations;
+  const branding = useBusinessBranding();
   const [periodDays, setPeriodDays] = useState("30");
+  const theme = useCurrentBusinessTheme();
+  const HeroIcon = theme.icon;
+  const todayLabel = new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" });
 
   const {
     data: stats,
@@ -152,19 +162,33 @@ export function DashboardHome() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Resumen</h1>
-        <p className="text-sm text-muted-foreground">Estado general de tu negocio.</p>
-      </div>
+      <section className="space-y-2 pt-2">
+        <p className="flex items-center gap-2 text-sm text-muted-foreground first-letter:uppercase">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <HeroIcon className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span className="first-letter:uppercase">{todayLabel}</span>
+        </p>
+        <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">{theme.heroTitle}</h1>
+        <p className="text-muted-foreground">{theme.heroSubtitle}</p>
+      </section>
+
+      {currentOrg && isModuleEnabled(currentOrg.disabled_modules, "public_booking") && (
+        <PublicBookingCard
+          slug={currentOrg.slug}
+          businessName={branding?.name ?? currentOrg.name}
+          mode={publicPageMode(currentOrg.business_type, currentOrg.disabled_modules)}
+        />
+      )}
 
       {statsError ? (
         <QueryErrorState onRetry={() => refetchStats()} message="No se pudieron cargar las estadísticas." />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard icon={CalendarCheck} label="Reservas de hoy" value={stats?.today ?? 0} loading={statsLoading} />
-          <StatCard icon={CalendarCheck} label="Reservas próximas" value={stats?.upcoming ?? 0} loading={statsLoading} />
+          <StatCard icon={CalendarCheck} label={`${theme.vocabulary.reservations} de hoy`} value={stats?.today ?? 0} loading={statsLoading} />
+          <StatCard icon={CalendarCheck} label={`${theme.vocabulary.reservations} por venir`} value={stats?.upcoming ?? 0} loading={statsLoading} />
           <StatCard icon={MessageSquare} label="Conversaciones activas" value={stats?.pendingConversations ?? 0} loading={statsLoading} />
-          <StatCard icon={UserPlus} label="Clientes nuevos (7 días)" value={stats?.newCustomers ?? 0} loading={statsLoading} />
+          <StatCard icon={UserPlus} label={`${theme.vocabulary.customers} · nuevos (7 días)`} value={stats?.newCustomers ?? 0} loading={statsLoading} />
         </div>
       )}
 

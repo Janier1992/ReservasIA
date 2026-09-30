@@ -42,6 +42,19 @@ describe("GET /api/health", () => {
     expect(res.body.status).toBe("degraded");
   });
 
+  it("reports degraded (503) with an explicit reason when another instance is polling the same bot", async () => {
+    getTelegramPollerHealthMock.mockReturnValue({
+      activeOrgCount: 3,
+      lastPollSuccessAt: new Date().toISOString(),
+      conflictOrgCount: 2
+    });
+
+    const res = await request(createApp()).get("/api/health");
+
+    expect(res.status).toBe(503);
+    expect(res.body.reason).toBe("telegram_poll_conflict_another_instance_running");
+  });
+
   it("reports degraded (503) when a bot is connected but never successfully polled", async () => {
     getTelegramPollerHealthMock.mockReturnValue({ activeOrgCount: 1, lastPollSuccessAt: null });
 

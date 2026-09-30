@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { OrganizationProvider } from "@/hooks/useOrganization";
 import { InstallPromptProvider } from "@/hooks/useInstallPrompt";
 import { RequireAuth, FullscreenLoader } from "@/components/RequireAuth";
+import { RequireModule } from "@/components/RequireModule";
 import { RequireOrganization } from "@/components/RequireOrganization";
 import { RequireSupportStaff } from "@/components/RequireSupportStaff";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -28,8 +29,16 @@ const ServicesPage = lazy(() => import("@/pages/dashboard/ServicesPage").then((m
 const ResourcesPage = lazy(() => import("@/pages/dashboard/ResourcesPage").then((m) => ({ default: m.ResourcesPage })));
 const AgentPage = lazy(() => import("@/pages/dashboard/AgentPage").then((m) => ({ default: m.AgentPage })));
 const IntegrationsPage = lazy(() => import("@/pages/dashboard/IntegrationsPage").then((m) => ({ default: m.IntegrationsPage })));
+const WalkInsPage = lazy(() => import("@/pages/dashboard/WalkInsPage").then((m) => ({ default: m.WalkInsPage })));
+const ReportsPage = lazy(() => import("@/pages/dashboard/ReportsPage").then((m) => ({ default: m.ReportsPage })));
+const PlansPage = lazy(() => import("@/pages/dashboard/PlansPage").then((m) => ({ default: m.PlansPage })));
+const CashPage = lazy(() => import("@/pages/dashboard/CashPage").then((m) => ({ default: m.CashPage })));
+const SurveysPage = lazy(() => import("@/pages/dashboard/SurveysPage").then((m) => ({ default: m.SurveysPage })));
+const ReactivationPage = lazy(() => import("@/pages/dashboard/ReactivationPage").then((m) => ({ default: m.ReactivationPage })));
+const SurveyPage = lazy(() => import("@/pages/public/SurveyPage").then((m) => ({ default: m.SurveyPage })));
 const TeamPage = lazy(() => import("@/pages/dashboard/TeamPage").then((m) => ({ default: m.TeamPage })));
 const SettingsPage = lazy(() => import("@/pages/dashboard/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+const PublicBookingPage = lazy(() => import("@/pages/public/PublicBookingPage").then((m) => ({ default: m.PublicBookingPage })));
 const SupportBusinessesListPage = lazy(() =>
   import("@/pages/support/SupportBusinessesListPage").then((m) => ({ default: m.SupportBusinessesListPage }))
 );
@@ -53,6 +62,8 @@ export default function App() {
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/register" element={<RegisterPage />} />
                       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                      <Route path="/r/:slug" element={<PublicBookingPage />} />
+                      <Route path="/o/:token" element={<SurveyPage />} />
 
                       <Route element={<RequireAuth />}>
                         <Route path="/onboarding" element={<OnboardingWizard />} />
@@ -67,14 +78,46 @@ export default function App() {
                         <Route element={<RequireOrganization />}>
                           <Route path="/dashboard" element={<DashboardLayout />}>
                             <Route index element={<DashboardHome />} />
-                            <Route path="inbox" element={<InboxPage />} />
+                            <Route element={<RequireModule module="inbox" />}>
+                              <Route path="inbox" element={<InboxPage />} />
+                            </Route>
                             <Route path="reservations" element={<ReservationsPage />} />
-                            <Route path="customers" element={<CustomersPage />} />
-                            <Route path="services" element={<ServicesPage />} />
-                            <Route path="resources" element={<ResourcesPage />} />
-                            <Route path="agent" element={<AgentPage />} />
-                            <Route path="integrations" element={<IntegrationsPage />} />
-                            <Route path="team" element={<TeamPage />} />
+                            <Route element={<RequireModule module="walk_ins" />}>
+                              <Route path="walk-ins" element={<WalkInsPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="customers" />}>
+                              <Route path="customers" element={<CustomersPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="services" />}>
+                              <Route path="services" element={<ServicesPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="resources" />}>
+                              <Route path="resources" element={<ResourcesPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="agent" />}>
+                              <Route path="agent" element={<AgentPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="integrations" />}>
+                              <Route path="integrations" element={<IntegrationsPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="plans" />}>
+                              <Route path="plans" element={<PlansPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="cash" />}>
+                              <Route path="cash" element={<CashPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="surveys" />}>
+                              <Route path="surveys" element={<SurveysPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="reactivation" />}>
+                              <Route path="reactivation" element={<ReactivationPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="reports" />}>
+                              <Route path="reports" element={<ReportsPage />} />
+                            </Route>
+                            <Route element={<RequireModule module="team" />}>
+                              <Route path="team" element={<TeamPage />} />
+                            </Route>
                             <Route path="settings" element={<SettingsPage />} />
                           </Route>
                         </Route>

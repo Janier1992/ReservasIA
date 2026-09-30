@@ -158,13 +158,25 @@ async function loadOrganizationTimezone(organizationId: string): Promise<string>
   return data?.timezone ?? env.DEFAULT_TIMEZONE;
 }
 
-export async function createCalendarEvent(reservation: Reservation): Promise<string | null> {
+const NO_ATTENDEE = { email: null, name: null };
+
+/**
+ * `notifyCustomer: false` cuando el cliente ya recibió el correo de la reserva
+ * con la marca del negocio: el evento queda solo en el calendario del negocio
+ * y Google no le manda además su propia invitación. Si el correo propio no
+ * salió, Google lo invita como respaldo.
+ */
+export interface CalendarSyncOptions {
+  notifyCustomer?: boolean;
+}
+
+export async function createCalendarEvent(reservation: Reservation, { notifyCustomer = true }: CalendarSyncOptions = {}): Promise<string | null> {
   const client = await getAuthorizedClient(reservation.organization_id);
   if (!client) return null;
 
   const [timezone, attendee] = await Promise.all([
     loadOrganizationTimezone(reservation.organization_id),
-    loadCustomerEmail(reservation.customer_id)
+    notifyCustomer ? loadCustomerEmail(reservation.customer_id) : NO_ATTENDEE
   ]);
   const calendar = google.calendar({ version: "v3", auth: client });
   const { data } = await calendar.events.insert({
@@ -176,14 +188,15 @@ export async function createCalendarEvent(reservation: Reservation): Promise<str
   return data.id ?? null;
 }
 
-export async function updateCalendarEvent(reservation: Reservation): Promise<void> {
+export async function updateCalendarEvent(reservation: Reservation, { notifyCustomer = true }: CalendarSyncOptions = {}): Promise<void> {
   if (!reservation.google_event_id) return;
   const client = await getAuthorizedClient(reservation.organization_id);
   if (!client) return;
 
+  // Sin attendee en el cuerpo, el patch conserva los invitados que el evento ya tenga.
   const [timezone, attendee] = await Promise.all([
     loadOrganizationTimezone(reservation.organization_id),
-    loadCustomerEmail(reservation.customer_id)
+    notifyCustomer ? loadCustomerEmail(reservation.customer_id) : NO_ATTENDEE
   ]);
   const calendar = google.calendar({ version: "v3", auth: client });
   await calendar.events.patch({
@@ -194,15 +207,20 @@ export async function updateCalendarEvent(reservation: Reservation): Promise<voi
   });
 }
 
-export async function deleteCalendarEvent(organizationId: string, eventId: string): Promise<void> {
+export async function deleteCalendarEvent(
+  organizationId: string,
+  eventId: string,
+  { notifyCustomer = true }: CalendarSyncOptions = {}
+): Promise<void> {
   const client = await getAuthorizedClient(organizationId);
   if (!client) return;
 
   const calendar = google.calendar({ version: "v3", auth: client });
   try {
     // sendUpdates:"all" para que, si el cliente había sido invitado, también
-    // reciba el aviso de cancelación en su Google Calendar.
-    await calendar.events.delete({ calendarId: "primary", eventId, sendUpdates: "all" });
+    // reciba el aviso de cancelación en su Google Calendar (salvo que ya le
+    // haya llegado nuestro correo de cancelación).
+    await calendar.events.delete({ calendarId: "primary", eventId, sendUpdates: notifyCustomer ? "all" : "none" });
   } catch (err: unknown) {
     const status = (err as { code?: number; response?: { status?: number } })?.response?.status;
     if (status !== 404 && status !== 410) throw err;

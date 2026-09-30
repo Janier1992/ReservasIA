@@ -128,7 +128,6 @@ export interface Reservation {
   deposit_amount: number | null;
   reminder_sent_at: string | null;
   recurrence_group_id: string | null;
-  customer_package_id: string | null;
 }
 
 export interface AgentConfig {

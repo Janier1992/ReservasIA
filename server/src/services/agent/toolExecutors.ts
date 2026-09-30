@@ -11,7 +11,6 @@ import {
   type ToolNameType,
   cancelarReservaSchema,
   consultarDisponibilidadSchema,
-  consultarPaquetesClienteSchema,
   consultarReservasClienteSchema,
   crearReservaSchema,
   reprogramarReservaSchema
@@ -114,49 +113,6 @@ async function executeConsultarReservasCliente(rawArgs: unknown, ctx: AgentExecu
   });
 }
 
-async function executeConsultarPaquetesCliente(rawArgs: unknown, ctx: AgentExecutionContext) {
-  const args = consultarPaquetesClienteSchema.parse(rawArgs);
-  return toResult(async () => {
-    const phone = args.telefono ?? ctx.customerPhone;
-    const { data: customer } = await insforgeAdmin.database
-      .from("customers")
-      .select("id")
-      .eq("organization_id", ctx.organizationId)
-      .eq("phone", phone)
-      .maybeSingle();
-
-    if (!customer) return [];
-
-    const { data: packages } = await insforgeAdmin.database
-      .from("customer_packages")
-      .select("id, package_name, sessions_total")
-      .eq("organization_id", ctx.organizationId)
-      .eq("customer_id", customer.id)
-      .eq("status", "active");
-
-    if (!packages || packages.length === 0) return [];
-
-    const results = await Promise.all(
-      packages.map(async (pkg: { id: string; package_name: string; sessions_total: number }) => {
-        const { data: usedReservations } = await insforgeAdmin.database
-          .from("reservations")
-          .select("id")
-          .eq("customer_package_id", pkg.id)
-          .neq("status", "cancelled");
-        const sessionsUsed = usedReservations?.length ?? 0;
-        return {
-          id: pkg.id,
-          nombre: pkg.package_name,
-          sesiones_totales: pkg.sessions_total,
-          sesiones_restantes: Math.max(pkg.sessions_total - sessionsUsed, 0)
-        };
-      })
-    );
-
-    return results.filter((r) => r.sesiones_restantes > 0);
-  });
-}
-
 async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext) {
   const args = crearReservaSchema.parse(rawArgs);
   return toResult(async () => {
@@ -221,8 +177,7 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
             customerName: args.nombre_cliente,
             specialRequests: args.notas ?? null,
             source: "whatsapp",
-            recurrenceGroupId,
-            customerPackageId: args.paquete_id ?? null
+            recurrenceGroupId
           });
           occurrences.push({ fecha: occReservation.start_at, reservada: true, id: occReservation.id });
         } catch (err) {
@@ -248,8 +203,7 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
       partySize: args.cantidad_personas ?? null,
       customerName: args.nombre_cliente,
       specialRequests: args.notas ?? null,
-      source: "whatsapp",
-      customerPackageId: args.paquete_id ?? null
+      source: "whatsapp"
     });
 
     // El anticipo se resuelve DESPUÉS de crear la reserva (nunca antes, para
@@ -322,7 +276,6 @@ const EXECUTORS: Record<ToolNameType, (args: unknown, ctx: AgentExecutionContext
   [ToolName.ObtenerInfoNegocio]: executeObtenerInfoNegocio,
   [ToolName.ConsultarServicios]: executeConsultarServicios,
   [ToolName.ConsultarReservasCliente]: executeConsultarReservasCliente,
-  [ToolName.ConsultarPaquetesCliente]: executeConsultarPaquetesCliente,
   [ToolName.CrearReserva]: executeCrearReserva,
   [ToolName.CancelarReserva]: executeCancelarReserva,
   [ToolName.ReprogramarReserva]: executeReprogramarReserva

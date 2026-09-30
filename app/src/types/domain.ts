@@ -8,6 +8,8 @@ export interface Organization {
   status: "active" | "suspended" | "cancelled";
   timezone: string;
   subscription_expires_at: string | null;
+  // Módulos opcionales apagados por soporte (ver lib/modules.ts).
+  disabled_modules: string[];
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +38,8 @@ export interface BusinessProfile {
   organization_id: string;
   name: string;
   logo_url: string | null;
+  /** Eslogan corto (máx. 90) que aparece en los correos de reserva. */
+  tagline: string | null;
   description: string | null;
   address: string | null;
   phone: string | null;
@@ -57,6 +61,9 @@ export interface BusinessProfile {
   deposit_mandatory: boolean;
   deposit_percentage: number | null;
   reminder_hours_before: number;
+  review_url?: string | null;
+  survey_auto_send?: boolean;
+  reactivation_days?: number;
 }
 
 export interface BusinessHourPeriod {
@@ -144,35 +151,13 @@ export interface Reservation {
   payment_status: PaymentStatus;
   deposit_amount: number | null;
   recurrence_group_id: string | null;
-  customer_package_id: string | null;
+  asset_id?: string | null;
+  stage?: string | null;
+  stage_updated_at?: string | null;
+  conversation_id?: string | null;
   customers?: Customer | null;
   services?: Service | null;
   resources?: Resource | null;
-}
-
-export interface ServicePackage {
-  id: string;
-  organization_id: string;
-  service_id: string | null;
-  name: string;
-  total_sessions: number;
-  price: number | null;
-  currency: string;
-  is_active: boolean;
-}
-
-export interface CustomerPackage {
-  id: string;
-  organization_id: string;
-  customer_id: string;
-  package_id: string | null;
-  package_name: string;
-  sessions_total: number;
-  price: number | null;
-  currency: string;
-  status: "active" | "completed" | "cancelled";
-  purchased_at: string;
-  sessions_used?: number;
 }
 
 export interface AgentConfig {
@@ -212,4 +197,144 @@ export interface OrganizationInvite {
   role: "admin" | "staff";
   status: "pending" | "accepted" | "revoked";
   invited_by: string;
+}
+
+export type WalkInStatus = "waiting" | "in_service" | "done" | "left";
+
+export interface WalkIn {
+  id: string;
+  organization_id: string;
+  customer_id: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  service_id: string | null;
+  notes: string | null;
+  status: WalkInStatus;
+  reservation_id: string | null;
+  party_size: number | null;
+  arrived_at: string;
+  served_at: string | null;
+  finished_at: string | null;
+  /** "qr": pedido del cliente desde la página pública; "staff": lo registró el equipo. */
+  source: "staff" | "qr";
+  notify_channel: "telegram" | "whatsapp" | null;
+  notify_identity: string | null;
+  ready_at: string | null;
+  notified_at: string | null;
+  notify_error: string | null;
+  services?: Pick<Service, "name" | "duration_minutes" | "price" | "currency"> | null;
+  reservations?: { resource_id: string | null; start_at: string; source: string; resources: Pick<Resource, "name"> | null } | null;
+}
+
+export interface CustomerAsset {
+  id: string;
+  organization_id: string;
+  customer_id: string;
+  asset_type: "vehicle" | "pet" | "preferences" | "student";
+  label: string;
+  attributes: Record<string, unknown>;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PlanKind = "sessions" | "membership" | "stamps";
+
+export interface PackagePlan {
+  id: string;
+  organization_id: string;
+  name: string;
+  kind: PlanKind;
+  sessions_total: number | null;
+  validity_days: number | null;
+  price: number | null;
+  currency: string;
+  service_ids: string[];
+  reward_text: string | null;
+  is_active: boolean;
+}
+
+export interface CustomerPlan {
+  id: string;
+  organization_id: string;
+  customer_id: string;
+  plan_id: string | null;
+  name: string;
+  kind: PlanKind;
+  sessions_total: number | null;
+  sessions_used: number;
+  service_ids: string[];
+  reward_text: string | null;
+  starts_on: string;
+  expires_on: string | null;
+  status: "active" | "exhausted" | "reward_ready" | "redeemed" | "expired" | "cancelled";
+  notes: string | null;
+  created_at: string;
+  customers?: Pick<Customer, "name" | "phone"> | null;
+}
+
+export type PaymentMethod = "cash" | "nequi" | "card" | "transfer" | "other";
+
+export interface Payment {
+  id: string;
+  organization_id: string;
+  reservation_id: string | null;
+  customer_id: string | null;
+  customer_plan_id: string | null;
+  amount: number;
+  currency: string;
+  method: PaymentMethod;
+  concept: string | null;
+  paid_at: string;
+  service_id: string | null;
+  quantity: number;
+  customers?: Pick<Customer, "name"> | null;
+  services?: Pick<Service, "name"> | null;
+}
+
+export interface ResourceHourPeriod {
+  id: string;
+  organization_id: string;
+  resource_id: string;
+  day_of_week: number;
+  opening_time: string;
+  closing_time: string;
+}
+
+export interface ScheduleBlock {
+  id: string;
+  organization_id: string;
+  resource_id: string | null;
+  starts_at: string;
+  ends_at: string;
+  reason: string | null;
+  created_by: string | null;
+  created_at: string;
+  resources?: { name: string } | null;
+}
+
+export interface SurveyRequest {
+  id: string;
+  organization_id: string;
+  reservation_id: string | null;
+  customer_id: string | null;
+  token: string;
+  sent_via: string | null;
+  sent_at: string | null;
+  rating: number | null;
+  comment: string | null;
+  answered_at: string | null;
+  created_at: string;
+  customers?: Pick<Customer, "name" | "phone"> | null;
+}
+
+export interface ReactivationCandidate {
+  customer_id: string;
+  name: string | null;
+  phone: string;
+  conversation_id: string | null;
+  last_visit_at: string;
+  visits: number;
+  last_service_name: string | null;
+  last_contacted_at: string | null;
 }

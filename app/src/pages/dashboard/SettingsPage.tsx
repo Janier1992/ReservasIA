@@ -94,6 +94,7 @@ export function SettingsPage() {
       .from("business_profiles")
       .update({
         name: profile.name,
+        tagline: profile.tagline?.trim() || null,
         description: profile.description,
         address: profile.address,
         phone: profile.phone,
@@ -302,7 +303,7 @@ export function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Configuración del negocio</h1>
+        <h1 className="font-display text-2xl font-semibold">Configuración del negocio</h1>
         <p className="text-sm text-muted-foreground">Datos operativos que usa el motor de disponibilidad y el agente.</p>
       </div>
 
@@ -376,6 +377,18 @@ export function SettingsPage() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">Moneda en la que se muestran y guardan los precios de tus servicios.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="settings-tagline">Eslogan</Label>
+            <Input
+              id="settings-tagline"
+              disabled={readOnly}
+              maxLength={90}
+              placeholder="Ej: El sabor que te hace volver"
+              value={profile.tagline ?? ""}
+              onChange={(e) => setProfile({ ...profile, tagline: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">Frase corta que aparece debajo del nombre y el logo en los correos que reciben tus clientes.</p>
           </div>
           <div className="space-y-1.5">
             <Label>Descripción</Label>

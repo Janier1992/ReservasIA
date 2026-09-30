@@ -6,6 +6,7 @@ import { AppError, ErrorCodes } from "../utils/AppError.js";
 import { resolveOrganizationForIncomingNumber, sendWhatsAppMessage, validateTwilioSignature } from "../services/twilio/twilioService.js";
 import { handleInboundMessage } from "../services/conversations/inboundMessageHandler.js";
 import { runAgentTurn } from "../services/agent/agentRuntime.js";
+import { extractOrderCode, handleOrderCodeMessage } from "../services/publicOrders/publicOrderService.js";
 import { webhookRateLimiter } from "../middleware/rateLimit.js";
 
 export const webhooksRouter = Router();
@@ -52,7 +53,7 @@ webhooksRouter.post(
       }
 
       const fromPhone = stripWhatsappPrefix(From);
-      const { conversationId, customerId } = await handleInboundMessage({
+      const inbound = await handleInboundMessage({
         organizationId: routing.organizationId,
         channel: "whatsapp",
         externalIdentity: fromPhone,
@@ -62,11 +63,36 @@ webhooksRouter.post(
         customerName: ProfileName
       });
 
+      // Reintento de Twilio (o de otro proceso) para un MessageSid ya
+      // procesado: se confirma igual para que Twilio deje de reintentar.
+      if (inbound.duplicate) {
+        res.status(200).type("text/xml").send("<Response></Response>");
+        return;
+      }
+      const { conversationId, customerId } = inbound;
+
       // Respondemos de inmediato a Twilio (< 15s) y procesamos el agente de
       // forma asíncrona, enviando la respuesta luego vía la API REST de
       // Twilio. Esto evita timeouts del webhook cuando el loop de tool
       // calling necesita varias rondas.
       res.status(200).type("text/xml").send("<Response></Response>");
+
+      // "Pedido #<código>" llega desde el botón "Avisame por WhatsApp" de un
+      // pedido por QR: se vincula el chat al pedido sin pasar por el agente.
+      const orderCode = extractOrderCode(Body);
+      if (orderCode) {
+        handleOrderCodeMessage({
+          organizationId: routing.organizationId,
+          code: orderCode,
+          channel: "whatsapp",
+          identity: fromPhone,
+          customerId,
+          conversationId
+        })
+          .then((reply) => sendWhatsAppMessage(routing.organizationId, fromPhone, reply))
+          .catch((err) => logger.error({ organizationId: routing.organizationId, conversationId, err }, "order_code_link_failed"));
+        return;
+      }
 
       runAgentTurn({
         organizationId: routing.organizationId,
