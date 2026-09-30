@@ -6,6 +6,47 @@
 \set QUIET on
 begin;
 set local role postgres;
+
+-- ------------------------------------------------------------
+-- Chequeo de ACL a nivel de Postgres (no solo de comportamiento): más abajo
+-- se prueba que anon NO PUEDE ejecutar estas funciones invocándolas de
+-- verdad, pero esa prueba por sí sola no distingue "Postgres le niega el
+-- permiso" de "Postgres se lo permite y la lógica interna lo rechaza
+-- después" — ambos casos terminan lanzando el mismo SQLSTATE 42501
+-- (insufficient_privilege), que es justo el código que usa la propia
+-- excepción 'FORBIDDEN' del cuerpo de estas funciones. Un `DROP FUNCTION` +
+-- `CREATE FUNCTION` para cambiar la firma (necesario para agregar un
+-- parámetro nuevo) resetea el ACL a los valores por defecto de Postgres
+-- (EXECUTE abierto a PUBLIC/anon) sin que ningún test de comportamiento lo
+-- note, si la lógica interna sigue rechazando igual al visitante anónimo
+-- por otro motivo (esto pasó de verdad: ver 20260930092000 y 20260930093000).
+-- Este bloque verifica el permiso real, no el resultado.
+do $$ declare
+  fn text;
+  funcs text[] := array[
+    'public.book_reservation(uuid, uuid, uuid, uuid, uuid, timestamptz, timestamptz, integer, text, text, text, uuid)',
+    'public.cancel_reservation(uuid)',
+    'public.reschedule_reservation(uuid, timestamptz, timestamptz)',
+    'public.search_customers(uuid, text)',
+    'public.accept_organization_invite(uuid)',
+    'public.claim_demo_organization(uuid)',
+    'public.create_organization_with_owner(text, text, text, text)',
+    'public.current_user_email()',
+    'public.finish_walk_in(uuid)',
+    'public.serve_walk_in(uuid, uuid)',
+    'public.get_due_reservation_reminders()'
+  ];
+begin
+  foreach fn in array funcs loop
+    if has_function_privilege('anon', fn, 'execute') then
+      raise exception 'FAIL: anon tiene EXECUTE real sobre % (falta revoke from public)', fn;
+    end if;
+    if not has_function_privilege('authenticated', fn, 'execute') then
+      raise exception 'FAIL: authenticated NO tiene EXECUTE sobre % (se rompió el grant)', fn;
+    end if;
+  end loop;
+  raise notice 'OK: anon no tiene EXECUTE real (a nivel de permiso, no solo de lógica) sobre ninguna RPC de backend, y authenticated sí';
+end $$;
 insert into public.organizations (id, name, slug, business_type, timezone) values
   ('11111111-aaaa-0000-0000-000000000001', 'Negocio A', 'negocio-a', 'barbershop', 'America/Bogota');
 insert into public.organization_members (organization_id, user_id, role) values
@@ -26,12 +67,21 @@ do $$ declare n int; begin
 end $$;
 
 set local role anon;
-do $$ declare n int; begin
+do $$ begin
   if public.is_backend_caller() then raise exception 'FAIL: anon pasa por server'; end if;
-  select count(*) into n from public.get_due_reservation_reminders();
-  if n <> 0 then raise exception 'FAIL: anon ve % recordatorios', n; end if;
-  select count(*) into n from public.search_customers('11111111-aaaa-0000-0000-000000000001', '');
-  if n <> 0 then raise exception 'FAIL: anon busca clientes'; end if;
+
+  -- Ahora anon no tiene ni siquiera EXECUTE sobre estas dos (ver
+  -- 20260930093000/20260930094000): la excepción llega antes de que corra
+  -- el cuerpo de la función, así que se captura igual que las de reservas
+  -- de más abajo, no con un select suelto.
+  begin
+    perform public.get_due_reservation_reminders();
+    raise exception 'FAIL: anon ve recordatorios';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.search_customers('11111111-aaaa-0000-0000-000000000001', '');
+    raise exception 'FAIL: anon busca clientes';
+  exception when insufficient_privilege then null; end;
   raise notice 'OK: un visitante anónimo no ve recordatorios ni clientes';
 
   begin
