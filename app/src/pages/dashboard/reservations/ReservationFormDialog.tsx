@@ -2,7 +2,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { bookingErrorMessage } from "@/lib/schedule";
+import { bookingErrorMessage, MAX_WEEKLY_REPEATS, weeklyDates } from "@/lib/schedule";
 import { fromZonedTime } from "date-fns-tz";
 import { insforge } from "@/lib/insforgeClient";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,9 @@ const schema = z.object({
   resourceId: z.string().optional(),
   partySize: z.coerce.number().int().positive().optional(),
   notes: z.string().optional(),
-  healthConsent: z.boolean().optional()
+  healthConsent: z.boolean().optional(),
+  repeatWeekly: z.boolean().optional(),
+  weeks: z.coerce.number().int().min(2, "Mínimo 2 semanas").max(MAX_WEEKLY_REPEATS, `Máximo ${MAX_WEEKLY_REPEATS} semanas`).optional()
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -53,8 +55,10 @@ export function ReservationFormDialog({
     handleSubmit,
     reset,
     control,
+    watch,
     formState: { errors, isSubmitting }
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { weeks: 4 } });
+  const repeatWeekly = watch("repeatWeekly");
   const needsHealthConsent = requiresHealthDataConsent(businessType);
 
   const onSubmit = async (values: FormValues) => {
@@ -115,26 +119,52 @@ export function ReservationFormDialog({
 
       const service = services.find((s) => s.id === values.serviceId);
       const durationMinutes = service?.duration_minutes ?? 60;
-      const startAt = fromZonedTime(`${values.date}T${values.time}:00`, timezone);
-      const endAt = new Date(startAt.getTime() + durationMinutes * 60_000);
 
-      const { error } = await insforge.database.rpc("book_reservation", {
-        p_organization_id: organizationId,
-        p_customer_id: customerId,
-        p_service_id: values.serviceId || null,
-        p_resource_id: values.resourceId || null,
-        p_conversation_id: null,
-        p_start_at: startAt.toISOString(),
-        p_end_at: endAt.toISOString(),
-        p_party_size: values.partySize ?? null,
-        p_customer_name: values.customerName,
-        p_special_requests: values.notes || null,
-        p_source: "dashboard"
-      });
+      // "Repetir cada semana" (clases fijas de academias y gimnasios): una
+      // reserva por semana bajo el mismo recurrence_group_id. Cada una pasa
+      // por las mismas validaciones (disponibilidad, cupo, bloqueos), así que
+      // una semana sin cupo no tumba a las demás: se informa aparte.
+      const dates = values.repeatWeekly ? weeklyDates(values.date, values.weeks ?? 4) : [values.date];
+      const recurrenceGroupId = values.repeatWeekly ? crypto.randomUUID() : null;
+      const failures: { date: string; reason: string }[] = [];
 
-      if (error) throw error;
+      for (const date of dates) {
+        const startAt = fromZonedTime(`${date}T${values.time}:00`, timezone);
+        const endAt = new Date(startAt.getTime() + durationMinutes * 60_000);
+        const { error } = await insforge.database.rpc("book_reservation", {
+          p_organization_id: organizationId,
+          p_customer_id: customerId,
+          p_service_id: values.serviceId || null,
+          p_resource_id: values.resourceId || null,
+          p_conversation_id: null,
+          p_start_at: startAt.toISOString(),
+          p_end_at: endAt.toISOString(),
+          p_party_size: values.partySize ?? null,
+          p_customer_name: values.customerName,
+          p_special_requests: values.notes || null,
+          p_source: "dashboard",
+          ...(recurrenceGroupId ? { p_recurrence_group_id: recurrenceGroupId } : {})
+        });
+        if (error) {
+          if (!recurrenceGroupId) throw error;
+          failures.push({ date, reason: bookingErrorMessage(error) });
+        }
+      }
 
-      toast.success("Reserva creada.");
+      const created = dates.length - failures.length;
+      if (created === 0) {
+        toast.error(`No se pudo crear ninguna reserva de la serie. ${failures[0]?.reason ?? ""}`);
+        return;
+      }
+      if (failures.length > 0) {
+        const day = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("es-CO", { timeZone: "UTC", day: "numeric", month: "short" });
+        toast.warning(`Se crearon ${created} de ${dates.length} reservas.`, {
+          description: failures.map((f) => `${day(f.date)}: ${f.reason}`).join(" · "),
+          duration: 12_000
+        });
+      } else {
+        toast.success(recurrenceGroupId ? `Se crearon las ${created} reservas semanales.` : "Reserva creada.");
+      }
       reset();
       onOpenChange(false);
       onCreated();
@@ -228,6 +258,20 @@ export function ReservationFormDialog({
               />
             </div>
           )}
+          <div className="space-y-2 rounded-md border border-border p-3">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" className="h-4 w-4 accent-primary" {...register("repeatWeekly")} />
+              Repetir cada semana
+            </label>
+            {repeatWeekly && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Durante</span>
+                <Input type="number" min={2} max={MAX_WEEKLY_REPEATS} className="h-8 w-20" aria-label="Semanas" {...register("weeks")} />
+                <span className="text-muted-foreground">semanas, mismo día y hora.</span>
+              </div>
+            )}
+            {errors.weeks && <p className="text-xs text-destructive">{errors.weeks.message}</p>}
+          </div>
           <div className="space-y-1.5">
             <Label>Cantidad de personas (opcional)</Label>
             <Input type="number" {...register("partySize")} />

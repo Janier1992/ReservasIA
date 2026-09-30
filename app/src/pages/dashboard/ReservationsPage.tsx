@@ -365,6 +365,11 @@ export function ReservationsPage() {
                   )}
                   <td className="px-4 py-3">
                     <Badge variant={reservationStatusVariant(r.status)}>{reservationStatusLabel(r.status)}</Badge>
+                    {r.recurrence_group_id && (
+                      <Badge variant="muted" className="ml-1" title="Parte de una serie semanal">
+                        Semanal
+                      </Badge>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {r.payment_status !== "not_required" ? (
