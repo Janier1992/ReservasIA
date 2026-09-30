@@ -51,3 +51,11 @@ describe("sinceLabel", () => {
     expect(sinceLabel("2025-01-01T12:00:00Z", now)).toBe("hace más de un año");
   });
 });
+
+describe("requiresHealthDataConsent", () => {
+  it("asks for health-data authorization only in human health niches", async () => {
+    const { requiresHealthDataConsent } = await import("@/lib/healthData");
+    for (const t of ["dental", "clinic", "physiotherapy"]) expect(requiresHealthDataConsent(t)).toBe(true);
+    for (const t of ["veterinary", "restaurant", null, undefined]) expect(requiresHealthDataConsent(t)).toBe(false);
+  });
+});

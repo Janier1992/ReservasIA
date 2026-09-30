@@ -4,6 +4,7 @@ import { AppError, ErrorCodes } from "../../utils/AppError.js";
 import { getAvailableSlots } from "../availability/availabilityService.js";
 import { findOrCreateCustomerByPhone } from "../customers/customersService.js";
 import { createReservation } from "../reservations/reservationsService.js";
+import { requiresHealthDataConsent } from "../agent/safetyGuardrails.js";
 
 /**
  * Página pública de reservas (/r/:slug): lo que ve y puede hacer alguien
@@ -135,6 +136,8 @@ export interface PublicBookingInput {
   phone: string;
   email?: string;
   notes?: string;
+  /** Casilla de autorización de datos de salud (consultorios, clínicas, fisioterapia). */
+  healthDataConsent?: boolean;
 }
 
 export async function createPublicReservation(slug: string, input: PublicBookingInput, now = new Date()) {
@@ -154,6 +157,20 @@ export async function createPublicReservation(slug: string, input: PublicBooking
   const customer = await findOrCreateCustomerByPhone(org.id, normalizePhone(input.phone), input.name.trim(), input.email?.trim() || undefined);
   const startAt = new Date(slot.start);
 
+  // Datos de salud (Ley 1581): el motivo de consulta solo se guarda si el
+  // paciente marcó la autorización (o ya la había dado antes).
+  let notes = input.notes?.trim() || null;
+  if (requiresHealthDataConsent(org.business_type)) {
+    if (input.healthDataConsent && !customer.health_data_consent_at) {
+      await insforgeAdmin.database
+        .from("customers")
+        .update({ health_data_consent_at: now.toISOString(), health_data_consent_source: "public_page" })
+        .eq("id", customer.id);
+    } else if (!input.healthDataConsent && !customer.health_data_consent_at) {
+      notes = null;
+    }
+  }
+
   const reservation = await createReservation({
     organizationId: org.id,
     customerId: customer.id,
@@ -166,7 +183,7 @@ export async function createPublicReservation(slug: string, input: PublicBooking
     endAt: addMinutes(startAt, service.duration_minutes),
     partySize: null,
     customerName: input.name.trim(),
-    specialRequests: input.notes?.trim() || null,
+    specialRequests: notes,
     source: "web"
   });
 

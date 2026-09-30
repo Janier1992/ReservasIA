@@ -97,6 +97,24 @@ describe("public booking API", () => {
     );
   });
 
+  it("at a dental office, drops the reason for the visit unless the patient ticks the health-data authorization", async () => {
+    const dental = { ...ACTIVE_ORG, slug: "consultorio", business_type: "dental" };
+    insforgeMockInstance = mockFor(dental);
+    const body = { ...validBooking, notes: "Dolor de muela" };
+
+    let res = await request(app).post("/api/public/businesses/consultorio/reservations").set("X-Forwarded-For", nextIp()).send(body);
+    expect(res.status).toBe(201);
+    expect(createReservationMock).toHaveBeenLastCalledWith(expect.objectContaining({ specialRequests: null }));
+
+    insforgeMockInstance = mockFor(dental);
+    res = await request(app)
+      .post("/api/public/businesses/consultorio/reservations")
+      .set("X-Forwarded-For", nextIp())
+      .send({ ...body, healthDataConsent: true });
+    expect(res.status).toBe(201);
+    expect(createReservationMock).toHaveBeenLastCalledWith(expect.objectContaining({ specialRequests: "Dolor de muela" }));
+  });
+
   it("refuses a slot that was taken while the visitor filled the form", async () => {
     getAvailableSlotsMock.mockResolvedValue({ slots: [], timezone: "America/Bogota" });
     const res = await request(app).post("/api/public/businesses/lavadero-aguaclara/reservations").set("X-Forwarded-For", nextIp()).send(validBooking);

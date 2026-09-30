@@ -104,6 +104,8 @@ export interface Customer {
   email: string | null;
   notes: string | null;
   created_at: string;
+  health_data_consent_at?: string | null;
+  health_data_consent_source?: string | null;
 }
 
 export type ConversationChannel = "whatsapp" | "instagram" | "web" | "telegram" | "facebook";

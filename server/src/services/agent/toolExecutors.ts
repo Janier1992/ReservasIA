@@ -6,6 +6,7 @@ import { AppError } from "../../utils/AppError.js";
 import { getAvailableSlots } from "../availability/availabilityService.js";
 import { ensureCustomerDetails, findOrCreateCustomerByPhone, getCustomerActiveReservations } from "../customers/customersService.js";
 import { createReservation, cancelReservation, getReservationById, rescheduleReservation } from "../reservations/reservationsService.js";
+import { requiresHealthDataConsent } from "./safetyGuardrails.js";
 import {
   ToolName,
   type ToolNameType,
@@ -46,6 +47,25 @@ function sortByProximity(slots: { start: string }[], preferredTime: string | und
   if (!preferredTime) return slots;
   const target = new Date(`${date}T${preferredTime}:00Z`).getTime();
   return [...slots].sort((a, b) => Math.abs(new Date(a.start).getTime() - target) - Math.abs(new Date(b.start).getTime() - target));
+}
+
+/**
+ * Notas de la reserva que se pueden guardar. En consultorios, clínicas y
+ * fisioterapia las notas suelen traer el motivo de consulta (dato de salud):
+ * sin autorización expresa del paciente no se guardan, sin importar lo que
+ * mande el modelo. Devuelve también si se descartaron, para avisarle al
+ * agente.
+ */
+async function allowedNotes(
+  organizationId: string,
+  customer: { health_data_consent_at?: string | null },
+  notes: string | undefined
+): Promise<{ notes: string | null; dropped: boolean }> {
+  const trimmed = notes?.trim() || null;
+  if (!trimmed || customer.health_data_consent_at) return { notes: trimmed, dropped: false };
+  const { data: org } = await insforgeAdmin.database.from("organizations").select("business_type").eq("id", organizationId).maybeSingle();
+  if (org && requiresHealthDataConsent(org.business_type as string)) return { notes: null, dropped: true };
+  return { notes: trimmed, dropped: false };
 }
 
 async function executeConsultarDisponibilidad(rawArgs: unknown, ctx: AgentExecutionContext) {
@@ -152,6 +172,11 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
       ? await ensureCustomerDetails(ctx.organizationId, ctx.customerId, args.nombre_cliente, args.email_cliente)
       : await findOrCreateCustomerByPhone(ctx.organizationId, args.telefono_cliente, args.nombre_cliente, args.email_cliente);
 
+    const { notes, dropped: notesDropped } = await allowedNotes(ctx.organizationId, customer, args.notas);
+    const notesWarning = notesDropped
+      ? { notas_no_guardadas: "El paciente no autorizó guardar datos de salud; la reserva se creó sin notas." }
+      : {};
+
     // "Repetir semanas" (clases fijas de academias/gimnasios): cada semana es
     // una reserva independiente que pasa por las mismas validaciones de
     // disponibilidad/capacidad, así que una semana sin cupo no tumba a las
@@ -175,7 +200,7 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
             endAt: occEnd,
             partySize: args.cantidad_personas ?? null,
             customerName: args.nombre_cliente,
-            specialRequests: args.notas ?? null,
+            specialRequests: notes,
             source: "whatsapp",
             recurrenceGroupId
           });
@@ -189,7 +214,7 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
         }
       }
 
-      return { recurrente: true, ocurrencias: occurrences, payment_status: "not_required" as const };
+      return { recurrente: true, ocurrencias: occurrences, payment_status: "not_required" as const, ...notesWarning };
     }
 
     const reservation = await createReservation({
@@ -202,7 +227,7 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
       endAt,
       partySize: args.cantidad_personas ?? null,
       customerName: args.nombre_cliente,
-      specialRequests: args.notas ?? null,
+      specialRequests: notes,
       source: "whatsapp"
     });
 
@@ -233,7 +258,8 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
         status: reservation.status,
         payment_status: "awaiting_payment" as const,
         deposit_amount: depositAmount,
-        nequi_phone: profile.nequi_phone
+        nequi_phone: profile.nequi_phone,
+        ...notesWarning
       };
     }
 
@@ -242,7 +268,8 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
       start_at: reservation.start_at,
       end_at: reservation.end_at,
       status: reservation.status,
-      payment_status: "not_required" as const
+      payment_status: "not_required" as const,
+      ...notesWarning
     };
   });
 }

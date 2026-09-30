@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { containsMedicalAdvice, detectEmergency, isHealthNiche } from "../src/services/agent/safetyGuardrails.js";
+import { containsMedicalAdvice, detectEmergency, isHealthNiche, parseConsentAnswer, requiresHealthDataConsent } from "../src/services/agent/safetyGuardrails.js";
 
 describe("isHealthNiche", () => {
   it("flags dental, clinic, physiotherapy and veterinary", () => {
@@ -67,5 +67,22 @@ describe("containsMedicalAdvice", () => {
 
   it("does not flag a reply that just mentions the price of a consultation", () => {
     expect(containsMedicalAdvice("La consulta general tiene un valor de 50000 pesos.")).toBe(false);
+  });
+});
+
+describe("health data consent", () => {
+  it("applies only to human health niches", () => {
+    for (const t of ["dental", "clinic", "physiotherapy"]) expect(requiresHealthDataConsent(t)).toBe(true);
+    for (const t of ["veterinary", "barbershop", "restaurant"]) expect(requiresHealthDataConsent(t)).toBe(false);
+  });
+
+  it("reads a clear yes or no at the start of the message", () => {
+    for (const m of ["Sí", "si", "Sí, autorizo", "acepto", "Autorizo", "de acuerdo", "claro que sí", "ok, el martes"]) {
+      expect(parseConsentAnswer(m)).toBe("yes");
+    }
+    for (const m of ["no", "No autorizo", "no, gracias"]) expect(parseConsentAnswer(m)).toBe("no");
+    for (const m of ["quiero una cita", "nombre: Ana", "¿sirve el martes?", "simplemente quiero agendar"]) {
+      expect(parseConsentAnswer(m)).toBeNull();
+    }
   });
 });

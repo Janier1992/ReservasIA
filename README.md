@@ -189,6 +189,19 @@ Lista (`get_reactivation_candidates`) de clientes cuya última atención complet
 por cantidad de visitas. Cada uno se contacta con un mensaje editable por WhatsApp (enlace wa.me desde el celular del
 negocio) o por el chat, y queda registrado en `reactivation_contacts`.
 
+### Datos de salud (consultorios, clínicas, fisioterapia)
+El motivo de consulta es un dato sensible (Ley 1581): solo se guarda con **autorización expresa** del paciente
+(`customers.health_data_consent_at` / `health_data_consent_source`), y lo hace cumplir el código, no el modelo:
+- **Chat:** el primer mensaje del agente pide la autorización; un "sí" claro posterior la registra
+  (`resolveHealthDataConsent`). Sin ella, el prompt le prohíbe pedir o anotar el motivo y `crear_reserva` descarta las
+  notas aunque el modelo las mande (`notas_no_guardadas`).
+- **Página pública:** casilla de autorización; sin marcarla, el motivo no se guarda.
+- **Panel:** la ficha del paciente muestra el estado, permite registrar la autorización o retirarla y borrar el motivo
+  de todas sus reservas y llegadas; "Nueva reserva" exige marcar la autorización para guardar el motivo.
+- Además: corte determinístico ante emergencias (mensaje propio para veterinaria), bloqueo de respuestas con
+  medicamentos/dosis y aviso de privacidad una vez por conversación (`safetyGuardrails.ts`). La veterinaria conserva
+  solo el aviso: la historia de una mascota no es un dato personal sensible.
+
 ### Multi-tenant y seguridad
 - Aislamiento estricto por organización con Row Level Security de PostgreSQL, no con filtros en el código de la
   aplicación.
