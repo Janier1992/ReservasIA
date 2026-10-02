@@ -15,7 +15,7 @@ vi.mock("../src/services/telegram/telegramService.js", () => ({
 }));
 vi.mock("../src/services/twilio/twilioService.js", () => ({ sendWhatsAppMessage: vi.fn() }));
 
-const { buildOrderReadyText, createPublicOrder, extractOrderCode, generateOrderCode, handleOrderCodeMessage } = await import(
+const { buildOrderReadyText, createPublicOrder, extractOrderCode, generateOrderCode, handleOrderCodeMessage, mergeOrderItems, orderTotal, summarizeOrderItems } = await import(
   "../src/services/publicOrders/publicOrderService.js"
 );
 const { sendReadyOrderNotifications } = await import("../src/services/publicOrders/orderReadyNotifier.js");
@@ -52,22 +52,132 @@ describe("publicPageMode", () => {
   });
 });
 
+/** El objeto que el servicio insertó en una tabla (primer insert). */
+function insertedInto(table: string): Record<string, unknown> | undefined {
+  const results = (db.database.from as unknown as { mock: { calls: [string][]; results: { value: { insert: { mock: { calls: unknown[][] } } } }[] } }).mock;
+  for (let i = 0; i < results.calls.length; i++) {
+    if (results.calls[i][0] !== table) continue;
+    const call = results.results[i].value.insert.mock.calls[0];
+    if (call) return (call[0] as Record<string, unknown>[])[0];
+  }
+  return undefined;
+}
+
+const burger = { id: "svc-1", name: "Hamburguesa", price: 18000, currency: "COP" };
+const lemonade = { id: "svc-2", name: "Limonada", price: 6000, currency: "COP" };
+
 describe("createPublicOrder", () => {
   it("queues the order and offers only the connected channels", async () => {
     useDb({
       organizations: ok(restaurant),
-      services: ok({ id: "svc-1", duration_minutes: 15 }),
-      walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z", services: { name: "Hamburguesa" } }), ok([{ id: "w-0" }, { id: "w-1" }])],
+      services: ok([burger]),
+      walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z" }), ok([{ id: "w-0" }, { id: "w-1" }])],
       integrations: ok([{ provider: "telegram", metadata: { bot_username: "AntojitosBot" } }])
     });
-    const order = await createPublicOrder("antojitos", { serviceId: "svc-1", name: "Ana Ruiz" });
-    expect(order).toMatchObject({ position: 2, serviceName: "Hamburguesa", whatsappUrl: null });
+    const order = await createPublicOrder("antojitos", { items: [{ serviceId: "svc-1", quantity: 1 }], name: "Ana Ruiz" });
+    expect(order).toMatchObject({ position: 2, serviceName: "Hamburguesa", whatsappUrl: null, total: 18000, currency: "COP" });
     expect(order.telegramUrl).toBe(`https://t.me/AntojitosBot?start=${order.code}`);
+    expect(insertedInto("walk_ins")).toMatchObject({ service_id: "svc-1", source: "qr" });
+  });
+
+  it("takes several products with quantities and stores them as a snapshot", async () => {
+    useDb({
+      organizations: ok(restaurant),
+      services: ok([burger, lemonade]),
+      walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z" }), ok([{ id: "w-1" }])],
+      integrations: ok([])
+    });
+    const order = await createPublicOrder("antojitos", {
+      items: [
+        { serviceId: "svc-1", quantity: 1 },
+        { serviceId: "svc-2", quantity: 1 },
+        { serviceId: "svc-1", quantity: 1 }
+      ],
+      name: "Ana Ruiz",
+      notes: "sin cebolla"
+    });
+    expect(order).toMatchObject({
+      serviceName: "2× Hamburguesa y Limonada",
+      items: [
+        { name: "Hamburguesa", quantity: 2 },
+        { name: "Limonada", quantity: 1 }
+      ],
+      total: 42000,
+      currency: "COP"
+    });
+    expect(insertedInto("walk_ins")).toMatchObject({
+      service_id: null,
+      notes: "sin cebolla",
+      order_items: [
+        { service_id: "svc-1", name: "Hamburguesa", quantity: 2, unit_price: 18000, currency: "COP" },
+        { service_id: "svc-2", name: "Limonada", quantity: 1, unit_price: 6000, currency: "COP" }
+      ]
+    });
+  });
+
+  it("rejects the order when a product is no longer on the menu", async () => {
+    useDb({ organizations: ok(restaurant), services: ok([burger]) });
+    await expect(
+      createPublicOrder("antojitos", {
+        items: [
+          { serviceId: "svc-1", quantity: 1 },
+          { serviceId: "svc-9", quantity: 1 }
+        ],
+        name: "Ana"
+      })
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("rejects quantities above the limit once merged", async () => {
+    useDb({ organizations: ok(restaurant), services: ok([burger]) });
+    await expect(
+      createPublicOrder("antojitos", {
+        items: [
+          { serviceId: "svc-1", quantity: 15 },
+          { serviceId: "svc-1", quantity: 10 }
+        ],
+        name: "Ana"
+      })
+    ).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it("rejects businesses whose public page is for bookings", async () => {
     useDb({ organizations: ok({ ...restaurant, business_type: "spa" }) });
-    await expect(createPublicOrder("spa", { serviceId: "svc-1", name: "Ana" })).rejects.toMatchObject({ statusCode: 404 });
+    await expect(createPublicOrder("spa", { items: [{ serviceId: "svc-1", quantity: 1 }], name: "Ana" })).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+describe("order helpers", () => {
+  it("merges repeated products", () => {
+    expect(
+      mergeOrderItems([
+        { serviceId: "a", quantity: 1 },
+        { serviceId: "b", quantity: 2 },
+        { serviceId: "a", quantity: 3 }
+      ])
+    ).toEqual([
+      { serviceId: "a", quantity: 4 },
+      { serviceId: "b", quantity: 2 }
+    ]);
+  });
+
+  it("summarizes orders in plain Spanish", () => {
+    expect(summarizeOrderItems(null)).toBe("");
+    expect(summarizeOrderItems([{ name: "Limonada", quantity: 1 }])).toBe("Limonada");
+    expect(
+      summarizeOrderItems([
+        { name: "Hamburguesa", quantity: 2 },
+        { name: "Papas", quantity: 1 },
+        { name: "Limonada", quantity: 3 }
+      ])
+    ).toBe("2× Hamburguesa, Papas y 3× Limonada");
+  });
+
+  it("has no total when a product has no price or currencies differ", () => {
+    const item = { service_id: "a", name: "A", quantity: 2, unit_price: 1000, currency: "COP" };
+    expect(orderTotal([item])).toEqual({ total: 2000, currency: "COP" });
+    expect(orderTotal([item, { ...item, unit_price: null }])).toEqual({ total: null, currency: null });
+    expect(orderTotal([item, { ...item, currency: "USD" }])).toEqual({ total: null, currency: null });
   });
 });
 
@@ -81,6 +191,29 @@ describe("handleOrderCodeMessage", () => {
     });
     expect(await handleOrderCodeMessage(msg)).toBe(
       "¡Hola Ana! Recibimos tu pedido de Hamburguesa. Te escribimos por acá apenas esté listo para reclamar."
+    );
+  });
+
+  it("confirms every product of a multi-product order", async () => {
+    useDb({
+      walk_ins: [
+        ok({
+          id: "w-1",
+          customer_id: null,
+          customer_name: "Ana Ruiz",
+          status: "waiting",
+          services: null,
+          order_items: [
+            { service_id: "svc-1", name: "Hamburguesa", quantity: 2, unit_price: 18000, currency: "COP" },
+            { service_id: "svc-2", name: "Limonada", quantity: 1, unit_price: 6000, currency: "COP" }
+          ]
+        }),
+        ok(null)
+      ],
+      messages: ok(null)
+    });
+    expect(await handleOrderCodeMessage(msg)).toBe(
+      "¡Hola Ana! Recibimos tu pedido de 2× Hamburguesa y Limonada. Te escribimos por acá apenas esté listo para reclamar."
     );
   });
 
@@ -102,6 +235,20 @@ describe("sendReadyOrderNotifications", () => {
     });
     expect(await sendReadyOrderNotifications()).toEqual({ sent: 1, failed: 0 });
     expect(sendTelegramMessageMock).toHaveBeenCalledWith("bot-token", "77", "¡Ana, tu pedido de Hamburguesa está listo! Acercate a reclamarlo en Antojitos.");
+  });
+
+  it("lists every product in the ready message", async () => {
+    useDb({
+      walk_ins: [
+        ok([{ ...ready, services: null, order_items: [{ service_id: "svc-1", name: "Hamburguesa", quantity: 2, unit_price: 18000, currency: "COP" }, { service_id: "svc-2", name: "Limonada", quantity: 1, unit_price: 6000, currency: "COP" }] }]),
+        ok([{ id: "w-1" }])
+      ],
+      business_profiles: ok({ name: "Antojitos" }),
+      conversations: ok({ id: "conv-1" }),
+      messages: ok(null)
+    });
+    await sendReadyOrderNotifications();
+    expect(sendTelegramMessageMock).toHaveBeenCalledWith("bot-token", "77", "¡Ana, tu pedido de 2× Hamburguesa y Limonada está listo! Acercate a reclamarlo en Antojitos.");
   });
 
   it("skips orders another instance already claimed", async () => {

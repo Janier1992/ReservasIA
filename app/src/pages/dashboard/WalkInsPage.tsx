@@ -17,6 +17,7 @@ import { WalkInRegisterForm } from "@/components/walk-ins/WalkInRegisterForm";
 import { isModuleEnabled } from "@/lib/modules";
 import { formatWait, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
 import { zonedDayRange } from "@/lib/payments";
+import { orderItemsForSale, summarizeOrderItems } from "@/lib/orderCart";
 import { upcomingDates } from "@/lib/publicBookingUtils";
 import type { Reservation, Resource, Service, WalkIn } from "@/types/domain";
 
@@ -415,7 +416,7 @@ export function WalkInsPage() {
             {finishedToday.map((w) => (
               <div key={w.id} className="flex items-center gap-3 py-2 text-sm">
                 <span className="flex-1 font-medium">{w.customer_name}</span>
-                <span className="hidden text-muted-foreground sm:inline">{w.services?.name ?? "—"}</span>
+                <span className="hidden max-w-[50%] truncate text-muted-foreground sm:inline">{summarizeOrderItems(w.order_items) || w.services?.name || "—"}</span>
                 <span className="text-muted-foreground">{time(w.arrived_at)}</span>
                 <Badge variant={w.status === "done" ? "success" : "muted"}>{w.status === "done" ? "Atendido" : "Se fue"}</Badge>
                 <Button size="icon" variant="ghost" title="Editar registro" aria-label={`Editar el registro de ${w.customer_name}`} onClick={() => setEditing(w)}>
@@ -457,7 +458,8 @@ export function WalkInsPage() {
                   serviceId: saleFor.service_id,
                   customerId: saleFor.customer_id,
                   reservationId: saleFor.reservation_id,
-                  concept: saleFor.services?.name ?? null
+                  concept: summarizeOrderItems(saleFor.order_items) || saleFor.services?.name || null,
+                  items: orderItemsForSale(saleFor.order_items)
                 }
               : {}
           }

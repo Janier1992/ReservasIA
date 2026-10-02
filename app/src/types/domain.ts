@@ -203,6 +203,15 @@ export interface OrganizationInvite {
 
 export type WalkInStatus = "waiting" | "in_service" | "done" | "left";
 
+/** Producto de un pedido por QR, tal como estaba en la carta al pedir. */
+export interface OrderItem {
+  service_id: string;
+  name: string;
+  quantity: number;
+  unit_price: number | null;
+  currency: string | null;
+}
+
 export interface WalkIn {
   id: string;
   organization_id: string;
@@ -224,6 +233,8 @@ export interface WalkIn {
   ready_at: string | null;
   notified_at: string | null;
   notify_error: string | null;
+  /** Productos del pedido por QR (puede haber varios); null en registros del equipo. */
+  order_items: OrderItem[] | null;
   services?: Pick<Service, "name" | "duration_minutes" | "price" | "currency"> | null;
   reservations?: { resource_id: string | null; start_at: string; source: string; resources: Pick<Resource, "name"> | null } | null;
 }

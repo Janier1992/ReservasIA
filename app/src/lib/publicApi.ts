@@ -35,7 +35,12 @@ export interface PublicSlot {
 export interface PublicOrder {
   code: string;
   position: number;
+  /** Resumen legible del pedido ("2× Hamburguesa y Limonada"). */
   serviceName: string;
+  /** Ausentes si respondió un server anterior al carrito. */
+  items?: { name: string; quantity: number }[];
+  total?: number | null;
+  currency?: string | null;
   telegramUrl: string | null;
   whatsappUrl: string | null;
 }
@@ -77,6 +82,9 @@ export const publicApi = {
       method: "POST",
       body: JSON.stringify(body)
     }),
-  order: (slug: string, body: { serviceId: string; name: string; phone?: string; notes?: string; website?: string }) =>
+  order: (
+    slug: string,
+    body: { items: { serviceId: string; quantity: number }[]; name: string; phone?: string; notes?: string; website?: string }
+  ) =>
     call<PublicOrder>(`/businesses/${encodeURIComponent(slug)}/orders`, { method: "POST", body: JSON.stringify(body) })
 };
