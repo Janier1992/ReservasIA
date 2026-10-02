@@ -34,6 +34,8 @@ export interface PublicSlot {
 
 export interface PublicOrder {
   code: string;
+  /** Número de ticket del día; ausente si respondió un server anterior. */
+  ticketNumber?: number | null;
   position: number;
   /** Resumen legible del pedido ("2× Hamburguesa y Limonada"). */
   serviceName: string;

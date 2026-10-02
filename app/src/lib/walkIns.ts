@@ -1,5 +1,10 @@
 import type { WalkIn } from "@/types/domain";
 
+/** "#007": número de ticket del día en Atención en sitio (vuelve a 1 cada día). */
+export function formatTicket(ticketNumber: number | null | undefined): string {
+  return ticketNumber ? `#${String(ticketNumber).padStart(3, "0")}` : "";
+}
+
 export function minutesBetween(from: string, to: Date | string): number {
   const end = typeof to === "string" ? new Date(to) : to;
   return Math.max(0, Math.floor((end.getTime() - new Date(from).getTime()) / 60_000));
@@ -80,4 +85,38 @@ export function walkInErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String(error.message) : "";
   const code = Object.keys(ERROR_MESSAGES).find((c) => message.includes(c));
   return code ? ERROR_MESSAGES[code] : message || "No se pudo actualizar la atención.";
+}
+
+export interface ServiceProgress {
+  /** Minutos desde que pasó a atención. */
+  elapsed: number;
+  /** Duración esperada en minutos; null si no se conoce (pedido sin servicio). */
+  expected: number | null;
+  /** Minutos que faltan (negativo: pasado de tiempo). null sin duración esperada. */
+  remaining: number | null;
+  /** Avance de 0 a 1 para la barra; null sin duración esperada. */
+  ratio: number | null;
+  overdue: boolean;
+}
+
+/**
+ * Cuánto lleva una atención frente a lo que debería durar: la duración del
+ * servicio o, si llegó con reserva, lo que dura esa reserva.
+ */
+export function serviceProgress(
+  w: Pick<WalkIn, "served_at" | "arrived_at" | "services" | "reservations">,
+  now: Date
+): ServiceProgress {
+  const elapsed = minutesBetween(w.served_at ?? w.arrived_at, now);
+  const reservation = w.reservations;
+  const fromReservation =
+    reservation?.start_at && reservation.end_at ? Math.round((new Date(reservation.end_at).getTime() - new Date(reservation.start_at).getTime()) / 60_000) : null;
+  const expected = w.services?.duration_minutes || fromReservation || null;
+  if (!expected || expected <= 0) return { elapsed, expected: null, remaining: null, ratio: null, overdue: false };
+  return { elapsed, expected, remaining: expected - elapsed, ratio: Math.min(1, elapsed / expected), overdue: elapsed > expected };
+}
+
+/** Título grande de la tarjeta: la placa, la mascota o el estudiante de la reserva, si hay. */
+export function walkInAssetLabel(w: Pick<WalkIn, "reservations">): string | null {
+  return w.reservations?.customer_assets?.label?.trim() || null;
 }

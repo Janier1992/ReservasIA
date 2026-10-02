@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatWait, minutesBetween, notifyStatus, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
+import { formatTicket, formatWait, minutesBetween, notifyStatus, serviceProgress, walkInAssetLabel, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
 import type { WalkIn } from "@/types/domain";
 
 function walkIn(partial: Partial<WalkIn>): WalkIn {
@@ -23,6 +23,7 @@ function walkIn(partial: Partial<WalkIn>): WalkIn {
     ready_at: null,
     notified_at: null,
     notify_error: null,
+    order_items: null,
     ...partial
   };
 }
@@ -69,5 +70,48 @@ describe("walk-in helpers", () => {
     expect(notifyStatus(walkIn({ ...ready, notify_channel: "whatsapp", notified_at: "2026-09-26T10:30:05Z" }))?.label).toBe("Avisado por WhatsApp");
     expect(notifyStatus(walkIn({ ...ready, notify_channel: "telegram", notify_error: "blocked" }))?.variant).toBe("destructive");
     expect(notifyStatus(walkIn(ready))?.label).toBe("Listo · llamalo en persona");
+  });
+});
+
+describe("serviceProgress", () => {
+  const now = new Date("2026-09-26T10:30:00Z");
+
+  it("compares the time in service with the service duration", () => {
+    const p = serviceProgress(walkIn({ served_at: "2026-09-26T10:16:00Z", services: { name: "Lavado", duration_minutes: 20, price: null, currency: "COP" } }), now);
+    expect(p).toEqual({ elapsed: 14, expected: 20, remaining: 6, ratio: 0.7, overdue: false });
+  });
+
+  it("flags attentions that ran over", () => {
+    const p = serviceProgress(walkIn({ served_at: "2026-09-26T10:05:00Z", services: { name: "Lavado", duration_minutes: 20, price: null, currency: "COP" } }), now);
+    expect(p).toMatchObject({ elapsed: 25, remaining: -5, ratio: 1, overdue: true });
+  });
+
+  it("uses the reservation length when there is no service", () => {
+    const p = serviceProgress(
+      walkIn({
+        served_at: "2026-09-26T10:20:00Z",
+        reservations: { resource_id: null, start_at: "2026-09-26T10:00:00Z", end_at: "2026-09-26T10:45:00Z", source: "public_page", resources: null }
+      }),
+      now
+    );
+    expect(p).toMatchObject({ elapsed: 10, expected: 45, remaining: 35 });
+  });
+
+  it("only reports elapsed time when the duration is unknown", () => {
+    expect(serviceProgress(walkIn({ served_at: "2026-09-26T10:20:00Z" }), now)).toEqual({ elapsed: 10, expected: null, remaining: null, ratio: null, overdue: false });
+  });
+
+  it("titles the card with the plate or pet of the reservation", () => {
+    const reservations = { resource_id: null, start_at: "2026-09-26T10:00:00Z", source: "chat", resources: null };
+    expect(walkInAssetLabel(walkIn({ reservations: { ...reservations, customer_assets: { label: "GHT331", asset_type: "vehicle" } } }))).toBe("GHT331");
+    expect(walkInAssetLabel(walkIn({ reservations }))).toBeNull();
+  });
+});
+
+describe("formatTicket", () => {
+  it("pads the daily ticket number", () => {
+    expect(formatTicket(7)).toBe("#007");
+    expect(formatTicket(1234)).toBe("#1234");
+    expect(formatTicket(null)).toBe("");
   });
 });
