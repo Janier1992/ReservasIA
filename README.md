@@ -139,6 +139,15 @@ responde por negocios activos con el módulo encendido (mismo 404 en cualquier o
 disponibilidad al reservar, limita 5 reservas cada 10 minutos por IP y tiene un campo trampa contra bots. Requiere
 `VITE_API_URL` en el frontend (URL del compute service) y que `APP_URL` del server sea la URL del frontend (CORS).
 
+**Pedidos por QR (restaurantes con Atención en sitio).** En ese caso la misma página es una carta: el cliente arma un
+pedido con uno o varios productos y la cantidad de cada uno (hasta 20 productos distintos y 20 unidades de cada uno),
+ve el total y deja su nombre. `POST /api/public/businesses/<slug>/orders` recibe `items: [{ serviceId, quantity }]`
+(también acepta el `serviceId` suelto del formato anterior), valida que todos los productos sean del negocio y estén
+activos, y guarda en `walk_ins.order_items` una foto de cada producto (nombre, cantidad, precio y moneda) para que un
+cambio posterior en la carta no altere el pedido. El pedido entra a la fila de Atención en sitio con su detalle, el aviso
+de "listo" por Telegram o WhatsApp lista todos los productos, y "Registrar venta" registra una venta por producto con
+un solo medio de pago. `order_items` lo escribe solo el server: el equipo lo ve pero no puede modificarlo.
+
 ### Fichas por rubro (módulo `assets`)
 Desde la ficha del cliente se registran vehículos (taller, lavadero: placa única por negocio, marca, modelo,
 kilometraje), mascotas (veterinaria), preferencias (salón, barbería, spa, restaurante) o estudiantes y miembros

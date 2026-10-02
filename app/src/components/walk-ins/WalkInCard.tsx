@@ -32,8 +32,10 @@ function IconAction({ label, onClick, disabled, children }: { label: string; onC
   );
 }
 
+/** Detalle de la atención; los productos de un pedido por QR se listan aparte (ver WalkInCard). */
 export function detailLine(w: WalkIn): string {
-  return [w.services?.name ?? "Sin producto definido", w.party_size ? `${w.party_size} personas` : null, w.reservations?.resources?.name, w.notes]
+  const what = w.order_items?.length ? null : w.services?.name || "Sin producto definido";
+  return [what, w.party_size ? `${w.party_size} personas` : null, w.reservations?.resources?.name, w.notes]
     .filter(Boolean)
     .join(" · ");
 }
@@ -47,7 +49,8 @@ export function WalkInCard({ walkIn: w, position, now, busy, canDelete, timeLabe
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center",
+        // Las columnas de la fila son angostas: las acciones van debajo salvo en pantallas muy anchas.
+        "flex flex-col gap-3 rounded-lg border p-3 2xl:flex-row 2xl:items-center",
         inService ? "border-primary/30 bg-primary/5" : "border-border",
         w.ready_at && "ring-2 ring-success/40"
       )}
@@ -67,7 +70,16 @@ export function WalkInCard({ walkIn: w, position, now, busy, canDelete, timeLabe
             {w.reservations && w.reservations.source !== "walk_in" && <Badge variant="default">Reserva {timeLabel(w.reservations.start_at)}</Badge>}
             {notify && <Badge variant={notify.variant}>{notify.label}</Badge>}
           </p>
-          <p className="text-sm text-muted-foreground">{detailLine(w)}</p>
+          {w.order_items && w.order_items.length > 0 && (
+            <ul className="mt-0.5 text-sm" aria-label={`Pedido de ${name}`}>
+              {w.order_items.map((item) => (
+                <li key={item.service_id}>
+                  <span className="font-semibold tabular-nums">{item.quantity}×</span> {item.name}
+                </li>
+              ))}
+            </ul>
+          )}
+          {detailLine(w) && <p className="text-sm text-muted-foreground">{detailLine(w)}</p>}
           <p className="text-xs text-muted-foreground">
             {inService && w.served_at ? `En atención hace ${formatWait(minutesBetween(w.served_at, now))}` : `Esperando: ${formatWait(minutesBetween(w.arrived_at, now))}`}
           </p>

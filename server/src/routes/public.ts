@@ -4,7 +4,7 @@ import { z } from "zod";
 import { publicApiRateLimiter } from "../middleware/rateLimit.js";
 import { ErrorCodes } from "../utils/AppError.js";
 import { createPublicReservation, getPublicAvailability, getPublicBusiness } from "../services/publicBooking/publicBookingService.js";
-import { createPublicOrder } from "../services/publicOrders/publicOrderService.js";
+import { createPublicOrder, MAX_ITEM_QUANTITY, MAX_ORDER_LINES } from "../services/publicOrders/publicOrderService.js";
 
 /**
  * API de la página pública de reservas (/r/:slug en el frontend). Sin
@@ -64,18 +64,28 @@ const bookingBodySchema = z.object({
   website: z.string().max(0).optional()
 });
 
-const orderBodySchema = z.object({
+const orderItemSchema = z.object({
   serviceId: z.string().uuid(),
-  name: z.string().trim().min(2).max(80),
-  phone: z
-    .string()
-    .trim()
-    .max(20)
-    .refine((v) => v === "" || v.replace(/\D/g, "").length >= 7, "Teléfono inválido")
-    .optional(),
-  notes: z.string().trim().max(300).optional(),
-  website: z.string().max(0).optional()
+  quantity: z.number().int().min(1).max(MAX_ITEM_QUANTITY)
 });
+
+const orderBodySchema = z
+  .object({
+    items: z.array(orderItemSchema).min(1).max(MAX_ORDER_LINES).optional(),
+    // Formato anterior (un solo producto): lo sigue mandando una pestaña
+    // abierta antes de desplegar el carrito.
+    serviceId: z.string().uuid().optional(),
+    name: z.string().trim().min(2).max(80),
+    phone: z
+      .string()
+      .trim()
+      .max(20)
+      .refine((v) => v === "" || v.replace(/\D/g, "").length >= 7, "Teléfono inválido")
+      .optional(),
+    notes: z.string().trim().max(300).optional(),
+    website: z.string().max(0).optional()
+  })
+  .refine((b) => b.items || b.serviceId, { message: "Elegí al menos un producto.", path: ["items"] });
 
 type Handler =(req: Request, res: Response) => Promise<void>;
 const wrap = (fn: Handler) => (req: Request, res: Response, next: NextFunction) => fn(req, res).catch(next);
@@ -124,7 +134,7 @@ publicRouter.post(
   wrap(async (req, res) => {
     const body = orderBodySchema.parse(req.body);
     const order = await createPublicOrder(slugSchema.parse(req.params.slug), {
-      serviceId: body.serviceId,
+      items: body.items ?? [{ serviceId: body.serviceId!, quantity: 1 }],
       name: body.name,
       phone: body.phone || undefined,
       notes: body.notes

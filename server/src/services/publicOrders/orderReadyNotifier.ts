@@ -2,7 +2,7 @@ import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { loadConnectedTelegramBotToken, sendTelegramMessage } from "../telegram/telegramService.js";
 import { sendWhatsAppMessage } from "../twilio/twilioService.js";
-import { buildOrderReadyText, type NotifyChannel } from "./publicOrderService.js";
+import { buildOrderReadyText, orderDescription, type NotifyChannel, type OrderItem } from "./publicOrderService.js";
 
 const TELEGRAM_PREFIX = "telegram:";
 /** Un pedido marcado listo hace más de esto ya se reclamó (o nadie espera el aviso). */
@@ -16,6 +16,7 @@ interface ReadyOrder {
   customer_name: string | null;
   notify_channel: NotifyChannel;
   notify_identity: string;
+  order_items: OrderItem[] | null;
   services: { name: string } | null;
 }
 
@@ -68,7 +69,7 @@ async function logInInbox(order: ReadyOrder, text: string): Promise<void> {
 export async function sendReadyOrderNotifications(now = new Date()): Promise<{ sent: number; failed: number }> {
   const { data, error } = await insforgeAdmin.database
     .from("walk_ins")
-    .select("id, organization_id, customer_name, notify_channel, notify_identity, services(name)")
+    .select("id, organization_id, customer_name, notify_channel, notify_identity, order_items, services(name)")
     .not("ready_at", "is", null)
     .is("notified_at", null)
     .not("notify_identity", "is", null)
@@ -83,7 +84,7 @@ export async function sendReadyOrderNotifications(now = new Date()): Promise<{ s
   let failed = 0;
   for (const order of (data ?? []) as unknown as ReadyOrder[]) {
     if (!(await claim(order.id, now))) continue;
-    const text = buildOrderReadyText(order.customer_name, order.services?.name ?? null, await businessName(order.organization_id));
+    const text = buildOrderReadyText(order.customer_name, orderDescription(order) || null, await businessName(order.organization_id));
     try {
       await deliver(order, text);
       await logInInbox(order, text);
