@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { BellRing, CalendarCheck, Clock, Hourglass, Pencil, Trash2, UserCheck, Wallet } from "lucide-react";
@@ -49,7 +49,6 @@ export function WalkInsPage() {
   const [saleFor, setSaleFor] = useState<WalkIn | null>(null);
   const { vocabulary, icon: businessIcon } = useCurrentBusinessTheme();
   const branding = useBusinessBranding();
-  const boardRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [resourceChoice, setResourceChoice] = useState<Record<string, string>>({});
@@ -61,7 +60,7 @@ export function WalkInsPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const { display, toggleDisplay } = useDisplayMode(boardRef);
+  const { display, toggleDisplay } = useDisplayMode();
 
   const queryKey = ["walk-ins", currentOrganizationId];
   const {
@@ -297,7 +296,6 @@ export function WalkInsPage() {
   return (
     <div className="space-y-6">
       <div
-        ref={boardRef}
         className={cn("space-y-6", display && "fixed inset-0 z-50 space-y-8 overflow-y-auto bg-background p-6 text-foreground sm:p-8")}
       >
         <WalkInBoardHeader

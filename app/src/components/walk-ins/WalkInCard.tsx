@@ -14,7 +14,7 @@ interface Props {
   busy: boolean;
   canDelete: boolean;
   timeLabel: (iso: string) => string;
-  /** Modo pantalla: tarjeta más grande y sin acciones, para un televisor del local. */
+  /** Modo pantalla: tarjeta más grande, para un televisor o una pantalla del local. */
   display?: boolean;
   /** Selector de recurso para atender (solo en espera). */
   resourceSelect?: ReactNode;
@@ -112,7 +112,7 @@ export function WalkInCard({ walkIn: w, position, now, busy, canDelete, timeLabe
             </Badge>
           )}
           {w.reservations && w.reservations.source !== "walk_in" && <Badge variant="muted">Reserva {timeLabel(w.reservations.start_at)}</Badge>}
-          {notify && !display && <Badge variant={notify.variant}>{notify.label}</Badge>}
+          {notify && <Badge variant={notify.variant}>{notify.label}</Badge>}
         </p>
       </div>
 
@@ -149,37 +149,36 @@ export function WalkInCard({ walkIn: w, position, now, busy, canDelete, timeLabe
         </p>
       )}
 
-      {!display && (
-        <footer className="flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
-          {resourceSelect}
-          {!inService && !ready && onServe && (
-            <Button size="sm" onClick={onServe} disabled={busy}>
-              Atender
-            </Button>
-          )}
-          <Button size="sm" variant={inService ? "default" : "outline"} onClick={onComplete} disabled={busy}>
-            <Check className="h-4 w-4" /> {ready ? "Entregado" : inService ? "Finalizar" : "Atendido"}
+      {/* Las acciones están también en modo pantalla: el equipo opera desde ahí. */}
+      <footer className="flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
+        {resourceSelect}
+        {!inService && !ready && onServe && (
+          <Button size="sm" onClick={onServe} disabled={busy}>
+            Atender
           </Button>
-          <div className="ml-auto flex items-center">
-            <IconAction label={w.ready_at ? `${name}: ya está marcado listo` : `Marcar listo y avisar a ${name}`} onClick={onReady} disabled={busy || !!w.ready_at}>
-              <Bell className="h-4 w-4" />
+        )}
+        <Button size="sm" variant={inService ? "default" : "outline"} onClick={onComplete} disabled={busy}>
+          <Check className="h-4 w-4" /> {ready ? "Entregado" : inService ? "Finalizar" : "Atendido"}
+        </Button>
+        <div className="ml-auto flex items-center">
+          <IconAction label={w.ready_at ? `${name}: ya está marcado listo` : `Marcar listo y avisar a ${name}`} onClick={onReady} disabled={busy || !!w.ready_at}>
+            <Bell className="h-4 w-4" />
+          </IconAction>
+          <IconAction label={`Editar ${name}`} onClick={onEdit} disabled={busy}>
+            <Pencil className="h-4 w-4" />
+          </IconAction>
+          {!inService && onLeft && (
+            <IconAction label={`${name} se fue sin ser atendido`} onClick={onLeft} disabled={busy}>
+              <UserX className="h-4 w-4" />
             </IconAction>
-            <IconAction label={`Editar ${name}`} onClick={onEdit} disabled={busy}>
-              <Pencil className="h-4 w-4" />
+          )}
+          {canDelete && (
+            <IconAction label={`Eliminar el registro de ${name}`} onClick={onDelete} disabled={busy}>
+              <Trash2 className="h-4 w-4 text-destructive" />
             </IconAction>
-            {!inService && onLeft && (
-              <IconAction label={`${name} se fue sin ser atendido`} onClick={onLeft} disabled={busy}>
-                <UserX className="h-4 w-4" />
-              </IconAction>
-            )}
-            {canDelete && (
-              <IconAction label={`Eliminar el registro de ${name}`} onClick={onDelete} disabled={busy}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </IconAction>
-            )}
-          </div>
-        </footer>
-      )}
+          )}
+        </div>
+      </footer>
     </article>
   );
 }

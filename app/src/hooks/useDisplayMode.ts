@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 /**
- * Modo pantalla: el elemento ocupa toda la pantalla (para un televisor del
- * local) y se pide que la pantalla no se apague. Se sale con el botón, con
- * Escape o al salir de pantalla completa. Si el navegador no permite
+ * Modo pantalla: el tablero ocupa toda la pantalla (para un televisor o una
+ * pantalla del local) y se pide que la pantalla no se apague. Se sale con el botón o al
+ * salir de pantalla completa (Esc del navegador). Esc dentro de la app no sale:
+ * cierra el menú o el diálogo que esté abierto. Si el navegador no permite
  * pantalla completa, el modo igual se activa (el elemento cubre la ventana).
  */
-export function useDisplayMode(ref: RefObject<HTMLElement>) {
+export function useDisplayMode() {
   const [display, setDisplay] = useState(false);
   const toggleDisplay = useCallback(() => {
     if (display) {
@@ -15,16 +16,16 @@ export function useDisplayMode(ref: RefObject<HTMLElement>) {
       return;
     }
     setDisplay(true);
-    void ref.current?.requestFullscreen?.().catch(() => undefined);
-  }, [display, ref]);
+    // Pantalla completa de toda la página (no solo del tablero): los menús,
+    // diálogos y avisos se abren fuera del tablero y si no, no se verían. El
+    // tablero cubre la ventana con su propio estilo (fixed inset-0).
+    void document.documentElement.requestFullscreen?.().catch(() => undefined);
+  }, [display]);
 
   useEffect(() => {
     if (!display) return;
     const onFullscreenChange = () => {
       if (!document.fullscreenElement) setDisplay(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDisplay(false);
     };
     let wakeLock: { release: () => Promise<void> } | null = null;
     const nav = navigator as Navigator & { wakeLock?: { request: (type: "screen") => Promise<{ release: () => Promise<void> }> } };
@@ -38,10 +39,8 @@ export function useDisplayMode(ref: RefObject<HTMLElement>) {
       })
       .catch(() => undefined);
     document.addEventListener("fullscreenchange", onFullscreenChange);
-    document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
-      document.removeEventListener("keydown", onKey);
       closed = true;
       void wakeLock?.release().catch(() => undefined);
     };
