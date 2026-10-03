@@ -132,8 +132,9 @@ listos, espera promedio), reloj en vivo y tres secciones de tarjetas. "Listos pa
 campana (el cliente recibe el aviso por Telegram o WhatsApp). "En atención" muestra cada atención con la placa (o la
 ficha de la reserva) o el ticket en grande, el recurso, el servicio o los productos del pedido, y una barra de tiempo
 contra la duración del servicio que se pone roja al pasarse. "En espera" lleva el orden de llegada. "Modo pantalla"
-abre el tablero a pantalla completa, sin formularios ni botones, para un televisor del local, y pide que la pantalla no
-se apague. Lo atendido hoy queda listado abajo.
+abre el tablero a pantalla completa, sin formularios pero con las acciones de cada tarjeta (atender, campana de
+"listo", finalizar, editar), para una pantalla del local desde la que también se opera, y pide que la pantalla no se
+apague. Lo atendido hoy queda listado abajo.
 
 **Número de ticket.** Cada atención (llegada sin cita, reserva que llegó o pedido por QR) recibe un ticket consecutivo
 por negocio que vuelve a #001 cada día en la zona horaria del negocio. Lo asigna el trigger `assign_walk_in_ticket` al
@@ -151,6 +152,14 @@ para descargar e imprimir. La API vive en el compute service (`/api/public/...`,
 responde por negocios activos con el módulo encendido (mismo 404 en cualquier otro caso), vuelve a verificar la
 disponibilidad al reservar, limita 5 reservas cada 10 minutos por IP y tiene un campo trampa contra bots. Requiere
 `VITE_API_URL` en el frontend (URL del compute service) y que `APP_URL` del server sea la URL del frontend (CORS).
+
+**Confirmación y recordatorio por chat (todos los rubros).** Si el negocio tiene Telegram o WhatsApp conectado, la
+confirmación de la reserva ofrece "Avisame por Telegram / WhatsApp". La reserva recibe un `notify_code`; el botón abre
+el chat del negocio con `/start <código>` (Telegram) o `Reserva #<código>` (WhatsApp), y ese mensaje vincula el chat
+con la reserva (`reservations.notify_channel` / `notify_identity`, `server/src/services/chatLink/`). El cliente recibe
+al instante la confirmación con fecha y hora, y el recordatorio de antes de la cita sale por ese chat en vez de por el
+teléfono del formulario. Es el mismo mecanismo de los pedidos por QR. Las pantallas de confirmación (reserva y pedido)
+tienen un botón para volver al inicio o a la carta sin recargar, conservando nombre y celular.
 
 **Pedidos por QR (restaurantes con Atención en sitio).** En ese caso la misma página es una carta: el cliente arma un
 pedido con uno o varios productos y la cantidad de cada uno (hasta 20 productos distintos y 20 unidades de cada uno),

@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { formatInTimeZone } from "date-fns-tz";
 import { es } from "date-fns/locale";
-import { CalendarCheck, Check, Clock, MapPin } from "lucide-react";
+import { ArrowLeft, CalendarCheck, Check, Clock, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,11 +12,12 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/currency";
 import { getBusinessTheme } from "@/lib/businessThemes";
 import { useApplyTheme } from "@/hooks/useBusinessTheme";
-import { PublicApiError, publicApi, type PublicService, type PublicSlot } from "@/lib/publicApi";
+import { PublicApiError, publicApi, type PublicBooking, type PublicService, type PublicSlot } from "@/lib/publicApi";
 import { upcomingDates } from "@/lib/publicBookingUtils";
 import { HEALTH_CONSENT_LABEL, requiresHealthDataConsent } from "@/lib/healthData";
 import { PublicBusinessHeader } from "./PublicBusinessHeader";
 import { PublicOrderView } from "./PublicOrderView";
+import { NotifyChannelsCard } from "./NotifyChannelsCard";
 
 const DAYS_SHOWN = 14;
 
@@ -38,7 +39,7 @@ export function PublicBookingPage() {
   const [healthConsent, setHealthConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState<{ start_at: string } | null>(null);
+  const [confirmed, setConfirmed] = useState<PublicBooking | null>(null);
 
   const businessQuery = useQuery({
     queryKey: ["public-business", slug],
@@ -67,6 +68,18 @@ export function PublicBookingPage() {
   const fmt = (iso: string, pattern: string) => formatInTimeZone(new Date(iso), tz, pattern, { locale: es });
   const dayLabel = (ymd: string) => fmt(`${ymd}T12:00:00Z`, "EEE d");
 
+  /** Volver al inicio para otra reserva, sin recargar la página (se conservan los datos de contacto). */
+  function startOver() {
+    setConfirmed(null);
+    setService(null);
+    setDate(null);
+    setSlot(null);
+    setSubmitError(null);
+    setHealthConsent(false);
+    setForm((f) => ({ ...f, notes: "" }));
+    window.scrollTo({ top: 0 });
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!service || !date || !slot) return;
@@ -84,7 +97,7 @@ export function PublicBookingPage() {
         healthDataConsent: needsHealthConsent ? healthConsent : undefined,
         website: form.website || undefined
       });
-      setConfirmed({ start_at: result.start_at });
+      setConfirmed(result);
     } catch (err) {
       setSubmitError(err instanceof PublicApiError ? err.message : "No se pudo completar la reserva. Intentá de nuevo.");
       if (err instanceof PublicApiError && err.status === 409) {
@@ -123,7 +136,7 @@ export function PublicBookingPage() {
 
   if (confirmed) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 px-4 text-center">
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 px-4 py-10 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <Check className="h-7 w-7" />
         </div>
@@ -137,6 +150,15 @@ export function PublicBookingPage() {
             <MapPin className="h-4 w-4" /> {business.address}
           </p>
         )}
+        <NotifyChannelsCard
+          telegramUrl={confirmed.telegramUrl}
+          whatsappUrl={confirmed.whatsappUrl}
+          title="¿Te confirmamos por chat?"
+          description="Tocá tu app y enviá el mensaje que aparece: te confirmamos la cita por ahí y te recordamos antes de que llegue."
+        />
+        <Button type="button" variant="outline" onClick={startOver}>
+          <ArrowLeft className="h-4 w-4" /> Volver al inicio
+        </Button>
       </main>
     );
   }

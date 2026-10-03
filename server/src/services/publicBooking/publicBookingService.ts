@@ -5,6 +5,7 @@ import { getAvailableSlots } from "../availability/availabilityService.js";
 import { findOrCreateCustomerByPhone } from "../customers/customersService.js";
 import { createReservation } from "../reservations/reservationsService.js";
 import { requiresHealthDataConsent } from "../agent/safetyGuardrails.js";
+import { createReservationChatLink } from "../chatLink/reservationLink.js";
 
 /**
  * Página pública de reservas (/r/:slug): lo que ve y puede hacer alguien
@@ -187,5 +188,12 @@ export async function createPublicReservation(slug: string, input: PublicBooking
     source: "web"
   });
 
-  return { id: reservation.id, start_at: reservation.start_at, end_at: reservation.end_at, timezone: org.timezone };
+  return {
+    id: reservation.id,
+    start_at: reservation.start_at,
+    end_at: reservation.end_at,
+    timezone: org.timezone,
+    // "Avisame por Telegram / WhatsApp": confirmación y recordatorio por chat.
+    ...(await createReservationChatLink(org.id, reservation.id))
+  };
 }

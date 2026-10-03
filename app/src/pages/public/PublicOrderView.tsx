@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Check, MessageCircle, Minus, Plus, Send, ShoppingBag, Trash2 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { ArrowLeft, Check, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { formatTicket } from "@/lib/walkIns";
 import { cartCount, cartLines, cartTotal, MAX_ITEM_QUANTITY, setCartQuantity, type Cart } from "@/lib/orderCart";
 import { PublicApiError, publicApi, type PublicBusiness, type PublicOrder } from "@/lib/publicApi";
 import { PublicBusinessHeader } from "./PublicBusinessHeader";
+import { NotifyChannelsCard } from "./NotifyChannelsCard";
 
 interface Props {
   slug: string;
@@ -58,6 +59,15 @@ export function PublicOrderView({ slug, business, icon }: Props) {
   const total = cartTotal(lines);
   const change = (productId: string, quantity: number) => setCart((current) => setCartQuantity(current, productId, quantity));
   const productsLabel = (n: number) => `${n} ${n === 1 ? "producto" : "productos"}`;
+
+  /** Volver a la carta para otro pedido, sin recargar la página (se conservan nombre y celular). */
+  function startOver() {
+    setOrder(null);
+    setCart({});
+    setError(null);
+    setForm((f) => ({ ...f, notes: "" }));
+    window.scrollTo({ top: 0 });
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -126,28 +136,18 @@ export function PublicOrderView({ slug, business, icon }: Props) {
           </div>
         )}
         {hasChannels ? (
-          <div className="w-full space-y-3 rounded-2xl border border-border bg-card p-5">
-            <p className="font-medium">¿Te avisamos cuando esté listo?</p>
-            <p className="text-sm text-muted-foreground">Tocá tu app y enviá el mensaje que aparece: te escribimos apenas puedas reclamarlo.</p>
-            {order.telegramUrl && (
-              <a href={order.telegramUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ size: "lg" }), "w-full")}>
-                <Send className="h-4 w-4" /> Avisame por Telegram
-              </a>
-            )}
-            {order.whatsappUrl && (
-              <a
-                href={order.whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(buttonVariants({ size: "lg", variant: order.telegramUrl ? "outline" : "default" }), "w-full")}
-              >
-                <MessageCircle className="h-4 w-4" /> Avisame por WhatsApp
-              </a>
-            )}
-          </div>
+          <NotifyChannelsCard
+            telegramUrl={order.telegramUrl}
+            whatsappUrl={order.whatsappUrl}
+            title="¿Te avisamos cuando esté listo?"
+            description="Tocá tu app y enviá el mensaje que aparece: te escribimos apenas puedas reclamarlo."
+          />
         ) : (
           <p className="text-sm text-muted-foreground">Te llamamos por tu nombre cuando esté listo.</p>
         )}
+        <Button type="button" variant="outline" onClick={startOver}>
+          <ArrowLeft className="h-4 w-4" /> Volver a la carta
+        </Button>
         <p className="text-xs text-muted-foreground">Código de pedido: {order.code}</p>
       </main>
     );
