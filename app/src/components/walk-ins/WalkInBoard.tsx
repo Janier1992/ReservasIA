@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { Monitor, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { BoardDensity } from "@/lib/walkIns";
 import { LiveClock } from "./LiveClock";
 
 /** Encabezado del tablero: título (o el negocio en modo pantalla), indicador en vivo, reloj y modo pantalla. */
@@ -107,6 +108,13 @@ const DOT: Record<"primary" | "secondary" | "success", string> = {
   success: "bg-success"
 };
 
+/** Columnas de la grilla: con más atenciones, más tarjetas (más chicas) por fila. */
+const GRID: Record<BoardDensity, { normal: string; display: string; gap: string }> = {
+  comfortable: { normal: "sm:grid-cols-2 xl:grid-cols-3", display: "sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4", gap: "gap-4" },
+  compact: { normal: "sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4", display: "sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5", gap: "gap-3" },
+  dense: { normal: "sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5", display: "sm:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6", gap: "gap-2" }
+};
+
 /** Sección del tablero con su grilla de tarjetas. */
 export function WalkInBoardSection({
   title,
@@ -115,6 +123,7 @@ export function WalkInBoardSection({
   hint,
   empty,
   display,
+  density = "comfortable",
   children
 }: {
   title: string;
@@ -123,6 +132,7 @@ export function WalkInBoardSection({
   hint?: string;
   empty: string;
   display: boolean;
+  density?: BoardDensity;
   children: ReactNode;
 }) {
   return (
@@ -137,7 +147,7 @@ export function WalkInBoardSection({
       {count === 0 ? (
         <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <div className={cn("grid gap-4 sm:grid-cols-2", display ? "lg:grid-cols-3 2xl:grid-cols-4" : "xl:grid-cols-3")}>{children}</div>
+        <div className={cn("grid", GRID[density].gap, display ? GRID[density].display : GRID[density].normal)}>{children}</div>
       )}
     </section>
   );

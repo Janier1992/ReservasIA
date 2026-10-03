@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatTicket, formatWait, minutesBetween, notifyStatus, serviceProgress, walkInAssetLabel, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
+import { boardDensity, cardSizeFor, formatTicket, formatWait, minutesBetween, notifyStatus, serviceProgress, walkInAssetLabel, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
 import type { WalkIn } from "@/types/domain";
 
 function walkIn(partial: Partial<WalkIn>): WalkIn {
@@ -113,5 +113,22 @@ describe("formatTicket", () => {
     expect(formatTicket(7)).toBe("#007");
     expect(formatTicket(1234)).toBe("#1234");
     expect(formatTicket(null)).toBe("");
+  });
+});
+
+describe("board density", () => {
+  it("shrinks the cards as more attentions arrive", () => {
+    expect(boardDensity(0)).toBe("comfortable");
+    expect(boardDensity(6)).toBe("comfortable");
+    expect(boardDensity(7)).toBe("compact");
+    expect(boardDensity(12)).toBe("compact");
+    expect(boardDensity(13)).toBe("dense");
+  });
+
+  it("starts one size bigger on the display screen", () => {
+    expect(cardSizeFor("comfortable", true)).toBe("lg");
+    expect(cardSizeFor("comfortable", false)).toBe("md");
+    expect(cardSizeFor("dense", true)).toBe("sm");
+    expect(cardSizeFor("dense", false)).toBe("xs");
   });
 });
