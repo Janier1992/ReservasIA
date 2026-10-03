@@ -57,6 +57,8 @@ export interface OrderItem {
 
 export interface PublicOrderResult {
   code: string;
+  /** Número de ticket del día (#014); null si la base todavía no lo asigna. */
+  ticketNumber: number | null;
   position: number;
   /** Resumen legible ("2× Hamburguesa y Limonada"). */
   serviceName: string;
@@ -66,6 +68,11 @@ export interface PublicOrderResult {
   currency: string | null;
   telegramUrl: string | null;
   whatsappUrl: string | null;
+}
+
+/** "#007": número de ticket del día en Atención en sitio. */
+export function formatTicket(ticketNumber: number | null | undefined): string {
+  return ticketNumber ? `#${String(ticketNumber).padStart(3, "0")}` : "";
 }
 
 export const MAX_ORDER_LINES = 20;
@@ -159,13 +166,13 @@ export async function createPublicOrder(slug: string, input: PublicOrderInput): 
         notify_code: code
       }
     ])
-    .select("id, arrived_at")
+    .select("id, arrived_at, ticket_number")
     .single();
   if (error || !created) {
     logger.error({ organizationId: org.id, err: error }, "public_order_insert_failed");
     throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudo registrar el pedido. Intentá de nuevo.", 500);
   }
-  const row = created as unknown as { id: string; arrived_at: string };
+  const row = created as unknown as { id: string; arrived_at: string; ticket_number?: number | null };
 
   const { data: ahead } = await insforgeAdmin.database
     .from("walk_ins")
@@ -176,6 +183,7 @@ export async function createPublicOrder(slug: string, input: PublicOrderInput): 
 
   return {
     code,
+    ticketNumber: row.ticket_number ?? null,
     position: Math.max(1, (ahead ?? []).length),
     serviceName: summarizeOrderItems(items),
     items: items.map((i) => ({ name: i.name, quantity: i.quantity })),
@@ -202,7 +210,7 @@ const firstName = (name: string | null | undefined) => (name ?? "").trim().split
 export async function handleOrderCodeMessage(msg: OrderCodeMessage): Promise<string> {
   const { data: order } = await insforgeAdmin.database
     .from("walk_ins")
-    .select("id, customer_id, customer_name, status, order_items, services(name)")
+    .select("id, customer_id, customer_name, status, ticket_number, order_items, services(name)")
     .eq("organization_id", msg.organizationId)
     .eq("notify_code", msg.code)
     .maybeSingle();
@@ -211,6 +219,7 @@ export async function handleOrderCodeMessage(msg: OrderCodeMessage): Promise<str
     customer_id: string | null;
     customer_name: string;
     status: string;
+    ticket_number?: number | null;
     order_items: OrderItem[] | null;
     services: { name: string } | null;
   } | null;
@@ -227,7 +236,8 @@ export async function handleOrderCodeMessage(msg: OrderCodeMessage): Promise<str
     const who = firstName(row.customer_name);
     const summary = orderDescription(row);
     const what = summary ? ` de ${summary}` : "";
-    reply = `¡Hola${who ? ` ${who}` : ""}! Recibimos tu pedido${what}. Te escribimos por acá apenas esté listo para reclamar.`;
+    const ticket = formatTicket(row.ticket_number);
+    reply = `¡Hola${who ? ` ${who}` : ""}! Recibimos tu pedido${ticket ? ` ${ticket}` : ""}${what}. Te escribimos por acá apenas esté listo para reclamar.`;
   }
 
   await insforgeAdmin.database
@@ -241,9 +251,10 @@ export function orderDescription(row: { order_items?: OrderItem[] | null; servic
   return summarizeOrderItems(row.order_items) || row.services?.name || "";
 }
 
-export function buildOrderReadyText(customerName: string | null, serviceName: string | null, businessName: string): string {
+export function buildOrderReadyText(customerName: string | null, serviceName: string | null, businessName: string, ticketNumber?: number | null): string {
   const who = firstName(customerName);
+  const ticket = formatTicket(ticketNumber);
   const what = serviceName ? ` de ${serviceName}` : "";
   const where = businessName ? ` en ${businessName}` : "";
-  return `¡${who ? `${who}, t` : "T"}u pedido${what} está listo! Acercate a reclamarlo${where}.`;
+  return `¡${who ? `${who}, t` : "T"}u pedido${ticket ? ` ${ticket}` : ""}${what} está listo! Acercate a reclamarlo${where}${ticket ? ` con tu ticket ${ticket}` : ""}.`;
 }

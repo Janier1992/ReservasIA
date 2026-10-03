@@ -15,7 +15,7 @@ vi.mock("../src/services/telegram/telegramService.js", () => ({
 }));
 vi.mock("../src/services/twilio/twilioService.js", () => ({ sendWhatsAppMessage: vi.fn() }));
 
-const { buildOrderReadyText, createPublicOrder, extractOrderCode, generateOrderCode, handleOrderCodeMessage, mergeOrderItems, orderTotal, summarizeOrderItems } = await import(
+const { buildOrderReadyText, createPublicOrder, extractOrderCode, formatTicket, generateOrderCode, handleOrderCodeMessage, mergeOrderItems, orderTotal, summarizeOrderItems } = await import(
   "../src/services/publicOrders/publicOrderService.js"
 );
 const { sendReadyOrderNotifications } = await import("../src/services/publicOrders/orderReadyNotifier.js");
@@ -71,11 +71,11 @@ describe("createPublicOrder", () => {
     useDb({
       organizations: ok(restaurant),
       services: ok([burger]),
-      walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z" }), ok([{ id: "w-0" }, { id: "w-1" }])],
+      walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z", ticket_number: 14 }), ok([{ id: "w-0" }, { id: "w-1" }])],
       integrations: ok([{ provider: "telegram", metadata: { bot_username: "AntojitosBot" } }])
     });
     const order = await createPublicOrder("antojitos", { items: [{ serviceId: "svc-1", quantity: 1 }], name: "Ana Ruiz" });
-    expect(order).toMatchObject({ position: 2, serviceName: "Hamburguesa", whatsappUrl: null, total: 18000, currency: "COP" });
+    expect(order).toMatchObject({ position: 2, ticketNumber: 14, serviceName: "Hamburguesa", whatsappUrl: null, total: 18000, currency: "COP" });
     expect(order.telegramUrl).toBe(`https://t.me/AntojitosBot?start=${order.code}`);
     expect(insertedInto("walk_ins")).toMatchObject({ service_id: "svc-1", source: "qr" });
   });
@@ -186,11 +186,11 @@ describe("handleOrderCodeMessage", () => {
 
   it("links the chat to an active order and confirms", async () => {
     useDb({
-      walk_ins: [ok({ id: "w-1", customer_id: null, customer_name: "Ana Ruiz", status: "waiting", services: { name: "Hamburguesa" } }), ok(null)],
+      walk_ins: [ok({ id: "w-1", customer_id: null, customer_name: "Ana Ruiz", status: "waiting", ticket_number: 3, services: { name: "Hamburguesa" } }), ok(null)],
       messages: ok(null)
     });
     expect(await handleOrderCodeMessage(msg)).toBe(
-      "¡Hola Ana! Recibimos tu pedido de Hamburguesa. Te escribimos por acá apenas esté listo para reclamar."
+      "¡Hola Ana! Recibimos tu pedido #003 de Hamburguesa. Te escribimos por acá apenas esté listo para reclamar."
     );
   });
 
@@ -265,5 +265,13 @@ describe("sendReadyOrderNotifications", () => {
 
   it("writes a friendly ready message even without names", () => {
     expect(buildOrderReadyText(null, null, "")).toBe("¡Tu pedido está listo! Acercate a reclamarlo.");
+  });
+
+  it("names the ticket so the customer can claim it", () => {
+    expect(formatTicket(7)).toBe("#007");
+    expect(formatTicket(null)).toBe("");
+    expect(buildOrderReadyText("Ana Ruiz", "Hamburguesa", "Antojitos", 14)).toBe(
+      "¡Ana, tu pedido #014 de Hamburguesa está listo! Acercate a reclamarlo en Antojitos con tu ticket #014."
+    );
   });
 });

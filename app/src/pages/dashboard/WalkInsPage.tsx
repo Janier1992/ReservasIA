@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CalendarCheck, Clock, DoorOpen, Hourglass, Pencil, Trash2, UserCheck, Wallet } from "lucide-react";
+import { BellRing, CalendarCheck, Clock, Hourglass, Pencil, Trash2, UserCheck, Wallet } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
+import { useBusinessBranding } from "@/hooks/useBusinessBranding";
+import { useDisplayMode } from "@/hooks/useDisplayMode";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { WalkInCard } from "@/components/walk-ins/WalkInCard";
+import { WalkInBoardHeader, WalkInBoardSection, WalkInStatTiles } from "@/components/walk-ins/WalkInBoard";
 import { WalkInEditDialog } from "@/components/walk-ins/WalkInEditDialog";
 import { WalkInRegisterForm } from "@/components/walk-ins/WalkInRegisterForm";
 import { isModuleEnabled } from "@/lib/modules";
-import { formatWait, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
+import { cn } from "@/lib/utils";
+import { formatTicket, formatWait, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
 import { zonedDayRange } from "@/lib/payments";
 import { orderItemsForSale, summarizeOrderItems } from "@/lib/orderCart";
 import { upcomingDates } from "@/lib/publicBookingUtils";
@@ -23,7 +27,8 @@ import type { Reservation, Resource, Service, WalkIn } from "@/types/domain";
 
 // Radix Select no admite un item con value "": este valor representa "sin elegir".
 const NONE = "none";
-const WALK_IN_SELECT = "*, services(name, duration_minutes, price, currency), reservations(resource_id, start_at, source, resources(name))";
+const WALK_IN_SELECT =
+  "*, services(name, duration_minutes, price, currency), reservations(resource_id, start_at, end_at, source, resources(name), customer_assets(label, asset_type))";
 
 type TodayReservation = Reservation;
 
@@ -42,7 +47,9 @@ export function WalkInsPage() {
   const salesEnabled = isModuleEnabled(currentOrg?.disabled_modules, "cash");
   const [editing, setEditing] = useState<WalkIn | null>(null);
   const [saleFor, setSaleFor] = useState<WalkIn | null>(null);
-  const { vocabulary } = useCurrentBusinessTheme();
+  const { vocabulary, icon: businessIcon } = useCurrentBusinessTheme();
+  const branding = useBusinessBranding();
+  const boardRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [resourceChoice, setResourceChoice] = useState<Record<string, string>>({});
@@ -53,6 +60,8 @@ export function WalkInsPage() {
     const timer = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(timer);
   }, []);
+
+  const { display, toggleDisplay } = useDisplayMode(boardRef);
 
   const queryKey = ["walk-ins", currentOrganizationId];
   const {
@@ -141,11 +150,18 @@ export function WalkInsPage() {
   // Las que ya llegaron están en la fila (o ya se atendieron hoy): no se repiten arriba.
   const arrivedReservationIds = new Set(walkIns.map((w) => w.reservation_id).filter(Boolean));
   const pendingArrivals = todayReservations.filter((r) => !arrivedReservationIds.has(r.id));
-  const waiting = walkIns.filter((w) => w.status === "waiting");
-  const inService = walkIns.filter((w) => w.status === "in_service");
+  // Lo marcado listo (con la campana) pasa a su propia sección hasta que se entrega.
+  const ready = walkIns.filter((w) => (w.status === "waiting" || w.status === "in_service") && w.ready_at);
+  const waiting = walkIns.filter((w) => w.status === "waiting" && !w.ready_at);
+  const inService = walkIns.filter((w) => w.status === "in_service" && !w.ready_at);
   const finishedToday = walkIns.filter((w) => w.status === "done" || w.status === "left");
   const stats = walkInStats(walkIns.filter((w) => new Date(w.arrived_at) >= startOfToday()));
-  const busyResourceIds = new Set(inService.map((w) => w.reservations?.resource_id).filter(Boolean));
+  const busyResourceIds = new Set(
+    walkIns
+      .filter((w) => w.status === "in_service")
+      .map((w) => w.reservations?.resource_id)
+      .filter(Boolean)
+  );
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey });
@@ -156,14 +172,15 @@ export function WalkInsPage() {
 
   async function checkIn(r: TodayReservation) {
     setBusyId(r.id);
-    const { error } = await insforge.database.rpc("check_in_reservation", { p_reservation_id: r.id });
+    const { data, error } = await insforge.database.rpc("check_in_reservation", { p_reservation_id: r.id });
     setBusyId(null);
     if (error) {
       toast.error(walkInErrorMessage(error));
       refresh();
       return;
     }
-    toast.success(`${r.customer_name || r.customers?.name || "El cliente"} llegó y quedó en la fila.`);
+    const ticket = formatTicket((data as WalkIn | null)?.ticket_number);
+    toast.success(`${r.customer_name || r.customers?.name || "El cliente"} llegó y quedó en la fila${ticket ? ` con el ticket ${ticket}` : ""}.`);
     refresh();
   }
 
@@ -273,45 +290,102 @@ export function WalkInsPage() {
     onComplete: () => complete(w),
     onReady: () => markReady(w),
     onEdit: () => setEditing(w),
-    onDelete: () => remove(w)
+    onDelete: () => remove(w),
+    display
   });
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-semibold">Atención en sitio</h1>
-        <p className="text-sm text-muted-foreground">
-          Recibí a quien llega (con o sin reserva), pasalo a atención y finalizalo. Cada atención queda guardada en{" "}
-          {vocabulary.reservations.toLowerCase()} y en la ficha del cliente.
-        </p>
-      </div>
+      <div
+        ref={boardRef}
+        className={cn("space-y-6", display && "fixed inset-0 z-50 space-y-8 overflow-y-auto bg-background p-6 text-foreground sm:p-8")}
+      >
+        <WalkInBoardHeader
+          display={display}
+          businessName={branding?.name || currentOrg?.name || ""}
+          logoUrl={branding?.logo_url ?? null}
+          icon={businessIcon}
+          timezone={timezone}
+          description={
+            <>
+              Recibí a quien llega (con o sin reserva), pasalo a atención y finalizalo. Cada atención queda guardada en{" "}
+              {vocabulary.reservations.toLowerCase()} y en la ficha del cliente.
+            </>
+          }
+          onToggleDisplay={toggleDisplay}
+        />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          { icon: Hourglass, label: "Esperando", value: stats.waiting },
-          { icon: UserCheck, label: "En atención", value: stats.inService },
-          { icon: DoorOpen, label: "Atendidos hoy", value: stats.done },
-          { icon: Clock, label: "Espera promedio", value: stats.averageWaitMinutes === null ? "—" : formatWait(stats.averageWaitMinutes) }
-        ].map((s) => (
-          <Card key={s.label}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <s.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="font-display text-xl font-semibold">{s.value}</p>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+        <WalkInStatTiles
+          display={display}
+          stats={[
+            { icon: UserCheck, label: "En atención", value: inService.length, tone: "primary" },
+            { icon: Hourglass, label: "En espera", value: waiting.length, tone: "secondary" },
+            { icon: BellRing, label: "Listos para entregar", value: ready.length, tone: "success" },
+            {
+              icon: Clock,
+              label: `Espera promedio · ${stats.done} atendidos hoy`,
+              value: stats.averageWaitMinutes === null ? "—" : formatWait(stats.averageWaitMinutes),
+              tone: "muted"
+            }
+          ]}
+        />
 
-      {currentOrganizationId && (
-        <WalkInRegisterForm organizationId={currentOrganizationId} services={services} showPartySize={showPartySize} onRegistered={refresh} />
-      )}
+        {!display && currentOrganizationId && (
+          <WalkInRegisterForm organizationId={currentOrganizationId} services={services} showPartySize={showPartySize} onRegistered={refresh} />
+        )}
 
-      {pendingArrivals.length > 0 && (
+      {isError ? (
+          <QueryErrorState onRetry={() => refetch()} message="No se pudo cargar la fila de atención." />
+        ) : (
+          <>
+            {ready.length > 0 && (
+              <WalkInBoardSection title="Listos para entregar" count={ready.length} tone="success" hint="acérquese a reclamar" empty="" display={display}>
+                {ready.map((w) => (
+                  <WalkInCard key={w.id} {...cardProps(w)} />
+                ))}
+              </WalkInBoardSection>
+            )}
+            <WalkInBoardSection title="En atención" count={inService.length} tone="primary" empty="Nadie en atención ahora." display={display}>
+              {inService.map((w) => (
+                <WalkInCard key={w.id} {...cardProps(w)} />
+              ))}
+            </WalkInBoardSection>
+            <WalkInBoardSection title="En espera" count={waiting.length} tone="secondary" empty="No hay nadie esperando." display={display}>
+              {waiting.map((w, index) => (
+                <WalkInCard
+                  key={w.id}
+                  {...cardProps(w)}
+                  position={index + 1}
+                  onServe={() => serve(w)}
+                  onLeft={() => markLeft(w)}
+                  resourceSelect={
+                    resources.length > 0 && (
+                      <Select
+                        value={resourceChoice[w.id] ?? w.reservations?.resource_id ?? NONE}
+                        onValueChange={(v) => setResourceChoice({ ...resourceChoice, [w.id]: v })}
+                      >
+                        <SelectTrigger className="h-9 w-36" aria-label={`Recurso para ${w.customer_name}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NONE}>Sin asignar</SelectItem>
+                          {resources.map((r) => (
+                            <SelectItem key={r.id} value={r.id} disabled={busyResourceIds.has(r.id)}>
+                              {r.name}
+                              {busyResourceIds.has(r.id) ? " (ocupado)" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )
+                  }
+                />
+              ))}
+            </WalkInBoardSection>
+          </>
+        )}
+
+        {!display && pendingArrivals.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -349,63 +423,7 @@ export function WalkInsPage() {
           </CardContent>
         </Card>
       )}
-
-      {isError ? (
-        <QueryErrorState onRetry={() => refetch()} message="No se pudo cargar la fila de atención." />
-      ) : (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>En espera ({waiting.length})</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {waiting.length === 0 && <p className="text-sm text-muted-foreground">No hay nadie esperando.</p>}
-              {waiting.map((w, index) => (
-                <WalkInCard
-                  key={w.id}
-                  {...cardProps(w)}
-                  position={index + 1}
-                  onServe={() => serve(w)}
-                  onLeft={() => markLeft(w)}
-                  resourceSelect={
-                    resources.length > 0 && (
-                      <Select
-                        value={resourceChoice[w.id] ?? w.reservations?.resource_id ?? NONE}
-                        onValueChange={(v) => setResourceChoice({ ...resourceChoice, [w.id]: v })}
-                      >
-                        <SelectTrigger className="w-40" aria-label={`Recurso para ${w.customer_name}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NONE}>Sin asignar</SelectItem>
-                          {resources.map((r) => (
-                            <SelectItem key={r.id} value={r.id} disabled={busyResourceIds.has(r.id)}>
-                              {r.name}
-                              {busyResourceIds.has(r.id) ? " (ocupado)" : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )
-                  }
-                />
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>En atención ({inService.length})</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {inService.length === 0 && <p className="text-sm text-muted-foreground">Nadie en atención ahora.</p>}
-              {inService.map((w) => (
-                <WalkInCard key={w.id} {...cardProps(w)} />
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      </div>
 
       {finishedToday.length > 0 && (
         <Card>
@@ -415,6 +433,7 @@ export function WalkInsPage() {
           <CardContent className="divide-y divide-border">
             {finishedToday.map((w) => (
               <div key={w.id} className="flex items-center gap-3 py-2 text-sm">
+                <span className="w-12 shrink-0 font-mono text-xs font-semibold text-muted-foreground">{formatTicket(w.ticket_number)}</span>
                 <span className="flex-1 font-medium">{w.customer_name}</span>
                 <span className="hidden max-w-[50%] truncate text-muted-foreground sm:inline">{summarizeOrderItems(w.order_items) || w.services?.name || "—"}</span>
                 <span className="text-muted-foreground">{time(w.arrived_at)}</span>

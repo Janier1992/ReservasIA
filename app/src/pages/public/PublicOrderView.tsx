@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/currency";
+import { formatTicket } from "@/lib/walkIns";
 import { cartCount, cartLines, cartTotal, MAX_ITEM_QUANTITY, setCartQuantity, type Cart } from "@/lib/orderCart";
 import { PublicApiError, publicApi, type PublicBusiness, type PublicOrder } from "@/lib/publicApi";
 import { PublicBusinessHeader } from "./PublicBusinessHeader";
@@ -89,6 +90,12 @@ export function PublicOrderView({ slug, business, icon }: Props) {
           <Check className="h-7 w-7" />
         </div>
         <h1 className="font-display text-3xl font-semibold">¡Pedido recibido, {form.name.split(" ")[0]}!</h1>
+        {order.ticketNumber ? (
+          <div className="rounded-2xl border-2 border-primary/50 bg-card px-6 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tu ticket</p>
+            <p className="font-mono text-4xl font-bold tracking-widest">{formatTicket(order.ticketNumber)}</p>
+          </div>
+        ) : null}
         <p className="text-muted-foreground">
           {items.length > 0 ? (
             "Tu pedido"
@@ -97,7 +104,8 @@ export function PublicOrderView({ slug, business, icon }: Props) {
               Tu <strong className="text-foreground">{order.serviceName}</strong>
             </>
           )}{" "}
-          está en preparación en {business.name}. Sos el <strong className="text-foreground">#{order.position}</strong> en la fila.
+          está en preparación en {business.name}. Hay <strong className="text-foreground">{order.position}</strong>{" "}
+          {order.position === 1 ? "pedido" : "pedidos"} en la fila contando el tuyo. Mostrá tu ticket al reclamarlo.
         </p>
         {items.length > 0 && (
           <div className="w-full rounded-2xl border border-border bg-card p-4 text-left">

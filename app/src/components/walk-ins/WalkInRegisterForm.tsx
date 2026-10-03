@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { formatTicket } from "@/lib/walkIns";
 import { insforge } from "@/lib/insforgeClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,7 +73,7 @@ export function WalkInRegisterForm({ organizationId, services, showPartySize, on
       return;
     }
     setSaving(true);
-    const { error } = await insforge.database.from("walk_ins").insert([
+    const { data, error } = await insforge.database.from("walk_ins").insert([
       {
         organization_id: organizationId,
         customer_name: form.name.trim(),
@@ -81,13 +82,14 @@ export function WalkInRegisterForm({ organizationId, services, showPartySize, on
         notes: form.notes.trim() || null,
         party_size: party
       }
-    ]);
+    ]).select("ticket_number");
     setSaving(false);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success(`${form.name.trim()} quedó en la fila.`);
+    const ticket = formatTicket((data as { ticket_number: number | null }[] | null)?.[0]?.ticket_number);
+    toast.success(`${form.name.trim()} quedó en la fila${ticket ? ` con el ticket ${ticket}` : ""}.`);
     setForm(EMPTY_FORM);
     onRegistered();
   }

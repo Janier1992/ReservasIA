@@ -127,6 +127,19 @@ notas; si entendió el nombre, registra la llegada sola a los 3 segundos (se pue
 secreto `GEMINI_API_KEY` en InsForge (opcional `GEMINI_MODEL`, por defecto `gemini-2.5-flash`); sin él, el botón avisa
 que el dictado no está activado.
 
+**Tablero de tarjetas y modo pantalla.** La fila se ve como un tablero: indicadores grandes (en atención, en espera,
+listos, espera promedio), reloj en vivo y tres secciones de tarjetas. "Listos para entregar" reúne lo marcado con la
+campana (el cliente recibe el aviso por Telegram o WhatsApp). "En atención" muestra cada atención con la placa (o la
+ficha de la reserva) o el ticket en grande, el recurso, el servicio o los productos del pedido, y una barra de tiempo
+contra la duración del servicio que se pone roja al pasarse. "En espera" lleva el orden de llegada. "Modo pantalla"
+abre el tablero a pantalla completa, sin formularios ni botones, para un televisor del local, y pide que la pantalla no
+se apague. Lo atendido hoy queda listado abajo.
+
+**Número de ticket.** Cada atención (llegada sin cita, reserva que llegó o pedido por QR) recibe un ticket consecutivo
+por negocio que vuelve a #001 cada día en la zona horaria del negocio. Lo asigna el trigger `assign_walk_in_ticket` al
+insertar, con un lock por negocio y día; nadie lo puede elegir ni cambiar. Se ve en las tarjetas, en la confirmación
+del pedido por QR y en los mensajes de vinculación y de "listo".
+
 ### Reportes (módulo, apagado por defecto)
 Atenciones completadas, ingresos, ticket promedio, cancelaciones y no-show por período (7/30/90 días), reservas por
 día, y desglose por servicio, recurso y canal, con exportación a CSV.

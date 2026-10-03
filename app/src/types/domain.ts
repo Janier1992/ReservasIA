@@ -233,10 +233,19 @@ export interface WalkIn {
   ready_at: string | null;
   notified_at: string | null;
   notify_error: string | null;
+  /** Número de ticket del día (#001...), asignado por la base al registrar. */
+  ticket_number: number | null;
   /** Productos del pedido por QR (puede haber varios); null en registros del equipo. */
   order_items: OrderItem[] | null;
   services?: Pick<Service, "name" | "duration_minutes" | "price" | "currency"> | null;
-  reservations?: { resource_id: string | null; start_at: string; source: string; resources: Pick<Resource, "name"> | null } | null;
+  reservations?: {
+    resource_id: string | null;
+    start_at: string;
+    end_at?: string | null;
+    source: string;
+    resources: Pick<Resource, "name"> | null;
+    customer_assets?: { label: string; asset_type: string } | null;
+  } | null;
 }
 
 export interface CustomerAsset {
