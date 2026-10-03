@@ -3,7 +3,7 @@ import { Bell, Check, Pencil, QrCode, Trash2, User, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { formatTicket, formatWait, minutesBetween, notifyStatus, serviceProgress, walkInAssetLabel } from "@/lib/walkIns";
+import { formatTicket, formatWait, minutesBetween, notifyStatus, serviceProgress, walkInAssetLabel, type CardSize } from "@/lib/walkIns";
 import type { WalkIn } from "@/types/domain";
 
 interface Props {
@@ -14,8 +14,10 @@ interface Props {
   busy: boolean;
   canDelete: boolean;
   timeLabel: (iso: string) => string;
-  /** Modo pantalla: tarjeta más grande, para un televisor o una pantalla del local. */
+  /** Modo pantalla: para un televisor o una pantalla del local. */
   display?: boolean;
+  /** Tamaño según cuántas atenciones hay (ver boardDensity). */
+  size?: CardSize;
   /** Selector de recurso para atender (solo en espera). */
   resourceSelect?: ReactNode;
   onServe?: () => void;
@@ -26,9 +28,17 @@ interface Props {
   onDelete: () => void;
 }
 
-function IconAction({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: ReactNode }) {
+/** Clases por tamaño de tarjeta: más atenciones, tarjetas más compactas. */
+const SIZE = {
+  lg: { card: "gap-4 p-5", headline: "text-2xl", body: "text-base", name: "text-lg", meta: "text-sm", footer: "pt-3", button: "", icon: "" },
+  md: { card: "gap-3 p-4", headline: "text-lg", body: "text-sm", name: "", meta: "text-xs", footer: "pt-3", button: "", icon: "" },
+  sm: { card: "gap-2 p-3", headline: "text-base", body: "text-sm", name: "", meta: "text-xs", footer: "pt-2", button: "h-8 px-2.5 text-xs", icon: "h-8 w-8" },
+  xs: { card: "gap-1.5 p-2.5", headline: "text-sm", body: "text-xs", name: "", meta: "text-[11px]", footer: "pt-2", button: "h-7 px-2 text-xs", icon: "h-7 w-7" }
+} satisfies Record<CardSize, Record<string, string>>;
+
+function IconAction({ label, onClick, disabled, className, children }: { label: string; onClick: () => void; disabled?: boolean; className?: string; children: ReactNode }) {
   return (
-    <Button size="icon" variant="ghost" onClick={onClick} disabled={disabled} title={label} aria-label={label}>
+    <Button size="icon" variant="ghost" className={className} onClick={onClick} disabled={disabled} title={label} aria-label={label}>
       {children}
     </Button>
   );
@@ -44,7 +54,24 @@ export function detailLine(w: WalkIn): string {
  * Una atención como tarjeta del tablero: en espera, en atención (con barra de
  * tiempo contra la duración del servicio) o lista para entregar.
  */
-export function WalkInCard({ walkIn: w, position, now, busy, canDelete, timeLabel, display, resourceSelect, onServe, onComplete, onReady, onEdit, onLeft, onDelete }: Props) {
+export function WalkInCard({
+  walkIn: w,
+  position,
+  now,
+  busy,
+  canDelete,
+  timeLabel,
+  display,
+  size = display ? "lg" : "md",
+  resourceSelect,
+  onServe,
+  onComplete,
+  onReady,
+  onEdit,
+  onLeft,
+  onDelete
+}: Props) {
+  const sz = SIZE[size];
   const inService = w.status === "in_service";
   // Un pedido puede quedar listo sin haber pasado por "Atender" (ej. pedido por QR).
   const ready = !!w.ready_at;
@@ -61,9 +88,9 @@ export function WalkInCard({ walkIn: w, position, now, busy, canDelete, timeLabe
   return (
     <article
       className={cn(
-        "flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm",
+        "flex flex-col rounded-xl border bg-card shadow-sm",
+        sz.card,
         ready ? "border-success/60 bg-success/5 ring-1 ring-success/30" : progress?.overdue ? "border-destructive/50" : inService ? "border-primary/40" : "border-border",
-        display && "gap-4 p-5"
       )}
     >
       <header className="flex items-start justify-between gap-2">
@@ -71,15 +98,15 @@ export function WalkInCard({ walkIn: w, position, now, busy, canDelete, timeLabe
           {headline ? (
             <span
               className={cn(
-                "truncate rounded-md border-2 border-primary/50 bg-background px-2.5 py-0.5 font-mono font-bold uppercase tracking-[0.15em]",
-                display ? "text-2xl" : "text-lg"
+                "truncate rounded-md border-2 border-primary/50 bg-background px-2 py-0.5 font-mono font-bold uppercase tracking-[0.15em]",
+                sz.headline
               )}
               aria-label={asset ? undefined : `Ticket ${ticket}`}
             >
               {headline}
             </span>
           ) : (
-            <span className={cn("truncate font-display font-semibold", display ? "text-2xl" : "text-lg")}>{name}</span>
+            <span className={cn("truncate font-display font-semibold", sz.headline)}>{name}</span>
           )}
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
@@ -88,7 +115,7 @@ export function WalkInCard({ walkIn: w, position, now, busy, canDelete, timeLabe
         </div>
       </header>
 
-      <div className={cn("space-y-1", display ? "text-base" : "text-sm")}>
+      <div className={cn("space-y-1", sz.body)}>
         {w.order_items && w.order_items.length > 0 && (
           <ul aria-label={`Pedido de ${name}`}>
             {w.order_items.map((item) => (
@@ -101,7 +128,7 @@ export function WalkInCard({ walkIn: w, position, now, busy, canDelete, timeLabe
         {detail && <p className={cn(w.order_items?.length ? "text-muted-foreground" : "font-medium")}>{detail}</p>}
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
           {headline && (
-            <span className={cn("inline-flex items-center gap-1 font-medium text-foreground", display && "text-lg")}>
+            <span className={cn("inline-flex items-center gap-1 font-medium text-foreground", sz.name)}>
               <User className="h-3.5 w-3.5" /> {name}
             </span>
           )}
@@ -118,7 +145,7 @@ export function WalkInCard({ walkIn: w, position, now, busy, canDelete, timeLabe
 
       {progress ? (
         <div className="space-y-1.5">
-          <div className={cn("flex justify-between gap-2 tabular-nums", display ? "text-sm" : "text-xs")}>
+          <div className={cn("flex justify-between gap-2 tabular-nums", sz.meta)}>
             <span className={cn(progress.overdue ? "font-semibold text-destructive" : "text-muted-foreground")}>
               {progress.expected ? `${progress.elapsed} min / ${progress.expected} min` : `En atención hace ${formatWait(progress.elapsed)}`}
             </span>
@@ -142,7 +169,7 @@ export function WalkInCard({ walkIn: w, position, now, busy, canDelete, timeLabe
           )}
         </div>
       ) : (
-        <p className={cn("text-muted-foreground", display ? "text-sm" : "text-xs")}>
+        <p className={cn("text-muted-foreground", sz.meta)}>
           {ready && w.ready_at
             ? `Listo hace ${formatWait(minutesBetween(w.ready_at, now))}${display ? " · acercate a reclamarlo" : ""}`
             : `Esperando ${formatWait(minutesBetween(w.arrived_at, now))}${position !== undefined ? ` · ${position}.º en la fila` : ""}`}
@@ -150,30 +177,30 @@ export function WalkInCard({ walkIn: w, position, now, busy, canDelete, timeLabe
       )}
 
       {/* Las acciones están también en modo pantalla: el equipo opera desde ahí. */}
-      <footer className="flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
+      <footer className={cn("flex flex-wrap items-center gap-1.5 border-t border-border", sz.footer)}>
         {resourceSelect}
         {!inService && !ready && onServe && (
-          <Button size="sm" onClick={onServe} disabled={busy}>
+          <Button size="sm" className={sz.button} onClick={onServe} disabled={busy}>
             Atender
           </Button>
         )}
-        <Button size="sm" variant={inService ? "default" : "outline"} onClick={onComplete} disabled={busy}>
+        <Button size="sm" className={sz.button} variant={inService ? "default" : "outline"} onClick={onComplete} disabled={busy}>
           <Check className="h-4 w-4" /> {ready ? "Entregado" : inService ? "Finalizar" : "Atendido"}
         </Button>
         <div className="ml-auto flex items-center">
-          <IconAction label={w.ready_at ? `${name}: ya está marcado listo` : `Marcar listo y avisar a ${name}`} onClick={onReady} disabled={busy || !!w.ready_at}>
+          <IconAction className={sz.icon} label={w.ready_at ? `${name}: ya está marcado listo` : `Marcar listo y avisar a ${name}`} onClick={onReady} disabled={busy || !!w.ready_at}>
             <Bell className="h-4 w-4" />
           </IconAction>
-          <IconAction label={`Editar ${name}`} onClick={onEdit} disabled={busy}>
+          <IconAction className={sz.icon} label={`Editar ${name}`} onClick={onEdit} disabled={busy}>
             <Pencil className="h-4 w-4" />
           </IconAction>
           {!inService && onLeft && (
-            <IconAction label={`${name} se fue sin ser atendido`} onClick={onLeft} disabled={busy}>
+            <IconAction className={sz.icon} label={`${name} se fue sin ser atendido`} onClick={onLeft} disabled={busy}>
               <UserX className="h-4 w-4" />
             </IconAction>
           )}
           {canDelete && (
-            <IconAction label={`Eliminar el registro de ${name}`} onClick={onDelete} disabled={busy}>
+            <IconAction className={sz.icon} label={`Eliminar el registro de ${name}`} onClick={onDelete} disabled={busy}>
               <Trash2 className="h-4 w-4 text-destructive" />
             </IconAction>
           )}

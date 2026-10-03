@@ -120,3 +120,25 @@ export function serviceProgress(
 export function walkInAssetLabel(w: Pick<WalkIn, "reservations">): string | null {
   return w.reservations?.customer_assets?.label?.trim() || null;
 }
+
+/**
+ * Qué tan apretado va el tablero: con pocas atenciones las tarjetas son
+ * grandes; a medida que llegan más se achican para que quepan más en pantalla.
+ */
+export type BoardDensity = "comfortable" | "compact" | "dense";
+
+export function boardDensity(activeCount: number): BoardDensity {
+  if (activeCount <= 6) return "comfortable";
+  if (activeCount <= 12) return "compact";
+  return "dense";
+}
+
+/** Tamaño de cada tarjeta: el modo pantalla arranca un paso más grande. */
+export type CardSize = "lg" | "md" | "sm" | "xs";
+
+const CARD_SIZES: CardSize[] = ["lg", "md", "sm", "xs"];
+const DENSITY_STEP: Record<BoardDensity, number> = { comfortable: 0, compact: 1, dense: 2 };
+
+export function cardSizeFor(density: BoardDensity, display: boolean): CardSize {
+  return CARD_SIZES[Math.min(CARD_SIZES.length - 1, (display ? 0 : 1) + DENSITY_STEP[density])];
+}

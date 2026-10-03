@@ -19,7 +19,7 @@ import { WalkInEditDialog } from "@/components/walk-ins/WalkInEditDialog";
 import { WalkInRegisterForm } from "@/components/walk-ins/WalkInRegisterForm";
 import { isModuleEnabled } from "@/lib/modules";
 import { cn } from "@/lib/utils";
-import { formatTicket, formatWait, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
+import { boardDensity, cardSizeFor, formatTicket, formatWait, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
 import { zonedDayRange } from "@/lib/payments";
 import { orderItemsForSale, summarizeOrderItems } from "@/lib/orderCart";
 import { upcomingDates } from "@/lib/publicBookingUtils";
@@ -280,6 +280,10 @@ export function WalkInsPage() {
     refresh();
   }
 
+  // Con muchas atenciones las tarjetas se achican para que quepan más en pantalla.
+  const density = boardDensity(ready.length + inService.length + waiting.length);
+  const cardSize = cardSizeFor(density, display);
+
   const cardProps = (w: WalkIn) => ({
     walkIn: w,
     now,
@@ -290,7 +294,8 @@ export function WalkInsPage() {
     onReady: () => markReady(w),
     onEdit: () => setEditing(w),
     onDelete: () => remove(w),
-    display
+    display,
+    size: cardSize
   });
 
   return (
@@ -337,18 +342,18 @@ export function WalkInsPage() {
         ) : (
           <>
             {ready.length > 0 && (
-              <WalkInBoardSection title="Listos para entregar" count={ready.length} tone="success" hint="acérquese a reclamar" empty="" display={display}>
+              <WalkInBoardSection title="Listos para entregar" count={ready.length} tone="success" hint="acérquese a reclamar" empty="" display={display} density={density}>
                 {ready.map((w) => (
                   <WalkInCard key={w.id} {...cardProps(w)} />
                 ))}
               </WalkInBoardSection>
             )}
-            <WalkInBoardSection title="En atención" count={inService.length} tone="primary" empty="Nadie en atención ahora." display={display}>
+            <WalkInBoardSection title="En atención" count={inService.length} tone="primary" empty="Nadie en atención ahora." display={display} density={density}>
               {inService.map((w) => (
                 <WalkInCard key={w.id} {...cardProps(w)} />
               ))}
             </WalkInBoardSection>
-            <WalkInBoardSection title="En espera" count={waiting.length} tone="secondary" empty="No hay nadie esperando." display={display}>
+            <WalkInBoardSection title="En espera" count={waiting.length} tone="secondary" empty="No hay nadie esperando." display={display} density={density}>
               {waiting.map((w, index) => (
                 <WalkInCard
                   key={w.id}
@@ -362,7 +367,7 @@ export function WalkInsPage() {
                         value={resourceChoice[w.id] ?? w.reservations?.resource_id ?? NONE}
                         onValueChange={(v) => setResourceChoice({ ...resourceChoice, [w.id]: v })}
                       >
-                        <SelectTrigger className="h-9 w-36" aria-label={`Recurso para ${w.customer_name}`}>
+                        <SelectTrigger className={cn(cardSize === "sm" || cardSize === "xs" ? "h-8 w-28 text-xs" : "h-9 w-36")} aria-label={`Recurso para ${w.customer_name}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -421,7 +426,6 @@ export function WalkInsPage() {
           </CardContent>
         </Card>
       )}
-      </div>
 
       {finishedToday.length > 0 && (
         <Card>
@@ -461,6 +465,7 @@ export function WalkInsPage() {
           </CardContent>
         </Card>
       )}
+      </div>
 
       <WalkInEditDialog walkIn={editing} services={services} showPartySize={showPartySize} onClose={() => setEditing(null)} onSaved={refresh} />
       {currentOrganizationId && (

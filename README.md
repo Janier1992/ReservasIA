@@ -134,7 +134,8 @@ ficha de la reserva) o el ticket en grande, el recurso, el servicio o los produc
 contra la duración del servicio que se pone roja al pasarse. "En espera" lleva el orden de llegada. "Modo pantalla"
 abre el tablero a pantalla completa, sin formularios pero con las acciones de cada tarjeta (atender, campana de
 "listo", finalizar, editar), para una pantalla del local desde la que también se opera, y pide que la pantalla no se
-apague. Lo atendido hoy queda listado abajo.
+apague. Lo atendido hoy queda listado abajo, también en modo pantalla. Con muchas atenciones activas las tarjetas se
+achican solas (`boardDensity`: hasta 6 cómodas, hasta 12 compactas, más de 12 densas) para que quepan más por fila.
 
 **Número de ticket.** Cada atención (llegada sin cita, reserva que llegó o pedido por QR) recibe un ticket consecutivo
 por negocio que vuelve a #001 cada día en la zona horaria del negocio. Lo asigna el trigger `assign_walk_in_ticket` al
