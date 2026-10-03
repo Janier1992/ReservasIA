@@ -1,8 +1,9 @@
-import { randomInt } from "node:crypto";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 import { normalizePhone, publicPageMode, resolveOrganization } from "../publicBooking/publicBookingService.js";
+import { generateOrderCode, loadNotifyLinks, type NotifyChannel } from "../chatLink/notifyLinks.js";
+import { linkReservationByCode } from "../chatLink/reservationLink.js";
 
 /**
  * Pedido inmediato desde el QR (/r/:slug en modo "order"): entra a la fila de
@@ -16,23 +17,7 @@ import { normalizePhone, publicPageMode, resolveOrganization } from "../publicBo
  * el aviso de "listo" sale como texto libre, sin plantilla.
  */
 
-// Sin 0/O ni 1/I: el código también se lee y se puede dictar.
-const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const CODE_LENGTH = 10;
-const TELEGRAM_START = /^\/start\s+([A-Za-z0-9]{10})\s*$/;
-const WHATSAPP_ORDER = /pedido\s*#\s*([A-Za-z0-9]{10})\b/i;
-
-export type NotifyChannel = "telegram" | "whatsapp";
-
-export function generateOrderCode(): string {
-  return Array.from({ length: CODE_LENGTH }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join("");
-}
-
-/** Código de pedido en "/start <código>" (Telegram) o "Pedido #<código>" (WhatsApp). */
-export function extractOrderCode(text: string): string | null {
-  const match = text.match(TELEGRAM_START) ?? text.match(WHATSAPP_ORDER);
-  return match ? match[1].toUpperCase() : null;
-}
+export { extractOrderCode, generateOrderCode, type NotifyChannel } from "../chatLink/notifyLinks.js";
 
 export interface PublicOrderItemInput {
   serviceId: string;
@@ -123,24 +108,6 @@ async function loadOrderItems(organizationId: string, requested: PublicOrderItem
   });
 }
 
-/** Enlaces para pedir el aviso, solo de los canales que el negocio tiene conectados. */
-export async function loadNotifyLinks(organizationId: string, code: string): Promise<Pick<PublicOrderResult, "telegramUrl" | "whatsappUrl">> {
-  const { data } = await insforgeAdmin.database
-    .from("integrations")
-    .select("provider, metadata")
-    .eq("organization_id", organizationId)
-    .eq("status", "connected")
-    .in("provider", ["telegram", "twilio"]);
-  const rows = (data ?? []) as { provider: string; metadata: Record<string, unknown> | null }[];
-  const botUsername = rows.find((r) => r.provider === "telegram")?.metadata?.bot_username;
-  const whatsappNumber = rows.find((r) => r.provider === "twilio")?.metadata?.whatsapp_number;
-  const whatsappDigits = typeof whatsappNumber === "string" ? whatsappNumber.replace(/\D/g, "") : "";
-  return {
-    telegramUrl: typeof botUsername === "string" && botUsername ? `https://t.me/${botUsername}?start=${code}` : null,
-    whatsappUrl: whatsappDigits ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(`Pedido #${code}`)}` : null
-  };
-}
-
 export async function createPublicOrder(slug: string, input: PublicOrderInput): Promise<PublicOrderResult> {
   const org = await resolveOrganization(slug);
   if (publicPageMode(org.business_type, org.disabled_modules) !== "order") {
@@ -188,7 +155,7 @@ export async function createPublicOrder(slug: string, input: PublicOrderInput): 
     serviceName: summarizeOrderItems(items),
     items: items.map((i) => ({ name: i.name, quantity: i.quantity })),
     ...orderTotal(items),
-    ...(await loadNotifyLinks(org.id, code))
+    ...(await loadNotifyLinks(org.id, code, "Pedido"))
   };
 }
 
@@ -223,6 +190,12 @@ export async function handleOrderCodeMessage(msg: OrderCodeMessage): Promise<str
     order_items: OrderItem[] | null;
     services: { name: string } | null;
   } | null;
+
+  // El mismo código puede ser de una reserva de la página pública (todos los rubros).
+  if (!row) {
+    const reservationReply = await linkReservationByCode(msg);
+    if (reservationReply) return reservationReply;
+  }
 
   let reply: string;
   if (!row || !["waiting", "in_service"].includes(row.status)) {

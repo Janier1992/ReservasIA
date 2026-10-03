@@ -47,6 +47,16 @@ export interface PublicOrder {
   whatsappUrl: string | null;
 }
 
+export interface PublicBooking {
+  id: string;
+  start_at: string;
+  end_at: string;
+  timezone: string;
+  /** "Avisame por..." para recibir la confirmación y el recordatorio por chat; ausentes en un server anterior. */
+  telegramUrl?: string | null;
+  whatsappUrl?: string | null;
+}
+
 export class PublicApiError extends Error {
   constructor(
     public readonly status: number,
@@ -80,7 +90,7 @@ export const publicApi = {
     slug: string,
     body: { serviceId: string; date: string; start: string; name: string; phone: string; email?: string; notes?: string; website?: string; healthDataConsent?: boolean }
   ) =>
-    call<{ id: string; start_at: string; end_at: string; timezone: string }>(`/businesses/${encodeURIComponent(slug)}/reservations`, {
+    call<PublicBooking>(`/businesses/${encodeURIComponent(slug)}/reservations`, {
       method: "POST",
       body: JSON.stringify(body)
     }),

@@ -152,6 +152,14 @@ responde por negocios activos con el módulo encendido (mismo 404 en cualquier o
 disponibilidad al reservar, limita 5 reservas cada 10 minutos por IP y tiene un campo trampa contra bots. Requiere
 `VITE_API_URL` en el frontend (URL del compute service) y que `APP_URL` del server sea la URL del frontend (CORS).
 
+**Confirmación y recordatorio por chat (todos los rubros).** Si el negocio tiene Telegram o WhatsApp conectado, la
+confirmación de la reserva ofrece "Avisame por Telegram / WhatsApp". La reserva recibe un `notify_code`; el botón abre
+el chat del negocio con `/start <código>` (Telegram) o `Reserva #<código>` (WhatsApp), y ese mensaje vincula el chat
+con la reserva (`reservations.notify_channel` / `notify_identity`, `server/src/services/chatLink/`). El cliente recibe
+al instante la confirmación con fecha y hora, y el recordatorio de antes de la cita sale por ese chat en vez de por el
+teléfono del formulario. Es el mismo mecanismo de los pedidos por QR. Las pantallas de confirmación (reserva y pedido)
+tienen un botón para volver al inicio o a la carta sin recargar, conservando nombre y celular.
+
 **Pedidos por QR (restaurantes con Atención en sitio).** En ese caso la misma página es una carta: el cliente arma un
 pedido con uno o varios productos y la cantidad de cada uno (hasta 20 productos distintos y 20 unidades de cada uno),
 ve el total y deja su nombre. `POST /api/public/businesses/<slug>/orders` recibe `items: [{ serviceId, quantity }]`

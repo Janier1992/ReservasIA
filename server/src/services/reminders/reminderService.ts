@@ -1,4 +1,5 @@
 import { formatInTimeZone } from "date-fns-tz";
+import { es } from "date-fns/locale";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { sendTelegramMessage } from "../telegram/telegramService.js";
@@ -30,7 +31,7 @@ async function loadTelegramBotToken(organizationId: string): Promise<string | nu
 }
 
 function formatReminderWhen(row: DueReminderRow): string {
-  return formatInTimeZone(new Date(row.start_at), row.timezone, "EEEE d 'de' MMMM 'a las' HH:mm");
+  return formatInTimeZone(new Date(row.start_at), row.timezone, "EEEE d 'de' MMMM 'a las' HH:mm", { locale: es });
 }
 
 export function buildReminderText(row: DueReminderRow): string {
@@ -86,6 +87,26 @@ async function sendReminder(row: DueReminderRow): Promise<boolean> {
 }
 
 /**
+ * Reservas de la página pública cuyo cliente vinculó su Telegram o WhatsApp
+ * (botón "Avisame por..."): el recordatorio sale por ese chat en vez de por el
+ * teléfono que dejó en el formulario. Mismo formato que customers.phone:
+ * "telegram:<chat_id>" o el número de WhatsApp.
+ */
+async function withLinkedChats(rows: DueReminderRow[]): Promise<DueReminderRow[]> {
+  if (rows.length === 0) return rows;
+  const { data } = await insforgeAdmin.database
+    .from("reservations")
+    .select("id, notify_identity")
+    .in(
+      "id",
+      rows.map((r) => r.reservation_id)
+    )
+    .not("notify_identity", "is", null);
+  const linked = new Map(((data ?? []) as { id: string; notify_identity: string }[]).map((r) => [r.id, r.notify_identity]));
+  return rows.map((r) => (linked.has(r.reservation_id) ? { ...r, customer_phone: linked.get(r.reservation_id)! } : r));
+}
+
+/**
  * Corre periódicamente desde reminderScheduler. Cada reserva se procesa de
  * forma independiente: si una falla (bot desconectado, Telegram caído,
  * etc.) no debe impedir que se manden las demás, y nunca vuelve a
@@ -100,7 +121,7 @@ export async function sendDueReservationReminders(): Promise<{ total: number; se
     return { total: 0, sent: 0 };
   }
 
-  const rows = (data ?? []) as DueReminderRow[];
+  const rows = await withLinkedChats((data ?? []) as DueReminderRow[]);
   if (rows.length === 0) return { total: 0, sent: 0 };
 
   let sent = 0;

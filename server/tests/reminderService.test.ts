@@ -77,6 +77,26 @@ describe("sendDueReservationReminders", () => {
     expect(result).toEqual({ total: 1, sent: 1 });
   });
 
+  it("uses the chat the customer linked from the booking page instead of the form phone", async () => {
+    insforgeMockInstance = createInsforgeMock(
+      {
+        integrations: { data: { credentials: { bot_token: "bot-token-1" } }, error: null },
+        reservations: [{ data: [{ id: "res-1", notify_identity: "telegram:999" }], error: null }, { data: null, error: null }]
+      },
+      { get_due_reservation_reminders: { data: [makeRow({ customer_phone: "+573001112233" })], error: null } }
+    );
+
+    const result = await sendDueReservationReminders();
+
+    expect(sendTelegramMessageMock).toHaveBeenCalledWith("bot-token-1", "999", expect.stringContaining("Camila"));
+    expect(sendWhatsAppReminderTemplateMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ total: 1, sent: 1 });
+  });
+
+  it("writes the reminder date in Spanish", () => {
+    expect(buildReminderText(makeRow())).toContain("miércoles 23 de septiembre");
+  });
+
   it("sends via the WhatsApp reminder template (never free text) when the customer phone is a plain number", async () => {
     insforgeMockInstance = createInsforgeMock(
       { reservations: { data: null, error: null } },
