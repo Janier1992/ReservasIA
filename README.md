@@ -154,6 +154,12 @@ responde por negocios activos con el módulo encendido (mismo 404 en cualquier o
 disponibilidad al reservar, limita 5 reservas cada 10 minutos por IP y tiene un campo trampa contra bots. Requiere
 `VITE_API_URL` en el frontend (URL del compute service) y que `APP_URL` del server sea la URL del frontend (CORS).
 
+**Menú del día (restaurantes).** En Carta y servicios cada producto marca en qué días de la semana se ofrece
+(`services.available_days`, 0 = domingo; vacío = todos los días) y hay un filtro "Menú de hoy". La página de pedidos
+por QR muestra y acepta solo los productos de hoy en la zona horaria del negocio (`services/publicBooking/menuDays.ts`),
+y el registro de pedidos en Atención en sitio ofrece solo el menú de hoy. No cambia la disponibilidad de reservas de
+otros rubros.
+
 **Confirmación y recordatorio por chat (todos los rubros).** Si el negocio tiene Telegram o WhatsApp conectado, la
 confirmación de la reserva ofrece "Avisame por Telegram / WhatsApp". La reserva recibe un `notify_code`; el botón abre
 el chat del negocio con `/start <código>` (Telegram) o `Reserva #<código>` (WhatsApp), y ese mensaje vincula el chat

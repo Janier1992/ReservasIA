@@ -94,6 +94,8 @@ export interface Service {
   price: number | null;
   currency: string;
   is_active: boolean;
+  /** Restaurantes: días en que está en el menú (0 = domingo); null = todos los días. */
+  available_days?: number[] | null;
 }
 
 export interface Customer {

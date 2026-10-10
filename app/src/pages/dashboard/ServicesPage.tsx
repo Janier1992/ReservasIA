@@ -14,10 +14,44 @@ import { BulkUploadServicesDialog } from "./services/BulkUploadServicesDialog";
 import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { isNonNegativeNumber, isPositiveInteger } from "@/lib/validation";
+import { cn } from "@/lib/utils";
+import { MENU_WEEK, WEEKDAY_NAMES, WEEKDAY_SHORT, describeMenuDays, isOnMenu, toggleMenuDay, weekdayIn } from "@/lib/menuDays";
 import type { Service } from "@/types/domain";
 
+/** Días de la semana en que el producto está en el menú; un toque prende o apaga cada día. */
+function MenuDaysPicker({ service, onChange }: { service: Service; onChange: (days: number[] | null) => void }) {
+  return (
+    <div className="flex gap-1" role="group" aria-label={`Días del menú de ${service.name}: ${describeMenuDays(service.available_days)}`}>
+      {MENU_WEEK.map((d) => {
+        const on = isOnMenu(service.available_days, d);
+        return (
+          <button
+            key={d}
+            type="button"
+            title={WEEKDAY_NAMES[d]}
+            aria-pressed={on}
+            aria-label={`${on ? "Quitar" : "Agregar"} ${WEEKDAY_NAMES[d]}`}
+            onClick={() => onChange(toggleMenuDay(service.available_days, d))}
+            className={cn(
+              "h-7 w-7 rounded-full border text-xs font-semibold transition-colors",
+              on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:border-primary/60"
+            )}
+          >
+            {WEEKDAY_SHORT[d]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ServicesPage() {
-  const { currentOrganizationId } = useOrganization();
+  const { currentOrganizationId, memberships } = useOrganization();
+  const currentOrg = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations;
+  // Restaurantes: cada producto puede estar en el menú solo algunos días.
+  const usesMenuDays = currentOrg?.business_type === "restaurant";
+  const today = weekdayIn(currentOrg?.timezone ?? "UTC");
+  const [menuFilter, setMenuFilter] = useState<"all" | "today">("all");
   const { vocabulary } = useCurrentBusinessTheme();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", duration_minutes: 60, price: "", currency: DEFAULT_CURRENCY });
@@ -45,6 +79,17 @@ export function ServicesPage() {
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["services-page", currentOrganizationId] });
+  const todayServices = services.filter((s) => s.is_active && isOnMenu(s.available_days, today));
+  const shown = usesMenuDays && menuFilter === "today" ? todayServices : services;
+
+  async function setMenuDays(service: Service, days: number[] | null) {
+    const { error } = await insforge.database.from("services").update({ available_days: days }).eq("id", service.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    invalidate();
+  }
 
   async function addService() {
     if (!form.name.trim() || !currentOrganizationId) return;
@@ -124,7 +169,11 @@ export function ServicesPage() {
     <div className="space-y-4">
       <div>
         <h1 className="font-display text-2xl font-semibold">{vocabulary.services}</h1>
-        <p className="text-sm text-muted-foreground">Catálogo de servicios que ofrece tu negocio.</p>
+        <p className="text-sm text-muted-foreground">
+          {usesMenuDays
+            ? "Tu carta. Marcá en qué días se ofrece cada producto: la página de pedidos por QR muestra solo el menú de hoy."
+            : "Catálogo de servicios que ofrece tu negocio."}
+        </p>
       </div>
 
       <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-4">
@@ -163,6 +212,28 @@ export function ServicesPage() {
         </Button>
       </div>
 
+      {usesMenuDays && (
+        <div className="inline-flex rounded-lg bg-muted p-1 text-sm" role="tablist" aria-label="Ver carta">
+          {(
+            [
+              ["all", `Toda la carta (${services.length})`],
+              ["today", `Menú de hoy · ${WEEKDAY_NAMES[today]} (${todayServices.length})`]
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={menuFilter === value}
+              onClick={() => setMenuFilter(value)}
+              className={cn("rounded-md px-3 py-1.5 font-medium transition-colors", menuFilter === value ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground")}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {isError ? (
         <QueryErrorState onRetry={() => refetch()} message="No se pudieron cargar los servicios." />
       ) : (
@@ -173,12 +244,13 @@ export function ServicesPage() {
               <th className="px-4 py-3">Nombre</th>
               <th className="px-4 py-3">Duración</th>
               <th className="px-4 py-3">Precio</th>
+              {usesMenuDays && <th className="px-4 py-3">Días del menú</th>}
               <th className="px-4 py-3">Activo</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
-            {services.map((s) =>
+            {shown.map((s) =>
               editingId === s.id ? (
                 <tr key={s.id} className="border-b border-border bg-muted/30 last:border-0">
                   <td className="px-4 py-2">
@@ -214,6 +286,11 @@ export function ServicesPage() {
                       </Select>
                     </div>
                   </td>
+                  {usesMenuDays && (
+                    <td className="px-4 py-3">
+                      <MenuDaysPicker service={s} onChange={(days) => setMenuDays(s, days)} />
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <Switch checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
                   </td>
@@ -231,6 +308,11 @@ export function ServicesPage() {
                   <td className="px-4 py-3 font-medium">{s.name}</td>
                   <td className="px-4 py-3">{s.duration_minutes} min</td>
                   <td className="px-4 py-3">{s.price ? formatCurrency(s.price, s.currency) : "—"}</td>
+                  {usesMenuDays && (
+                    <td className="px-4 py-3">
+                      <MenuDaysPicker service={s} onChange={(days) => setMenuDays(s, days)} />
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <Switch checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
                   </td>
@@ -245,7 +327,12 @@ export function ServicesPage() {
                 </tr>
               )
             )}
-            {!isLoading && services.length === 0 && <EmptyTableRow colSpan={5} message="Todavía no cargaste ningún servicio." />}
+            {!isLoading && shown.length === 0 && (
+              <EmptyTableRow
+                colSpan={usesMenuDays ? 6 : 5}
+                message={services.length > 0 ? `Ningún producto activo está en el menú de los ${WEEKDAY_NAMES[today]}.` : "Todavía no cargaste ningún servicio."}
+              />
+            )}
           </tbody>
         </table>
       </div>

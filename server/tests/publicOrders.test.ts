@@ -19,7 +19,7 @@ const { buildOrderReadyText, createPublicOrder, extractOrderCode, formatTicket, 
   "../src/services/publicOrders/publicOrderService.js"
 );
 const { sendReadyOrderNotifications } = await import("../src/services/publicOrders/orderReadyNotifier.js");
-const { publicPageMode } = await import("../src/services/publicBooking/publicBookingService.js");
+const { getPublicBusiness, publicPageMode } = await import("../src/services/publicBooking/publicBookingService.js");
 
 const ok = (data: unknown) => ({ data, error: null });
 const restaurant = { id: "org-1", slug: "antojitos", business_type: "restaurant", timezone: "America/Bogota", status: "active", disabled_modules: [] };
@@ -65,6 +65,28 @@ function insertedInto(table: string): Record<string, unknown> | undefined {
 
 const burger = { id: "svc-1", name: "Hamburguesa", price: 18000, currency: "COP" };
 const lemonade = { id: "svc-2", name: "Limonada", price: 6000, currency: "COP" };
+
+describe("public menu of the day", () => {
+  const profile = { name: "Antojitos", description: null, address: null, phone: null, logo_url: null, max_booking_days: 30 };
+  const menu = [
+    { id: "svc-1", name: "Hamburguesa", description: null, duration_minutes: 15, price: 18000, currency: "COP", available_days: null },
+    { id: "svc-2", name: "Sopa de mondongo", description: null, duration_minutes: 15, price: 16000, currency: "COP", available_days: [1, 4] }
+  ];
+  const saturday = new Date("2026-10-10T17:00:00Z");
+  const monday = new Date("2026-10-12T17:00:00Z");
+
+  it("shows only today's products on the QR order page", async () => {
+    useDb({ organizations: ok(restaurant), business_profiles: ok(profile), services: ok(menu) });
+    expect((await getPublicBusiness("antojitos", saturday)).services.map((s) => s.name)).toEqual(["Hamburguesa"]);
+    useDb({ organizations: ok(restaurant), business_profiles: ok(profile), services: ok(menu) });
+    expect((await getPublicBusiness("antojitos", monday)).services.map((s) => s.name)).toEqual(["Hamburguesa", "Sopa de mondongo"]);
+  });
+
+  it("leaves booking pages of other businesses untouched", async () => {
+    useDb({ organizations: ok({ ...restaurant, business_type: "spa" }), business_profiles: ok(profile), services: ok(menu) });
+    expect((await getPublicBusiness("spa", saturday)).services).toHaveLength(2);
+  });
+});
 
 describe("createPublicOrder", () => {
   it("queues the order and offers only the connected channels", async () => {
@@ -139,6 +161,24 @@ describe("createPublicOrder", () => {
         name: "Ana"
       })
     ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("rejects a product that is not on today's menu", async () => {
+    // Sábado 10 de octubre de 2026 en Bogotá; la sopa solo se ofrece lunes y jueves.
+    useDb({ organizations: ok(restaurant), services: ok([burger, { ...lemonade, name: "Sopa", available_days: [1, 4] }]) });
+    await expect(
+      createPublicOrder(
+        "antojitos",
+        {
+          items: [
+            { serviceId: "svc-1", quantity: 1 },
+            { serviceId: "svc-2", quantity: 1 }
+          ],
+          name: "Ana"
+        },
+        new Date("2026-10-10T17:00:00Z")
+      )
+    ).rejects.toMatchObject({ statusCode: 404, message: expect.stringContaining("no está disponible hoy") });
   });
 
   it("rejects businesses whose public page is for bookings", async () => {

@@ -6,6 +6,7 @@ import { findOrCreateCustomerByPhone } from "../customers/customersService.js";
 import { createReservation } from "../reservations/reservationsService.js";
 import { requiresHealthDataConsent } from "../agent/safetyGuardrails.js";
 import { createReservationChatLink } from "../chatLink/reservationLink.js";
+import { isOnMenu, weekdayIn } from "./menuDays.js";
 
 /**
  * Página pública de reservas (/r/:slug): lo que ve y puede hacer alguien
@@ -61,7 +62,7 @@ export async function resolveOrganization(slug: string) {
   return { ...(org as { id: string; slug: string; business_type: string; timezone: string }), disabled_modules: disabled };
 }
 
-export async function getPublicBusiness(slug: string): Promise<PublicBusiness> {
+export async function getPublicBusiness(slug: string, now = new Date()): Promise<PublicBusiness> {
   const org = await resolveOrganization(slug);
 
   const [{ data: profile }, { data: services, error: servicesError }] = await Promise.all([
@@ -72,17 +73,24 @@ export async function getPublicBusiness(slug: string): Promise<PublicBusiness> {
       .maybeSingle(),
     insforgeAdmin.database
       .from("services")
-      .select("id, name, description, duration_minutes, price, currency")
+      .select("id, name, description, duration_minutes, price, currency, available_days")
       .eq("organization_id", org.id)
       .eq("is_active", true)
       .order("name", { ascending: true })
   ]);
   if (!profile || servicesError) throw NOT_AVAILABLE();
 
+  // Pedidos por QR: solo el menú de hoy (en la hora del negocio).
+  const mode = publicPageMode(org.business_type, org.disabled_modules);
+  const today = weekdayIn(org.timezone, now);
+  const offered = (services ?? []).filter(
+    (s: Record<string, unknown>) => mode !== "order" || isOnMenu(s.available_days as number[] | null, today)
+  );
+
   return {
     organizationId: org.id,
     slug: org.slug,
-    mode: publicPageMode(org.business_type, org.disabled_modules),
+    mode,
     businessType: org.business_type,
     timezone: org.timezone,
     name: profile.name,
@@ -91,7 +99,7 @@ export async function getPublicBusiness(slug: string): Promise<PublicBusiness> {
     phone: profile.phone ?? null,
     logoUrl: profile.logo_url ?? null,
     maxBookingDays: profile.max_booking_days ?? 30,
-    services: (services ?? []).map((s: Record<string, unknown>) => ({
+    services: offered.map((s: Record<string, unknown>) => ({
       id: s.id as string,
       name: s.name as string,
       description: (s.description as string | null) ?? null,
