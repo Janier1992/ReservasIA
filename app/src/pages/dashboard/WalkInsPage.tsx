@@ -18,6 +18,7 @@ import { WalkInBoardHeader, WalkInBoardSection, WalkInStatTiles } from "@/compon
 import { WalkInEditDialog } from "@/components/walk-ins/WalkInEditDialog";
 import { WalkInRegisterForm } from "@/components/walk-ins/WalkInRegisterForm";
 import { isModuleEnabled } from "@/lib/modules";
+import { isOnMenu, weekdayIn } from "@/lib/menuDays";
 import { cn } from "@/lib/utils";
 import { boardDensity, cardSizeFor, formatTicket, formatWait, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
 import { zonedDayRange } from "@/lib/payments";
@@ -145,6 +146,9 @@ export function WalkInsPage() {
       return data as Resource[];
     }
   });
+
+  // Restaurantes: al registrar un pedido solo se ofrece el menú de hoy.
+  const registerServices = showPartySize ? services.filter((s) => isOnMenu(s.available_days, weekdayIn(timezone))) : services;
 
   // Las que ya llegaron están en la fila (o ya se atendieron hoy): no se repiten arriba.
   const arrivedReservationIds = new Set(walkIns.map((w) => w.reservation_id).filter(Boolean));
@@ -334,7 +338,7 @@ export function WalkInsPage() {
         />
 
         {!display && currentOrganizationId && (
-          <WalkInRegisterForm organizationId={currentOrganizationId} services={services} showPartySize={showPartySize} onRegistered={refresh} />
+          <WalkInRegisterForm organizationId={currentOrganizationId} services={registerServices} showPartySize={showPartySize} onRegistered={refresh} />
         )}
 
       {isError ? (

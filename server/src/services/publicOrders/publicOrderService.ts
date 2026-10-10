@@ -2,6 +2,7 @@ import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 import { normalizePhone, publicPageMode, resolveOrganization } from "../publicBooking/publicBookingService.js";
+import { isOnMenu, weekdayIn } from "../publicBooking/menuDays.js";
 import { generateOrderCode, loadNotifyLinks, type NotifyChannel } from "../chatLink/notifyLinks.js";
 import { linkReservationByCode } from "../chatLink/reservationLink.js";
 
@@ -83,24 +84,32 @@ export function orderTotal(items: OrderItem[]): { total: number | null; currency
   return { total: items.reduce((sum, i) => sum + (i.unit_price ?? 0) * i.quantity, 0), currency: items[0].currency };
 }
 
-/** Valida que cada producto sea de este negocio y esté activo, y toma su nombre y precio actuales. */
-async function loadOrderItems(organizationId: string, requested: PublicOrderItemInput[]): Promise<OrderItem[]> {
+/**
+ * Valida que cada producto sea de este negocio, esté activo y esté en el menú
+ * de hoy, y toma su nombre y precio actuales.
+ */
+async function loadOrderItems(organizationId: string, timezone: string, requested: PublicOrderItemInput[], now: Date): Promise<OrderItem[]> {
   const items = mergeOrderItems(requested);
   if (items.length === 0 || items.length > MAX_ORDER_LINES || items.some((i) => i.quantity < 1 || i.quantity > MAX_ITEM_QUANTITY)) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Revisá las cantidades de tu pedido.", 400);
   }
   const { data } = await insforgeAdmin.database
     .from("services")
-    .select("id, name, price, currency")
+    .select("id, name, price, currency, available_days")
     .eq("organization_id", organizationId)
     .eq("is_active", true)
     .in(
       "id",
       items.map((i) => i.serviceId)
     );
-  const found = new Map(((data ?? []) as { id: string; name: string; price: number | null; currency: string | null }[]).map((s) => [s.id, s]));
+  const today = weekdayIn(timezone, now);
+  const found = new Map(
+    ((data ?? []) as { id: string; name: string; price: number | null; currency: string | null; available_days?: number[] | null }[])
+      .filter((s) => isOnMenu(s.available_days, today))
+      .map((s) => [s.id, s])
+  );
   if (items.some((i) => !found.has(i.serviceId))) {
-    throw new AppError(ErrorCodes.SERVICE_NOT_FOUND, "Alguno de los productos ya no está disponible. Recargá la página y volvé a armar tu pedido.", 404);
+    throw new AppError(ErrorCodes.SERVICE_NOT_FOUND, "Alguno de los productos ya no está disponible hoy. Recargá la página y volvé a armar tu pedido.", 404);
   }
   return items.map((i) => {
     const s = found.get(i.serviceId)!;
@@ -108,12 +117,12 @@ async function loadOrderItems(organizationId: string, requested: PublicOrderItem
   });
 }
 
-export async function createPublicOrder(slug: string, input: PublicOrderInput): Promise<PublicOrderResult> {
+export async function createPublicOrder(slug: string, input: PublicOrderInput, now = new Date()): Promise<PublicOrderResult> {
   const org = await resolveOrganization(slug);
   if (publicPageMode(org.business_type, org.disabled_modules) !== "order") {
     throw new AppError(ErrorCodes.ORGANIZATION_NOT_FOUND, "Este negocio no recibe pedidos en línea.", 404);
   }
-  const items = await loadOrderItems(org.id, input.items);
+  const items = await loadOrderItems(org.id, org.timezone, input.items, now);
   const code = generateOrderCode();
   const phone = input.phone ? normalizePhone(input.phone) : "";
 

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/currency";
 import { formatTicket } from "@/lib/walkIns";
+import { WEEKDAY_NAMES, weekdayIn } from "@/lib/menuDays";
 import { cartCount, cartLines, cartTotal, MAX_ITEM_QUANTITY, setCartQuantity, type Cart } from "@/lib/orderCart";
 import { PublicApiError, publicApi, type PublicBusiness, type PublicOrder } from "@/lib/publicApi";
 import { PublicBusinessHeader } from "./PublicBusinessHeader";
@@ -159,11 +160,12 @@ export function PublicOrderView({ slug, business, icon }: Props) {
       <div className="space-y-10">
         <section className="space-y-4">
           <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Menú de hoy · {WEEKDAY_NAMES[weekdayIn(business.timezone)]}</p>
             <h2 className="font-display text-lg font-semibold">¿Qué vas a pedir?</h2>
             {business.services.length > 0 && <p className="text-sm text-muted-foreground">Elegí uno o varios productos y la cantidad de cada uno.</p>}
           </div>
           {business.services.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Este negocio todavía no publicó su menú.</p>
+            <p className="text-sm text-muted-foreground">Hoy no hay productos en el menú. Preguntá en el mostrador.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {business.services.map((s) => {
