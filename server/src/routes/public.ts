@@ -4,7 +4,7 @@ import { z } from "zod";
 import { publicApiRateLimiter } from "../middleware/rateLimit.js";
 import { ErrorCodes } from "../utils/AppError.js";
 import { createPublicReservation, getPublicAvailability, getPublicBusiness } from "../services/publicBooking/publicBookingService.js";
-import { createPublicOrder, MAX_ITEM_QUANTITY, MAX_ORDER_LINES } from "../services/publicOrders/publicOrderService.js";
+import { createPublicOrder, MAX_FOR_NAME_LENGTH, MAX_ITEM_QUANTITY, MAX_ORDER_LINES } from "../services/publicOrders/publicOrderService.js";
 
 /**
  * API de la página pública de reservas (/r/:slug en el frontend). Sin
@@ -66,7 +66,9 @@ const bookingBodySchema = z.object({
 
 const orderItemSchema = z.object({
   serviceId: z.string().uuid(),
-  quantity: z.number().int().min(1).max(MAX_ITEM_QUANTITY)
+  quantity: z.number().int().min(1).max(MAX_ITEM_QUANTITY),
+  // Para quién es cada unidad (opcional).
+  forNames: z.array(z.string().max(MAX_FOR_NAME_LENGTH)).max(MAX_ITEM_QUANTITY).optional()
 });
 
 const orderBodySchema = z

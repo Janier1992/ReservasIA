@@ -51,13 +51,15 @@ export function ServicesPage() {
   // Restaurantes: cada producto puede estar en el menú solo algunos días.
   const usesMenuDays = currentOrg?.business_type === "restaurant";
   const today = weekdayIn(currentOrg?.timezone ?? "UTC");
+  // En restaurantes la descripción dice qué trae el plato (sopa, arroz, jugo...).
+  const descriptionLabel = usesMenuDays ? "Incluye" : "Descripción";
   const [menuFilter, setMenuFilter] = useState<"all" | "today">("all");
   const { vocabulary } = useCurrentBusinessTheme();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ name: "", duration_minutes: 60, price: "", currency: DEFAULT_CURRENCY });
+  const [form, setForm] = useState({ name: "", description: "", duration_minutes: 60, price: "", currency: DEFAULT_CURRENCY });
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", duration_minutes: 60, price: "", currency: DEFAULT_CURRENCY });
+  const [editForm, setEditForm] = useState({ name: "", description: "", duration_minutes: 60, price: "", currency: DEFAULT_CURRENCY });
 
   const {
     data: services = [],
@@ -105,6 +107,7 @@ export function ServicesPage() {
       {
         organization_id: currentOrganizationId,
         name: form.name.trim(),
+        description: form.description.trim() || null,
         duration_minutes: form.duration_minutes,
         price: form.price ? Number(form.price) : null,
         currency: form.currency
@@ -114,7 +117,7 @@ export function ServicesPage() {
       toast.error(error.message);
       return;
     }
-    setForm({ name: "", duration_minutes: 60, price: "", currency: form.currency });
+    setForm({ name: "", description: "", duration_minutes: 60, price: "", currency: form.currency });
     invalidate();
   }
 
@@ -132,6 +135,7 @@ export function ServicesPage() {
     setEditingId(service.id);
     setEditForm({
       name: service.name,
+      description: service.description ?? "",
       duration_minutes: service.duration_minutes,
       price: service.price?.toString() ?? "",
       currency: service.currency
@@ -152,6 +156,7 @@ export function ServicesPage() {
       .from("services")
       .update({
         name: editForm.name.trim(),
+        description: editForm.description.trim() || null,
         duration_minutes: editForm.duration_minutes,
         price: editForm.price ? Number(editForm.price) : null,
         currency: editForm.currency
@@ -179,7 +184,16 @@ export function ServicesPage() {
       <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-4">
         <div className="flex-1 space-y-1">
           <label className="text-xs text-muted-foreground">Nombre</label>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Corte de cabello" />
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={usesMenuDays ? "Ej: Almuerzo ejecutivo" : "Ej: Corte de cabello"} />
+        </div>
+        <div className="min-w-[14rem] flex-1 space-y-1">
+          <label className="text-xs text-muted-foreground">{descriptionLabel}</label>
+          <Input
+            maxLength={300}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder={usesMenuDays ? "Ej: sopa de mondongo, arroz, carne asada, ensalada y jugo" : "Opcional"}
+          />
         </div>
         <div className="w-28 space-y-1">
           <label className="text-xs text-muted-foreground">Duración (min)</label>
@@ -253,8 +267,15 @@ export function ServicesPage() {
             {shown.map((s) =>
               editingId === s.id ? (
                 <tr key={s.id} className="border-b border-border bg-muted/30 last:border-0">
-                  <td className="px-4 py-2">
-                    <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+                  <td className="space-y-1.5 px-4 py-2">
+                    <Input aria-label="Nombre" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+                    <Input
+                      aria-label={descriptionLabel}
+                      maxLength={300}
+                      placeholder={descriptionLabel}
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    />
                   </td>
                   <td className="px-4 py-2">
                     <Input
@@ -305,7 +326,15 @@ export function ServicesPage() {
                 </tr>
               ) : (
                 <tr key={s.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-medium">{s.name}</td>
+                  <td className="px-4 py-3">
+                    <p className="font-medium">{s.name}</p>
+                    {s.description && (
+                      <p className="max-w-md text-xs text-muted-foreground">
+                        {usesMenuDays ? "Incluye: " : ""}
+                        {s.description}
+                      </p>
+                    )}
+                  </td>
                   <td className="px-4 py-3">{s.duration_minutes} min</td>
                   <td className="px-4 py-3">{s.price ? formatCurrency(s.price, s.currency) : "—"}</td>
                   {usesMenuDays && (

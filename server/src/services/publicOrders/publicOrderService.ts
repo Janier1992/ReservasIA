@@ -23,6 +23,8 @@ export { extractOrderCode, generateOrderCode, type NotifyChannel } from "../chat
 export interface PublicOrderItemInput {
   serviceId: string;
   quantity: number;
+  /** Para quién es cada unidad (opcional): "Ana", "Luis"... */
+  forNames?: string[];
 }
 
 export interface PublicOrderInput {
@@ -39,6 +41,10 @@ export interface OrderItem {
   quantity: number;
   unit_price: number | null;
   currency: string | null;
+  /** Qué incluye el plato (descripción del producto al momento del pedido). */
+  includes?: string | null;
+  /** Para quién es cada unidad, si el cliente lo escribió. */
+  for_names?: string[];
 }
 
 export interface PublicOrderResult {
@@ -48,7 +54,7 @@ export interface PublicOrderResult {
   position: number;
   /** Resumen legible ("2× Hamburguesa y Limonada"). */
   serviceName: string;
-  items: { name: string; quantity: number }[];
+  items: { name: string; quantity: number; forNames?: string[] }[];
   /** Total del pedido; null si algún producto no tiene precio o hay monedas distintas. */
   total: number | null;
   currency: string | null;
@@ -63,12 +69,27 @@ export function formatTicket(ticketNumber: number | null | undefined): string {
 
 export const MAX_ORDER_LINES = 20;
 export const MAX_ITEM_QUANTITY = 20;
+export const MAX_FOR_NAME_LENGTH = 40;
+const MAX_INCLUDES_LENGTH = 300;
+
+/** Nombres limpios (sin vacíos), como máximo uno por unidad pedida. */
+export function cleanForNames(names: string[] | undefined, quantity: number): string[] {
+  return (names ?? [])
+    .map((n) => n.trim().slice(0, MAX_FOR_NAME_LENGTH))
+    .filter(Boolean)
+    .slice(0, quantity);
+}
 
 /** Junta líneas repetidas del mismo producto sumando cantidades. */
 export function mergeOrderItems(items: PublicOrderItemInput[]): PublicOrderItemInput[] {
-  const merged = new Map<string, number>();
-  for (const item of items) merged.set(item.serviceId, (merged.get(item.serviceId) ?? 0) + item.quantity);
-  return [...merged].map(([serviceId, quantity]) => ({ serviceId, quantity }));
+  const merged = new Map<string, { quantity: number; forNames: string[] }>();
+  for (const item of items) {
+    const current = merged.get(item.serviceId) ?? { quantity: 0, forNames: [] };
+    current.quantity += item.quantity;
+    current.forNames.push(...(item.forNames ?? []));
+    merged.set(item.serviceId, current);
+  }
+  return [...merged].map(([serviceId, { quantity, forNames }]) => (forNames.length > 0 ? { serviceId, quantity, forNames } : { serviceId, quantity }));
 }
 
 /** "2× Hamburguesa, Papas y Limonada": así se lee el pedido en mensajes y en la fila. */
@@ -95,7 +116,7 @@ async function loadOrderItems(organizationId: string, timezone: string, requeste
   }
   const { data } = await insforgeAdmin.database
     .from("services")
-    .select("id, name, price, currency, available_days")
+    .select("id, name, description, price, currency, available_days")
     .eq("organization_id", organizationId)
     .eq("is_active", true)
     .in(
@@ -104,7 +125,14 @@ async function loadOrderItems(organizationId: string, timezone: string, requeste
     );
   const today = weekdayIn(timezone, now);
   const found = new Map(
-    ((data ?? []) as { id: string; name: string; price: number | null; currency: string | null; available_days?: number[] | null }[])
+    ((data ?? []) as {
+      id: string;
+      name: string;
+      description?: string | null;
+      price: number | null;
+      currency: string | null;
+      available_days?: number[] | null;
+    }[])
       .filter((s) => isOnMenu(s.available_days, today))
       .map((s) => [s.id, s])
   );
@@ -113,7 +141,12 @@ async function loadOrderItems(organizationId: string, timezone: string, requeste
   }
   return items.map((i) => {
     const s = found.get(i.serviceId)!;
-    return { service_id: s.id, name: s.name, quantity: i.quantity, unit_price: s.price === null ? null : Number(s.price), currency: s.currency };
+    const item: OrderItem = { service_id: s.id, name: s.name, quantity: i.quantity, unit_price: s.price === null ? null : Number(s.price), currency: s.currency };
+    const includes = s.description?.trim().slice(0, MAX_INCLUDES_LENGTH);
+    if (includes) item.includes = includes;
+    const forNames = cleanForNames(i.forNames, i.quantity);
+    if (forNames.length > 0) item.for_names = forNames;
+    return item;
   });
 }
 
@@ -162,7 +195,7 @@ export async function createPublicOrder(slug: string, input: PublicOrderInput, n
     ticketNumber: row.ticket_number ?? null,
     position: Math.max(1, (ahead ?? []).length),
     serviceName: summarizeOrderItems(items),
-    items: items.map((i) => ({ name: i.name, quantity: i.quantity })),
+    items: items.map((i) => (i.for_names ? { name: i.name, quantity: i.quantity, forNames: i.for_names } : { name: i.name, quantity: i.quantity })),
     ...orderTotal(items),
     ...(await loadNotifyLinks(org.id, code, "Pedido"))
   };

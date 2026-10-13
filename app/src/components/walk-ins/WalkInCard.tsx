@@ -121,6 +121,12 @@ export function WalkInCard({
             {w.order_items.map((item) => (
               <li key={item.service_id} className="font-medium">
                 <span className="font-semibold tabular-nums">{item.quantity}×</span> {item.name}
+                {item.includes && <span className="block text-[0.85em] font-normal text-muted-foreground">Incluye: {item.includes}</span>}
+                {item.for_names && item.for_names.length > 0 && (
+                  <span className="block text-[0.85em] font-normal">
+                    <span className="text-muted-foreground">Para:</span> {item.for_names.join(", ")}
+                  </span>
+                )}
               </li>
             ))}
           </ul>

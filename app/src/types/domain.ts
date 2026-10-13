@@ -212,6 +212,10 @@ export interface OrderItem {
   quantity: number;
   unit_price: number | null;
   currency: string | null;
+  /** Qué incluye el plato (descripción del producto al momento del pedido). */
+  includes?: string | null;
+  /** Para quién es cada porción, si el cliente lo escribió. */
+  for_names?: string[];
 }
 
 export interface WalkIn {

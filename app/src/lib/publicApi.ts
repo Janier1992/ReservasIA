@@ -40,7 +40,7 @@ export interface PublicOrder {
   /** Resumen legible del pedido ("2× Hamburguesa y Limonada"). */
   serviceName: string;
   /** Ausentes si respondió un server anterior al carrito. */
-  items?: { name: string; quantity: number }[];
+  items?: { name: string; quantity: number; forNames?: string[] }[];
   total?: number | null;
   currency?: string | null;
   telegramUrl: string | null;
@@ -96,7 +96,7 @@ export const publicApi = {
     }),
   order: (
     slug: string,
-    body: { items: { serviceId: string; quantity: number }[]; name: string; phone?: string; notes?: string; website?: string }
+    body: { items: { serviceId: string; quantity: number; forNames?: string[] }[]; name: string; phone?: string; notes?: string; website?: string }
   ) =>
     call<PublicOrder>(`/businesses/${encodeURIComponent(slug)}/orders`, { method: "POST", body: JSON.stringify(body) })
 };
