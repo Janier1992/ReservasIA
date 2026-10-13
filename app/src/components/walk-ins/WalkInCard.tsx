@@ -3,7 +3,8 @@ import { Bell, Check, Pencil, QrCode, Trash2, User, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { formatTicket, formatWait, minutesBetween, notifyStatus, serviceProgress, walkInAssetLabel, type CardSize } from "@/lib/walkIns";
+import { formatCurrency } from "@/lib/currency";
+import { formatTicket, formatWait, minutesBetween, notifyStatus, serviceProgress, walkInAssetLabel, walkInTotal, type CardSize } from "@/lib/walkIns";
 import type { WalkIn } from "@/types/domain";
 
 interface Props {
@@ -84,6 +85,8 @@ export function WalkInCard({
   const resource = w.reservations?.resources?.name;
   const progress = inService && !ready ? serviceProgress(w, now) : null;
   const detail = detailLine(w);
+  const total = walkInTotal(w);
+  const hasOrder = !!w.order_items?.length;
 
   return (
     <article
@@ -120,7 +123,17 @@ export function WalkInCard({
           <ul aria-label={`Pedido de ${name}`}>
             {w.order_items.map((item) => (
               <li key={item.service_id} className="font-medium">
-                <span className="font-semibold tabular-nums">{item.quantity}×</span> {item.name}
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="min-w-0">
+                    <span className="font-semibold tabular-nums">{item.quantity}×</span> {item.name}
+                  </span>
+                  {item.unit_price !== null && item.unit_price !== undefined && (
+                    <span className="shrink-0 tabular-nums">{formatCurrency(Number(item.unit_price) * item.quantity, item.currency)}</span>
+                  )}
+                </span>
+                {item.quantity > 1 && item.unit_price !== null && item.unit_price !== undefined && (
+                  <span className="block text-[0.85em] font-normal text-muted-foreground tabular-nums">{formatCurrency(Number(item.unit_price), item.currency)} c/u</span>
+                )}
                 {item.includes && <span className="block text-[0.85em] font-normal text-muted-foreground">Incluye: {item.includes}</span>}
                 {item.for_names && item.for_names.length > 0 && (
                   <span className="block text-[0.85em] font-normal">
@@ -131,7 +144,13 @@ export function WalkInCard({
             ))}
           </ul>
         )}
-        {detail && <p className={cn(w.order_items?.length ? "text-muted-foreground" : "font-medium")}>{detail}</p>}
+        {total && (
+          <p className={cn("flex items-baseline justify-between gap-2 font-semibold", hasOrder && "border-t border-dashed border-border pt-1")}>
+            <span className={cn(!hasOrder && "font-normal text-muted-foreground")}>{hasOrder ? "Total" : "Valor"}</span>
+            <span className="tabular-nums">{formatCurrency(total.amount, total.currency)}</span>
+          </p>
+        )}
+        {detail && <p className={cn(hasOrder ? "text-muted-foreground" : "font-medium")}>{detail}</p>}
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
           {headline && (
             <span className={cn("inline-flex items-center gap-1 font-medium text-foreground", sz.name)}>

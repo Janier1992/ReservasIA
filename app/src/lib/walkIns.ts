@@ -142,3 +142,37 @@ const DENSITY_STEP: Record<BoardDensity, number> = { comfortable: 0, compact: 1,
 export function cardSizeFor(density: BoardDensity, display: boolean): CardSize {
   return CARD_SIZES[Math.min(CARD_SIZES.length - 1, (display ? 0 : 1) + DENSITY_STEP[density])];
 }
+
+export interface Money {
+  amount: number;
+  currency: string | null;
+}
+
+/**
+ * Valor de una atención: la suma de los productos del pedido (con el precio
+ * guardado al momento de pedir) o, si no hay pedido, el precio del servicio.
+ * null si nada tiene precio.
+ */
+export function walkInTotal(w: Pick<WalkIn, "order_items" | "services">): Money | null {
+  if (w.order_items && w.order_items.length > 0) {
+    const priced = w.order_items.filter((i) => i.unit_price !== null && i.unit_price !== undefined);
+    if (priced.length === 0) return null;
+    return {
+      amount: priced.reduce((sum, i) => sum + Number(i.unit_price) * i.quantity, 0),
+      currency: priced[0].currency
+    };
+  }
+  const price = w.services?.price;
+  return price === null || price === undefined ? null : { amount: Number(price), currency: w.services?.currency ?? null };
+}
+
+/** Suma de varias atenciones (ej. lo atendido hoy). null si ninguna tiene precio. */
+export function sumWalkInTotals(walkIns: Pick<WalkIn, "order_items" | "services">[]): Money | null {
+  let total: Money | null = null;
+  for (const w of walkIns) {
+    const t = walkInTotal(w);
+    if (!t) continue;
+    total = total ? { amount: total.amount + t.amount, currency: total.currency ?? t.currency } : t;
+  }
+  return total;
+}
