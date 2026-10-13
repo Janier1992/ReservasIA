@@ -20,7 +20,8 @@ import { WalkInRegisterForm } from "@/components/walk-ins/WalkInRegisterForm";
 import { isModuleEnabled } from "@/lib/modules";
 import { isOnMenu, weekdayIn } from "@/lib/menuDays";
 import { cn } from "@/lib/utils";
-import { boardDensity, cardSizeFor, formatTicket, formatWait, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
+import { formatCurrency } from "@/lib/currency";
+import { boardDensity, cardSizeFor, formatTicket, formatWait, sumWalkInTotals, walkInErrorMessage, walkInStats, walkInTotal } from "@/lib/walkIns";
 import { zonedDayRange } from "@/lib/payments";
 import { orderItemsForSale, summarizeOrderItems } from "@/lib/orderCart";
 import { upcomingDates } from "@/lib/publicBookingUtils";
@@ -37,6 +38,12 @@ function startOfToday(): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+/** Valor de la atención en la lista de "Hoy". */
+function WalkInAmount({ walkIn }: { walkIn: WalkIn }) {
+  const total = walkInTotal(walkIn);
+  return total ? <span className="shrink-0 tabular-nums">{formatCurrency(total.amount, total.currency)}</span> : null;
 }
 
 export function WalkInsPage() {
@@ -158,6 +165,7 @@ export function WalkInsPage() {
   const waiting = walkIns.filter((w) => w.status === "waiting" && !w.ready_at);
   const inService = walkIns.filter((w) => w.status === "in_service" && !w.ready_at);
   const finishedToday = walkIns.filter((w) => w.status === "done" || w.status === "left");
+  const soldToday = sumWalkInTotals(finishedToday.filter((w) => w.status === "done"));
   const stats = walkInStats(walkIns.filter((w) => new Date(w.arrived_at) >= startOfToday()));
   const busyResourceIds = new Set(
     walkIns
@@ -434,7 +442,10 @@ export function WalkInsPage() {
       {finishedToday.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Hoy ({finishedToday.length})</CardTitle>
+            <CardTitle>
+              Hoy ({finishedToday.length})
+              {soldToday && <span className="ml-2 text-sm font-normal text-muted-foreground">· {formatCurrency(soldToday.amount, soldToday.currency)} atendido</span>}
+            </CardTitle>
           </CardHeader>
           <CardContent className="divide-y divide-border">
             {finishedToday.map((w) => (
@@ -442,6 +453,7 @@ export function WalkInsPage() {
                 <span className="w-12 shrink-0 font-mono text-xs font-semibold text-muted-foreground">{formatTicket(w.ticket_number)}</span>
                 <span className="flex-1 font-medium">{w.customer_name}</span>
                 <span className="hidden max-w-[50%] truncate text-muted-foreground sm:inline">{summarizeOrderItems(w.order_items) || w.services?.name || "—"}</span>
+                <WalkInAmount walkIn={w} />
                 <span className="text-muted-foreground">{time(w.arrived_at)}</span>
                 <Badge variant={w.status === "done" ? "success" : "muted"}>{w.status === "done" ? "Atendido" : "Se fue"}</Badge>
                 <Button size="icon" variant="ghost" title="Editar registro" aria-label={`Editar el registro de ${w.customer_name}`} onClick={() => setEditing(w)}>

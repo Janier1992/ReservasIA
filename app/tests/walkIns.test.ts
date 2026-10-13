@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardDensity, cardSizeFor, formatTicket, formatWait, minutesBetween, notifyStatus, serviceProgress, walkInAssetLabel, walkInErrorMessage, walkInStats } from "@/lib/walkIns";
+import { boardDensity, cardSizeFor, formatTicket, formatWait, minutesBetween, notifyStatus, serviceProgress, walkInAssetLabel, walkInErrorMessage, walkInStats, walkInTotal, sumWalkInTotals } from "@/lib/walkIns";
 import type { WalkIn } from "@/types/domain";
 
 function walkIn(partial: Partial<WalkIn>): WalkIn {
@@ -130,5 +130,32 @@ describe("board density", () => {
     expect(cardSizeFor("comfortable", false)).toBe("md");
     expect(cardSizeFor("dense", true)).toBe("sm");
     expect(cardSizeFor("dense", false)).toBe("xs");
+  });
+});
+
+describe("walkInTotal", () => {
+  const item = (unit_price: number | null, quantity: number) => ({ service_id: `s${quantity}${unit_price}`, name: "x", quantity, unit_price, currency: "COP" });
+
+  it("suma los productos del pedido con el precio guardado", () => {
+    expect(walkInTotal(walkIn({ order_items: [item(20000, 2), item(9000, 1)] }))).toEqual({ amount: 49000, currency: "COP" });
+  });
+
+  it("acepta precios que llegan como texto (numeric de Postgres)", () => {
+    expect(walkInTotal(walkIn({ order_items: [item("15000" as unknown as number, 2)] }))?.amount).toBe(30000);
+  });
+
+  it("usa el precio del servicio cuando no hay pedido", () => {
+    expect(walkInTotal(walkIn({ services: { name: "Lavado", duration_minutes: 30, price: 35000, currency: "COP" } }))).toEqual({ amount: 35000, currency: "COP" });
+  });
+
+  it("devuelve null si nada tiene precio", () => {
+    expect(walkInTotal(walkIn({ order_items: [item(null, 1)] }))).toBeNull();
+    expect(walkInTotal(walkIn({}))).toBeNull();
+  });
+
+  it("suma varias atenciones ignorando las que no tienen precio", () => {
+    const total = sumWalkInTotals([walkIn({ order_items: [item(20000, 1)] }), walkIn({}), walkIn({ order_items: [item(5000, 2)] })]);
+    expect(total).toEqual({ amount: 30000, currency: "COP" });
+    expect(sumWalkInTotals([walkIn({})])).toBeNull();
   });
 });
