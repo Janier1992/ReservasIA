@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/currency";
-import { formatTicket, formatWait, minutesBetween, notifyStatus, serviceProgress, walkInAssetLabel, walkInTotal, type CardSize } from "@/lib/walkIns";
+import { formatTicket, formatWait, isWaitOverdue, minutesBetween, notifyStatus, serviceProgress, shortName, walkInAssetLabel, walkInTotal, type CardSize } from "@/lib/walkIns";
 import type { WalkIn } from "@/types/domain";
 
 interface Props {
@@ -19,6 +19,12 @@ interface Props {
   display?: boolean;
   /** Tamaño según cuántas atenciones hay (ver boardDensity). */
   size?: CardSize;
+  /** Minutos de espera para marcarla "Demorado"; null = sin alerta. */
+  waitAlertMinutes?: number | null;
+  /** Sin precios ni totales (pantalla que ve el público). */
+  hidePrices?: boolean;
+  /** Nombre abreviado, "Andrea G." (pantalla que ve el público). */
+  hideNames?: boolean;
   /** Selector de recurso para atender (solo en espera). */
   resourceSelect?: ReactNode;
   onServe?: () => void;
@@ -64,6 +70,9 @@ export function WalkInCard({
   timeLabel,
   display,
   size = display ? "lg" : "md",
+  waitAlertMinutes,
+  hidePrices,
+  hideNames,
   resourceSelect,
   onServe,
   onComplete,
@@ -78,6 +87,8 @@ export function WalkInCard({
   const ready = !!w.ready_at;
   const notify = notifyStatus(w);
   const name = w.customer_name;
+  const shownName = hideNames ? shortName(name) : name;
+  const delayed = isWaitOverdue(w, now, waitAlertMinutes);
   const asset = walkInAssetLabel(w);
   const ticket = formatTicket(w.ticket_number);
   // Lo que se ve de lejos: la placa (o la mascota) si la reserva la tiene; si no, el ticket.
@@ -85,7 +96,7 @@ export function WalkInCard({
   const resource = w.reservations?.resources?.name;
   const progress = inService && !ready ? serviceProgress(w, now) : null;
   const detail = detailLine(w);
-  const total = walkInTotal(w);
+  const total = hidePrices ? null : walkInTotal(w);
   const hasOrder = !!w.order_items?.length;
 
   return (
@@ -93,7 +104,15 @@ export function WalkInCard({
       className={cn(
         "flex flex-col rounded-xl border bg-card shadow-sm",
         sz.card,
-        ready ? "border-success/60 bg-success/5 ring-1 ring-success/30" : progress?.overdue ? "border-destructive/50" : inService ? "border-primary/40" : "border-border",
+        ready
+          ? "border-success/60 bg-success/5 ring-1 ring-success/30"
+          : delayed
+            ? "border-destructive/60 bg-destructive/5 ring-1 ring-destructive/30"
+            : progress?.overdue
+              ? "border-destructive/50"
+              : inService
+                ? "border-primary/40"
+                : "border-border"
       )}
     >
       <header className="flex items-start justify-between gap-2">
@@ -109,29 +128,30 @@ export function WalkInCard({
               {headline}
             </span>
           ) : (
-            <span className={cn("truncate font-display font-semibold", sz.headline)}>{name}</span>
+            <span className={cn("truncate font-display font-semibold", sz.headline)}>{shownName}</span>
           )}
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
           {ready && <Badge variant="success">Listo</Badge>}
+          {delayed && <Badge variant="destructive">Demorado</Badge>}
           {resource && <Badge variant="default">{resource}</Badge>}
         </div>
       </header>
 
       <div className={cn("space-y-1", sz.body)}>
         {w.order_items && w.order_items.length > 0 && (
-          <ul aria-label={`Pedido de ${name}`}>
+          <ul aria-label={`Pedido de ${shownName}`}>
             {w.order_items.map((item) => (
               <li key={item.service_id} className="font-medium">
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="min-w-0">
                     <span className="font-semibold tabular-nums">{item.quantity}×</span> {item.name}
                   </span>
-                  {item.unit_price !== null && item.unit_price !== undefined && (
+                  {!hidePrices && item.unit_price !== null && item.unit_price !== undefined && (
                     <span className="shrink-0 tabular-nums">{formatCurrency(Number(item.unit_price) * item.quantity, item.currency)}</span>
                   )}
                 </span>
-                {item.quantity > 1 && item.unit_price !== null && item.unit_price !== undefined && (
+                {!hidePrices && item.quantity > 1 && item.unit_price !== null && item.unit_price !== undefined && (
                   <span className="block text-[0.85em] font-normal text-muted-foreground tabular-nums">{formatCurrency(Number(item.unit_price), item.currency)} c/u</span>
                 )}
                 {item.includes && <span className="block text-[0.85em] font-normal text-muted-foreground">Incluye: {item.includes}</span>}
@@ -154,7 +174,7 @@ export function WalkInCard({
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
           {headline && (
             <span className={cn("inline-flex items-center gap-1 font-medium text-foreground", sz.name)}>
-              <User className="h-3.5 w-3.5" /> {name}
+              <User className="h-3.5 w-3.5" /> {shownName}
             </span>
           )}
           {asset && ticket && <span className="font-mono text-xs font-semibold">{ticket}</span>}
@@ -194,7 +214,7 @@ export function WalkInCard({
           )}
         </div>
       ) : (
-        <p className={cn("text-muted-foreground", sz.meta)}>
+        <p className={cn(delayed ? "font-semibold text-destructive" : "text-muted-foreground", sz.meta)}>
           {ready && w.ready_at
             ? `Listo hace ${formatWait(minutesBetween(w.ready_at, now))}${display ? " · acercate a reclamarlo" : ""}`
             : `Esperando ${formatWait(minutesBetween(w.arrived_at, now))}${position !== undefined ? ` · ${position}.º en la fila` : ""}`}

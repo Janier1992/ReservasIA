@@ -45,3 +45,14 @@ export function describeMenuDays(availableDays: number[] | null | undefined): st
     .map((d) => WEEKDAY_NAMES[d].slice(0, 3))
     .join(", ");
 }
+
+/** Fecha local del negocio, "yyyy-MM-dd" (como la guarda services.sold_out_on). */
+export function localDateIn(timezone: string, now = new Date()): string {
+  // en-CA formatea como yyyy-MM-dd.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
+
+/** Agotado del día: solo cuenta si se marcó hoy; al día siguiente vuelve solo. */
+export function isSoldOut(soldOutOn: string | null | undefined, today: string): boolean {
+  return !!soldOutOn && soldOutOn.slice(0, 10) === today;
+}

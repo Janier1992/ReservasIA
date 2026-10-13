@@ -15,7 +15,7 @@ import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { isNonNegativeNumber, isPositiveInteger } from "@/lib/validation";
 import { cn } from "@/lib/utils";
-import { MENU_WEEK, WEEKDAY_NAMES, WEEKDAY_SHORT, describeMenuDays, isOnMenu, toggleMenuDay, weekdayIn } from "@/lib/menuDays";
+import { MENU_WEEK, WEEKDAY_NAMES, WEEKDAY_SHORT, describeMenuDays, isOnMenu, isSoldOut, localDateIn, toggleMenuDay, weekdayIn } from "@/lib/menuDays";
 import type { Service } from "@/types/domain";
 
 /** Días de la semana en que el producto está en el menú; un toque prende o apaga cada día. */
@@ -51,6 +51,7 @@ export function ServicesPage() {
   // Restaurantes: cada producto puede estar en el menú solo algunos días.
   const usesMenuDays = currentOrg?.business_type === "restaurant";
   const today = weekdayIn(currentOrg?.timezone ?? "UTC");
+  const todayDate = localDateIn(currentOrg?.timezone ?? "UTC");
   // En restaurantes la descripción dice qué trae el plato (sopa, arroz, jugo...).
   const descriptionLabel = usesMenuDays ? "Incluye" : "Descripción";
   const [menuFilter, setMenuFilter] = useState<"all" | "today">("all");
@@ -119,6 +120,33 @@ export function ServicesPage() {
     }
     setForm({ name: "", description: "", duration_minutes: 60, price: "", currency: form.currency });
     invalidate();
+  }
+
+  /** Agotado hoy: el QR lo muestra agotado y no deja pedirlo; mañana vuelve solo. */
+  async function toggleSoldOut(service: Service) {
+    const soldOut = isSoldOut(service.sold_out_on, todayDate);
+    const { error } = await insforge.database
+      .from("services")
+      .update({ sold_out_on: soldOut ? null : todayDate })
+      .eq("id", service.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(soldOut ? `${service.name} vuelve a estar disponible.` : `${service.name} quedó agotado por hoy. Mañana vuelve solo.`);
+    invalidate();
+  }
+
+  function soldOutCell(service: Service) {
+    return (
+      <td className="px-4 py-3">
+        <Switch
+          checked={isSoldOut(service.sold_out_on, todayDate)}
+          onCheckedChange={() => toggleSoldOut(service)}
+          aria-label={`${service.name} agotado hoy`}
+        />
+      </td>
+    );
   }
 
   async function toggleActive(service: Service) {
@@ -259,6 +287,7 @@ export function ServicesPage() {
               <th className="px-4 py-3">Duración</th>
               <th className="px-4 py-3">Precio</th>
               {usesMenuDays && <th className="px-4 py-3">Días del menú</th>}
+              {usesMenuDays && <th className="px-4 py-3">Agotado hoy</th>}
               <th className="px-4 py-3">Activo</th>
               <th className="px-4 py-3" />
             </tr>
@@ -312,6 +341,7 @@ export function ServicesPage() {
                       <MenuDaysPicker service={s} onChange={(days) => setMenuDays(s, days)} />
                     </td>
                   )}
+                  {usesMenuDays && soldOutCell(s)}
                   <td className="px-4 py-3">
                     <Switch checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
                   </td>
@@ -342,6 +372,7 @@ export function ServicesPage() {
                       <MenuDaysPicker service={s} onChange={(days) => setMenuDays(s, days)} />
                     </td>
                   )}
+                  {usesMenuDays && soldOutCell(s)}
                   <td className="px-4 py-3">
                     <Switch checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
                   </td>
@@ -358,7 +389,7 @@ export function ServicesPage() {
             )}
             {!isLoading && shown.length === 0 && (
               <EmptyTableRow
-                colSpan={usesMenuDays ? 6 : 5}
+                colSpan={usesMenuDays ? 7 : 5}
                 message={services.length > 0 ? `Ningún producto activo está en el menú de los ${WEEKDAY_NAMES[today]}.` : "Todavía no cargaste ningún servicio."}
               />
             )}

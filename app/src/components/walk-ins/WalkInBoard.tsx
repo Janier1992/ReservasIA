@@ -14,6 +14,7 @@ export function WalkInBoardHeader({
   icon: Icon,
   timezone,
   description,
+  actions,
   onToggleDisplay
 }: {
   display: boolean;
@@ -22,6 +23,8 @@ export function WalkInBoardHeader({
   icon: LucideIcon;
   timezone: string;
   description: ReactNode;
+  /** Botones extra junto a "Modo pantalla" (ej. ajustes del tablero). */
+  actions?: ReactNode;
   onToggleDisplay: () => void;
 }) {
   return (
@@ -55,6 +58,7 @@ export function WalkInBoardHeader({
           En vivo
         </span>
         <LiveClock timezone={timezone} large={display} />
+        {actions}
         <Button variant="outline" size="sm" className="shrink-0 whitespace-nowrap" onClick={onToggleDisplay}>
           {display ? (
             <>

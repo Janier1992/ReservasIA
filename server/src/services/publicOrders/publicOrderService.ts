@@ -2,7 +2,7 @@ import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 import { normalizePhone, publicPageMode, resolveOrganization } from "../publicBooking/publicBookingService.js";
-import { isOnMenu, weekdayIn } from "../publicBooking/menuDays.js";
+import { isOnMenu, isSoldOut, localDateIn, weekdayIn } from "../publicBooking/menuDays.js";
 import { generateOrderCode, loadNotifyLinks, type NotifyChannel } from "../chatLink/notifyLinks.js";
 import { linkReservationByCode } from "../chatLink/reservationLink.js";
 
@@ -116,7 +116,7 @@ async function loadOrderItems(organizationId: string, timezone: string, requeste
   }
   const { data } = await insforgeAdmin.database
     .from("services")
-    .select("id, name, description, price, currency, available_days")
+    .select("id, name, description, price, currency, available_days, sold_out_on")
     .eq("organization_id", organizationId)
     .eq("is_active", true)
     .in(
@@ -132,12 +132,18 @@ async function loadOrderItems(organizationId: string, timezone: string, requeste
       price: number | null;
       currency: string | null;
       available_days?: number[] | null;
+      sold_out_on?: string | null;
     }[])
       .filter((s) => isOnMenu(s.available_days, today))
       .map((s) => [s.id, s])
   );
   if (items.some((i) => !found.has(i.serviceId))) {
     throw new AppError(ErrorCodes.SERVICE_NOT_FOUND, "Alguno de los productos ya no está disponible hoy. Recargá la página y volvé a armar tu pedido.", 404);
+  }
+  const todayDate = localDateIn(timezone, now);
+  const soldOut = items.map((i) => found.get(i.serviceId)!).filter((s) => isSoldOut(s.sold_out_on, todayDate));
+  if (soldOut.length > 0) {
+    throw new AppError(ErrorCodes.SERVICE_NOT_FOUND, `Se agotó por hoy: ${soldOut.map((s) => s.name).join(", ")}. Quitalo de tu pedido y volvé a intentar.`, 409);
   }
   return items.map((i) => {
     const s = found.get(i.serviceId)!;
