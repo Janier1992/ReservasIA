@@ -28,14 +28,14 @@ export function setCartQuantity(cart: Cart, productId: string, quantity: number)
   return next;
 }
 
-export interface CartLine {
-  product: CartProduct;
+export interface CartLine<P extends CartProduct = CartProduct> {
+  product: P;
   quantity: number;
   subtotal: number | null;
 }
 
 /** Líneas del carrito en el orden de la carta, ignorando productos que ya no están. */
-export function cartLines(cart: Cart, products: CartProduct[]): CartLine[] {
+export function cartLines<P extends CartProduct>(cart: Cart, products: P[]): CartLine<P>[] {
   return products
     .filter((p) => (cart[p.id] ?? 0) > 0)
     .map((p) => ({ product: p, quantity: cart[p.id], subtotal: p.price === null ? null : p.price * cart[p.id] }));

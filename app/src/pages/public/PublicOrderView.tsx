@@ -49,6 +49,8 @@ function QuantityStepper({ name, quantity, onChange }: { name: string; quantity:
  */
 export function PublicOrderView({ slug, business, icon }: Props) {
   const [cart, setCart] = useState<Cart>({});
+  // Para quién es cada porción, por producto (opcional).
+  const [forNames, setForNames] = useState<Record<string, string[]>>({});
   const [form, setForm] = useState({ name: "", phone: "", notes: "", website: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +67,7 @@ export function PublicOrderView({ slug, business, icon }: Props) {
   function startOver() {
     setOrder(null);
     setCart({});
+    setForNames({});
     setError(null);
     setForm((f) => ({ ...f, notes: "" }));
     window.scrollTo({ top: 0 });
@@ -78,7 +81,10 @@ export function PublicOrderView({ slug, business, icon }: Props) {
     try {
       setOrder(
         await publicApi.order(slug, {
-          items: lines.map((l) => ({ serviceId: l.product.id, quantity: l.quantity })),
+          items: lines.map((l) => {
+            const names = (forNames[l.product.id] ?? []).slice(0, l.quantity).map((n) => n.trim()).filter(Boolean);
+            return names.length > 0 ? { serviceId: l.product.id, quantity: l.quantity, forNames: names } : { serviceId: l.product.id, quantity: l.quantity };
+          }),
           name: form.name,
           phone: form.phone || undefined,
           notes: form.notes || undefined,
@@ -124,7 +130,10 @@ export function PublicOrderView({ slug, business, icon }: Props) {
               {items.map((item) => (
                 <li key={item.name} className="flex gap-3 py-2 first:pt-0 last:pb-0">
                   <span className="w-8 shrink-0 font-semibold tabular-nums">{item.quantity}×</span>
-                  <span className="flex-1">{item.name}</span>
+                  <span className="flex-1">
+                    {item.name}
+                    {item.forNames && item.forNames.length > 0 && <span className="block text-xs text-muted-foreground">Para: {item.forNames.join(", ")}</span>}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -180,7 +189,7 @@ export function PublicOrderView({ slug, business, icon }: Props) {
                   >
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{s.name}</p>
-                      {s.description && <p className="text-sm text-muted-foreground">{s.description}</p>}
+                      {s.description && <p className="text-sm text-muted-foreground">Incluye: {s.description}</p>}
                       {s.price !== null && <p className="text-sm font-medium">{formatCurrency(s.price, s.currency)}</p>}
                     </div>
                     {quantity > 0 ? (
@@ -203,12 +212,34 @@ export function PublicOrderView({ slug, business, icon }: Props) {
               <h2 className="font-display text-lg font-semibold">Tu pedido</h2>
               <ul className="divide-y divide-border">
                 {lines.map((l) => (
-                  <li key={l.product.id} className="flex items-center gap-3 py-2 first:pt-0">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{l.product.name}</p>
-                      {l.subtotal !== null && <p className="text-xs tabular-nums text-muted-foreground">{formatCurrency(l.subtotal, l.product.currency)}</p>}
+                  <li key={l.product.id} className="space-y-2 py-3 first:pt-0">
+                    <div className="flex items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">{l.product.name}</p>
+                        {l.product.description && <p className="text-xs text-muted-foreground">Incluye: {l.product.description}</p>}
+                        {l.subtotal !== null && <p className="text-xs tabular-nums text-muted-foreground">{formatCurrency(l.subtotal, l.product.currency)}</p>}
+                      </div>
+                      <QuantityStepper name={l.product.name} quantity={l.quantity} onChange={(q) => change(l.product.id, q)} />
                     </div>
-                    <QuantityStepper name={l.product.name} quantity={l.quantity} onChange={(q) => change(l.product.id, q)} />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {Array.from({ length: l.quantity }, (_, i) => (
+                        <Input
+                          key={i}
+                          maxLength={40}
+                          className="h-9 text-sm"
+                          aria-label={`Para quién es ${l.quantity > 1 ? `la porción ${i + 1} de ` : ""}${l.product.name}`}
+                          placeholder={l.quantity > 1 ? `¿Para quién? (porción ${i + 1}, opcional)` : "¿Para quién es? (opcional)"}
+                          value={forNames[l.product.id]?.[i] ?? ""}
+                          onChange={(e) =>
+                            setForNames((current) => {
+                              const names = [...(current[l.product.id] ?? [])];
+                              names[i] = e.target.value;
+                              return { ...current, [l.product.id]: names };
+                            })
+                          }
+                        />
+                      ))}
+                    </div>
                   </li>
                 ))}
               </ul>

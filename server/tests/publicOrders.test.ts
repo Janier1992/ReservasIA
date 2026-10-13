@@ -15,7 +15,7 @@ vi.mock("../src/services/telegram/telegramService.js", () => ({
 }));
 vi.mock("../src/services/twilio/twilioService.js", () => ({ sendWhatsAppMessage: vi.fn() }));
 
-const { buildOrderReadyText, createPublicOrder, extractOrderCode, formatTicket, generateOrderCode, handleOrderCodeMessage, mergeOrderItems, orderTotal, summarizeOrderItems } = await import(
+const { buildOrderReadyText, cleanForNames, createPublicOrder, extractOrderCode, formatTicket, generateOrderCode, handleOrderCodeMessage, mergeOrderItems, orderTotal, summarizeOrderItems } = await import(
   "../src/services/publicOrders/publicOrderService.js"
 );
 const { sendReadyOrderNotifications } = await import("../src/services/publicOrders/orderReadyNotifier.js");
@@ -137,6 +137,26 @@ describe("createPublicOrder", () => {
     });
   });
 
+  it("keeps what each dish includes and who each portion is for", async () => {
+    const lunch = { id: "svc-3", name: "Almuerzo ejecutivo", description: "Sopa de mondongo, arroz, carne asada y jugo", price: 20000, currency: "COP" };
+    useDb({
+      organizations: ok(restaurant),
+      services: ok([lunch]),
+      walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z" }), ok([{ id: "w-1" }])],
+      integrations: ok([])
+    });
+    const order = await createPublicOrder("antojitos", {
+      items: [{ serviceId: "svc-3", quantity: 3, forNames: [" Ana ", "", "Luis", "Pedro", "Sobra"] }],
+      name: "Ana Ruiz"
+    });
+    expect(insertedInto("walk_ins")).toMatchObject({
+      order_items: [
+        { name: "Almuerzo ejecutivo", quantity: 3, includes: "Sopa de mondongo, arroz, carne asada y jugo", for_names: ["Ana", "Luis", "Pedro"] }
+      ]
+    });
+    expect(order.items).toEqual([{ name: "Almuerzo ejecutivo", quantity: 3, forNames: ["Ana", "Luis", "Pedro"] }]);
+  });
+
   it("rejects the order when a product is no longer on the menu", async () => {
     useDb({ organizations: ok(restaurant), services: ok([burger]) });
     await expect(
@@ -188,6 +208,21 @@ describe("createPublicOrder", () => {
 });
 
 describe("order helpers", () => {
+  it("keeps one name per portion, trimmed and without blanks", () => {
+    expect(cleanForNames(undefined, 2)).toEqual([]);
+    expect(cleanForNames(["  Ana ", " ", "Luis", "Pedro"], 2)).toEqual(["Ana", "Luis"]);
+    expect(cleanForNames(["x".repeat(60)], 1)[0]).toHaveLength(40);
+  });
+
+  it("joins the names of repeated lines of the same product", () => {
+    expect(
+      mergeOrderItems([
+        { serviceId: "a", quantity: 1, forNames: ["Ana"] },
+        { serviceId: "a", quantity: 1, forNames: ["Luis"] }
+      ])
+    ).toEqual([{ serviceId: "a", quantity: 2, forNames: ["Ana", "Luis"] }]);
+  });
+
   it("merges repeated products", () => {
     expect(
       mergeOrderItems([
