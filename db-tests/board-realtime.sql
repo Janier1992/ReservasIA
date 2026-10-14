@@ -57,4 +57,12 @@ do $$ declare own int; other int; junk int; begin
   raise notice 'OK: solo los miembros se suscriben al tablero de su negocio';
 end $$;
 
+set local role postgres;
+do $$ begin
+  if (select retention_days from realtime.config limit 1) is distinct from 7 then
+    raise exception 'FAIL: los avisos del tablero no tienen retención de 7 días';
+  end if;
+  raise notice 'OK: los avisos de tiempo real se limpian solos (7 días)';
+end $$;
+
 rollback;

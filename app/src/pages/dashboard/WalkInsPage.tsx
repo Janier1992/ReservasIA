@@ -21,7 +21,7 @@ import { WalkInBoardHeader, WalkInBoardSection, WalkInStatTiles } from "@/compon
 import { WalkInEditDialog } from "@/components/walk-ins/WalkInEditDialog";
 import { WalkInRegisterForm } from "@/components/walk-ins/WalkInRegisterForm";
 import { isModuleEnabled } from "@/lib/modules";
-import { isOnMenu, weekdayIn } from "@/lib/menuDays";
+import { isOnMenu, isSoldOut, localDateIn, weekdayIn } from "@/lib/menuDays";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/currency";
 import { boardDensity, cardSizeFor, formatTicket, formatWait, isWaitOverdue, shortName, sumWalkInTotals, walkInErrorMessage, walkInStats, walkInTotal } from "@/lib/walkIns";
@@ -73,7 +73,7 @@ export function WalkInsPage() {
   }, []);
 
   const { display, toggleDisplay } = useDisplayMode();
-  const { settings: boardSettings, save: saveBoardSettings } = useBoardSettings();
+  const { settings: boardSettings, loaded: boardSettingsLoaded, save: saveBoardSettings } = useBoardSettings();
 
   // Tiempo real: un pedido por QR, una reserva o un cambio de otro dispositivo
   // refresca el tablero al instante. La consulta periódica queda de respaldo
@@ -175,7 +175,10 @@ export function WalkInsPage() {
   });
 
   // Restaurantes: al registrar un pedido solo se ofrece el menú de hoy.
-  const registerServices = showPartySize ? services.filter((s) => isOnMenu(s.available_days, weekdayIn(timezone))) : services;
+  // Restaurantes: el equipo solo registra lo que está en el menú de hoy y no se agotó.
+  const registerServices = showPartySize
+    ? services.filter((s) => isOnMenu(s.available_days, weekdayIn(timezone)) && !isSoldOut(s.sold_out_on, localDateIn(timezone)))
+    : services;
 
   // Las que ya llegaron están en la fila (o ya se atendieron hoy): no se repiten arriba.
   const arrivedReservationIds = new Set(walkIns.map((w) => w.reservation_id).filter(Boolean));
@@ -191,7 +194,8 @@ export function WalkInsPage() {
   // ya estaban demoradas al abrir la página no suenan (solo quedan resaltadas).
   const alerted = useRef<Set<string> | null>(null);
   useEffect(() => {
-    if (!isFetched) return;
+    // Esperar los ajustes reales: con el umbral por defecto sonaría de más al abrir.
+    if (!isFetched || !boardSettingsLoaded) return;
     const delayed = walkIns.filter((w) => isWaitOverdue(w, now, alertMinutes));
     if (!alerted.current) {
       alerted.current = new Set(delayed.map((w) => w.id));
@@ -204,7 +208,7 @@ export function WalkInsPage() {
     playAlertSound();
     const who = fresh.map((w) => formatTicket(w.ticket_number) || w.customer_name).join(", ");
     toast.warning(`${who}: ${fresh.length > 1 ? "llevan" : "lleva"} más de ${alertMinutes} min esperando.`);
-  }, [walkIns, now, alertMinutes, isFetched]);
+  }, [walkIns, now, alertMinutes, isFetched, boardSettingsLoaded]);
   const stats = walkInStats(walkIns.filter((w) => new Date(w.arrived_at) >= startOfToday()));
   const busyResourceIds = new Set(
     walkIns

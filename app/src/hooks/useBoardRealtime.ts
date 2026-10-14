@@ -25,6 +25,7 @@ export function useBoardRealtime(organizationId: string | null | undefined, onCh
     if (!organizationId || !realtime) return;
     const channel = boardChannel(organizationId);
     let cancelled = false;
+    let connectedBefore = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const fire = () => {
@@ -35,8 +36,13 @@ export function useBoardRealtime(organizationId: string | null | undefined, onCh
       if (!message?.meta?.channel || message.meta.channel === channel) fire();
     };
     const onConnect = () => {
-      // Reconexión: el SDK se vuelve a suscribir solo; refrescamos por lo que pasó mientras tanto.
       if (cancelled) return;
+      // La primera conexión la maneja connect() de abajo; en una reconexión
+      // refrescamos por lo que pasó mientras tanto.
+      if (!connectedBefore) {
+        connectedBefore = true;
+        return;
+      }
       void realtime.subscribe(channel).then((response) => {
         if (!cancelled) setLive(response.ok);
       });
