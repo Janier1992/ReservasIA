@@ -177,14 +177,16 @@ export function PublicOrderView({ slug, business, icon }: Props) {
             <p className="text-sm text-muted-foreground">Hoy no hay productos en el menú. Preguntá en el mostrador.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {business.services.map((s) => {
+              {/* Lo agotado hoy va al final: se ve, pero no se puede pedir. */}
+              {[...business.services].sort((a, b) => Number(!!a.soldOut) - Number(!!b.soldOut)).map((s) => {
                 const quantity = cart[s.id] ?? 0;
                 return (
                   <div
                     key={s.id}
                     className={cn(
                       "flex items-center gap-3 rounded-2xl border bg-card p-4 transition-colors",
-                      quantity > 0 ? "border-primary ring-2 ring-primary/20" : "border-border"
+                      quantity > 0 ? "border-primary ring-2 ring-primary/20" : "border-border",
+                      s.soldOut && "bg-muted/40 opacity-70"
                     )}
                   >
                     <div className="min-w-0 flex-1">
@@ -192,7 +194,9 @@ export function PublicOrderView({ slug, business, icon }: Props) {
                       {s.description && <p className="text-sm text-muted-foreground">Incluye: {s.description}</p>}
                       {s.price !== null && <p className="text-sm font-medium">{formatCurrency(s.price, s.currency)}</p>}
                     </div>
-                    {quantity > 0 ? (
+                    {s.soldOut ? (
+                      <span className="shrink-0 rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Agotado hoy</span>
+                    ) : quantity > 0 ? (
                       <QuantityStepper name={s.name} quantity={quantity} onChange={(q) => change(s.id, q)} />
                     ) : (
                       <Button type="button" variant="outline" size="sm" className="shrink-0 rounded-full" aria-label={`Agregar ${s.name}`} onClick={() => change(s.id, 1)}>

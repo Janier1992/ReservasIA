@@ -10,6 +10,8 @@ export interface PublicService {
   durationMinutes: number;
   price: number | null;
   currency: string;
+  /** Agotado por hoy (pedidos por QR): se muestra en la carta, no se puede pedir. */
+  soldOut?: boolean;
 }
 
 export interface PublicBusiness {

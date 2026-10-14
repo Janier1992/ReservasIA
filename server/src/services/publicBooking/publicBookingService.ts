@@ -6,7 +6,7 @@ import { findOrCreateCustomerByPhone } from "../customers/customersService.js";
 import { createReservation } from "../reservations/reservationsService.js";
 import { requiresHealthDataConsent } from "../agent/safetyGuardrails.js";
 import { createReservationChatLink } from "../chatLink/reservationLink.js";
-import { isOnMenu, weekdayIn } from "./menuDays.js";
+import { isOnMenu, isSoldOut, localDateIn, weekdayIn } from "./menuDays.js";
 
 /**
  * Página pública de reservas (/r/:slug): lo que ve y puede hacer alguien
@@ -42,7 +42,7 @@ export interface PublicBusiness {
   phone: string | null;
   logoUrl: string | null;
   maxBookingDays: number;
-  services: { id: string; name: string; description: string | null; durationMinutes: number; price: number | null; currency: string }[];
+  services: { id: string; name: string; description: string | null; durationMinutes: number; price: number | null; currency: string; soldOut?: boolean }[];
 }
 
 const NOT_AVAILABLE = () =>
@@ -73,7 +73,7 @@ export async function getPublicBusiness(slug: string, now = new Date()): Promise
       .maybeSingle(),
     insforgeAdmin.database
       .from("services")
-      .select("id, name, description, duration_minutes, price, currency, available_days")
+      .select("id, name, description, duration_minutes, price, currency, available_days, sold_out_on")
       .eq("organization_id", org.id)
       .eq("is_active", true)
       .order("name", { ascending: true })
@@ -83,6 +83,7 @@ export async function getPublicBusiness(slug: string, now = new Date()): Promise
   // Pedidos por QR: solo el menú de hoy (en la hora del negocio).
   const mode = publicPageMode(org.business_type, org.disabled_modules);
   const today = weekdayIn(org.timezone, now);
+  const todayDate = localDateIn(org.timezone, now);
   const offered = (services ?? []).filter(
     (s: Record<string, unknown>) => mode !== "order" || isOnMenu(s.available_days as number[] | null, today)
   );
@@ -105,7 +106,9 @@ export async function getPublicBusiness(slug: string, now = new Date()): Promise
       description: (s.description as string | null) ?? null,
       durationMinutes: s.duration_minutes as number,
       price: (s.price as number | null) ?? null,
-      currency: s.currency as string
+      currency: s.currency as string,
+      // Agotado hoy: se sigue mostrando en la carta, pero no se puede pedir.
+      ...(mode === "order" && isSoldOut(s.sold_out_on as string | null, todayDate) ? { soldOut: true } : {})
     }))
   };
 }

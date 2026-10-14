@@ -176,3 +176,19 @@ export function sumWalkInTotals(walkIns: Pick<WalkIn, "order_items" | "services"
   }
   return total;
 }
+
+/**
+ * Alerta de demora: alguien en espera (sin atender ni listo) que pasó el
+ * umbral del negocio. null = alerta apagada.
+ */
+export function isWaitOverdue(w: Pick<WalkIn, "status" | "ready_at" | "arrived_at">, now: Date, alertMinutes: number | null | undefined): boolean {
+  if (!alertMinutes || w.status !== "waiting" || w.ready_at) return false;
+  return minutesBetween(w.arrived_at, now) >= alertMinutes;
+}
+
+/** "Andrea Gil Restrepo" → "Andrea G.": para la pantalla que ve el público. */
+export function shortName(name: string): string {
+  const [first, ...rest] = name.trim().split(/\s+/);
+  const initial = rest.find(Boolean)?.[0];
+  return initial ? `${first} ${initial.toUpperCase()}.` : first ?? "";
+}

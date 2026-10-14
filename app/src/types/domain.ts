@@ -96,6 +96,8 @@ export interface Service {
   is_active: boolean;
   /** Restaurantes: días en que está en el menú (0 = domingo); null = todos los días. */
   available_days?: number[] | null;
+  /** Agotado del día: fecha local en que se agotó (solo cuenta ese día). */
+  sold_out_on?: string | null;
 }
 
 export interface Customer {

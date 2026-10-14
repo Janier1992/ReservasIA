@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardDensity, cardSizeFor, formatTicket, formatWait, minutesBetween, notifyStatus, serviceProgress, walkInAssetLabel, walkInErrorMessage, walkInStats, walkInTotal, sumWalkInTotals } from "@/lib/walkIns";
+import { boardDensity, cardSizeFor, formatTicket, formatWait, minutesBetween, notifyStatus, serviceProgress, walkInAssetLabel, walkInErrorMessage, walkInStats, walkInTotal, sumWalkInTotals, isWaitOverdue, shortName } from "@/lib/walkIns";
 import type { WalkIn } from "@/types/domain";
 
 function walkIn(partial: Partial<WalkIn>): WalkIn {
@@ -157,5 +157,29 @@ describe("walkInTotal", () => {
     const total = sumWalkInTotals([walkIn({ order_items: [item(20000, 1)] }), walkIn({}), walkIn({ order_items: [item(5000, 2)] })]);
     expect(total).toEqual({ amount: 30000, currency: "COP" });
     expect(sumWalkInTotals([walkIn({})])).toBeNull();
+  });
+});
+
+describe("isWaitOverdue", () => {
+  const now = new Date("2026-09-26T10:20:00Z");
+
+  it("marca demorado a quien espera más que el umbral", () => {
+    expect(isWaitOverdue(walkIn({ arrived_at: "2026-09-26T10:00:00Z" }), now, 15)).toBe(true);
+    expect(isWaitOverdue(walkIn({ arrived_at: "2026-09-26T10:10:00Z" }), now, 15)).toBe(false);
+  });
+
+  it("no alerta si está apagada, en atención o ya listo", () => {
+    const old = { arrived_at: "2026-09-26T09:00:00Z" };
+    expect(isWaitOverdue(walkIn(old), now, null)).toBe(false);
+    expect(isWaitOverdue(walkIn({ ...old, status: "in_service" }), now, 15)).toBe(false);
+    expect(isWaitOverdue(walkIn({ ...old, ready_at: "2026-09-26T09:30:00Z" }), now, 15)).toBe(false);
+  });
+});
+
+describe("shortName", () => {
+  it("abrevia el apellido para la pantalla pública", () => {
+    expect(shortName("Andrea Gil Restrepo")).toBe("Andrea G.");
+    expect(shortName("  ana  ")).toBe("ana");
+    expect(shortName("luis pérez")).toBe("luis P.");
   });
 });

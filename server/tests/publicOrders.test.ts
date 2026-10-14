@@ -82,6 +82,14 @@ describe("public menu of the day", () => {
     expect((await getPublicBusiness("antojitos", monday)).services.map((s) => s.name)).toEqual(["Hamburguesa", "Sopa de mondongo"]);
   });
 
+  it("keeps today's sold-out products visible but marked, and forgets it the next day", async () => {
+    const soldOut = [{ ...menu[0], sold_out_on: "2026-10-10" }];
+    useDb({ organizations: ok(restaurant), business_profiles: ok(profile), services: ok(soldOut) });
+    expect((await getPublicBusiness("antojitos", saturday)).services[0].soldOut).toBe(true);
+    useDb({ organizations: ok(restaurant), business_profiles: ok(profile), services: ok(soldOut) });
+    expect((await getPublicBusiness("antojitos", monday)).services[0].soldOut).toBeUndefined();
+  });
+
   it("leaves booking pages of other businesses untouched", async () => {
     useDb({ organizations: ok({ ...restaurant, business_type: "spa" }), business_profiles: ok(profile), services: ok(menu) });
     expect((await getPublicBusiness("spa", saturday)).services).toHaveLength(2);
@@ -199,6 +207,23 @@ describe("createPublicOrder", () => {
         new Date("2026-10-10T17:00:00Z")
       )
     ).rejects.toMatchObject({ statusCode: 404, message: expect.stringContaining("no está disponible hoy") });
+  });
+
+  it("rejects a product sold out today, naming it", async () => {
+    useDb({ organizations: ok(restaurant), services: ok([burger, { ...lemonade, sold_out_on: "2026-10-10" }]) });
+    await expect(
+      createPublicOrder(
+        "antojitos",
+        {
+          items: [
+            { serviceId: "svc-1", quantity: 1 },
+            { serviceId: "svc-2", quantity: 1 }
+          ],
+          name: "Ana"
+        },
+        new Date("2026-10-10T17:00:00Z")
+      )
+    ).rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining(`Se agotó por hoy: ${lemonade.name}`) });
   });
 
   it("rejects businesses whose public page is for bookings", async () => {

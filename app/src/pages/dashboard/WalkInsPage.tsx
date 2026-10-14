@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { BellRing, CalendarCheck, Clock, Hourglass, Pencil, Trash2, UserCheck, Wallet } from "lucide-react";
+import { BellRing, CalendarCheck, Clock, Hourglass, Pencil, Settings2, Trash2, UserCheck, Wallet } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
 import { useBusinessBranding } from "@/hooks/useBusinessBranding";
 import { useDisplayMode } from "@/hooks/useDisplayMode";
+import { useBoardSettings } from "@/hooks/useBoardSettings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { WalkInCard } from "@/components/walk-ins/WalkInCard";
+import { BoardSettingsDialog } from "@/components/walk-ins/BoardSettingsDialog";
 import { WalkInBoardHeader, WalkInBoardSection, WalkInStatTiles } from "@/components/walk-ins/WalkInBoard";
 import { WalkInEditDialog } from "@/components/walk-ins/WalkInEditDialog";
 import { WalkInRegisterForm } from "@/components/walk-ins/WalkInRegisterForm";
@@ -21,7 +23,8 @@ import { isModuleEnabled } from "@/lib/modules";
 import { isOnMenu, weekdayIn } from "@/lib/menuDays";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/currency";
-import { boardDensity, cardSizeFor, formatTicket, formatWait, sumWalkInTotals, walkInErrorMessage, walkInStats, walkInTotal } from "@/lib/walkIns";
+import { boardDensity, cardSizeFor, formatTicket, formatWait, isWaitOverdue, shortName, sumWalkInTotals, walkInErrorMessage, walkInStats, walkInTotal } from "@/lib/walkIns";
+import { playAlertSound } from "@/lib/alertSound";
 import { zonedDayRange } from "@/lib/payments";
 import { orderItemsForSale, summarizeOrderItems } from "@/lib/orderCart";
 import { upcomingDates } from "@/lib/publicBookingUtils";
@@ -69,11 +72,18 @@ export function WalkInsPage() {
   }, []);
 
   const { display, toggleDisplay } = useDisplayMode();
+  const { settings: boardSettings, save: saveBoardSettings } = useBoardSettings();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const alertMinutes = boardSettings.wait_alert_minutes;
+  // Pantalla que ve el público: el negocio decide si muestra precios y nombres completos.
+  const hidePrices = display && boardSettings.display_hide_prices;
+  const hideNames = display && boardSettings.display_hide_names;
 
   const queryKey = ["walk-ins", currentOrganizationId];
   const {
     data: walkIns = [],
     isError,
+    isFetched,
     refetch
   } = useQuery({
     queryKey,
@@ -165,7 +175,26 @@ export function WalkInsPage() {
   const waiting = walkIns.filter((w) => w.status === "waiting" && !w.ready_at);
   const inService = walkIns.filter((w) => w.status === "in_service" && !w.ready_at);
   const finishedToday = walkIns.filter((w) => w.status === "done" || w.status === "left");
-  const soldToday = sumWalkInTotals(finishedToday.filter((w) => w.status === "done"));
+  const soldToday = hidePrices ? null : sumWalkInTotals(finishedToday.filter((w) => w.status === "done"));
+
+  // Alerta de demora: suena una vez por atención cuando pasa el umbral. Las que
+  // ya estaban demoradas al abrir la página no suenan (solo quedan resaltadas).
+  const alerted = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!isFetched) return;
+    const delayed = walkIns.filter((w) => isWaitOverdue(w, now, alertMinutes));
+    if (!alerted.current) {
+      alerted.current = new Set(delayed.map((w) => w.id));
+      return;
+    }
+    const seen = alerted.current;
+    const fresh = delayed.filter((w) => !seen.has(w.id));
+    if (fresh.length === 0) return;
+    fresh.forEach((w) => seen.add(w.id));
+    playAlertSound();
+    const who = fresh.map((w) => formatTicket(w.ticket_number) || w.customer_name).join(", ");
+    toast.warning(`${who}: ${fresh.length > 1 ? "llevan" : "lleva"} más de ${alertMinutes} min esperando.`);
+  }, [walkIns, now, alertMinutes, isFetched]);
   const stats = walkInStats(walkIns.filter((w) => new Date(w.arrived_at) >= startOfToday()));
   const busyResourceIds = new Set(
     walkIns
@@ -307,7 +336,10 @@ export function WalkInsPage() {
     onEdit: () => setEditing(w),
     onDelete: () => remove(w),
     display,
-    size: cardSize
+    size: cardSize,
+    waitAlertMinutes: alertMinutes,
+    hidePrices,
+    hideNames
   });
 
   return (
@@ -328,6 +360,14 @@ export function WalkInsPage() {
             </>
           }
           onToggleDisplay={toggleDisplay}
+          actions={
+            !display &&
+            canDelete && (
+              <Button variant="outline" size="sm" className="shrink-0 whitespace-nowrap" onClick={() => setSettingsOpen(true)}>
+                <Settings2 className="h-4 w-4" /> Ajustes
+              </Button>
+            )
+          }
         />
 
         <WalkInStatTiles
@@ -451,9 +491,9 @@ export function WalkInsPage() {
             {finishedToday.map((w) => (
               <div key={w.id} className="flex items-center gap-3 py-2 text-sm">
                 <span className="w-12 shrink-0 font-mono text-xs font-semibold text-muted-foreground">{formatTicket(w.ticket_number)}</span>
-                <span className="flex-1 font-medium">{w.customer_name}</span>
+                <span className="flex-1 font-medium">{hideNames ? shortName(w.customer_name) : w.customer_name}</span>
                 <span className="hidden max-w-[50%] truncate text-muted-foreground sm:inline">{summarizeOrderItems(w.order_items) || w.services?.name || "—"}</span>
-                <WalkInAmount walkIn={w} />
+                {!hidePrices && <WalkInAmount walkIn={w} />}
                 <span className="text-muted-foreground">{time(w.arrived_at)}</span>
                 <Badge variant={w.status === "done" ? "success" : "muted"}>{w.status === "done" ? "Atendido" : "Se fue"}</Badge>
                 <Button size="icon" variant="ghost" title="Editar registro" aria-label={`Editar el registro de ${w.customer_name}`} onClick={() => setEditing(w)}>
@@ -483,6 +523,7 @@ export function WalkInsPage() {
       )}
       </div>
 
+      <BoardSettingsDialog open={settingsOpen} settings={boardSettings} onClose={() => setSettingsOpen(false)} onSave={saveBoardSettings} />
       <WalkInEditDialog walkIn={editing} services={services} showPartySize={showPartySize} onClose={() => setEditing(null)} onSaved={refresh} />
       {currentOrganizationId && (
         <PaymentDialog
