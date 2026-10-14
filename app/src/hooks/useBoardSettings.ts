@@ -19,7 +19,7 @@ export function useBoardSettings() {
   const queryClient = useQueryClient();
   const queryKey = ["board-settings", currentOrganizationId];
 
-  const { data } = useQuery({
+  const { data, isFetched } = useQuery({
     queryKey,
     enabled: !!currentOrganizationId,
     queryFn: async (): Promise<BoardSettings> => {
@@ -41,5 +41,6 @@ export function useBoardSettings() {
     return null;
   }
 
-  return { settings: data ?? DEFAULT_BOARD_SETTINGS, save };
+  // loaded: ya se leyeron los ajustes reales (no los valores por defecto de mientras tanto).
+  return { settings: data ?? DEFAULT_BOARD_SETTINGS, loaded: isFetched, save };
 }

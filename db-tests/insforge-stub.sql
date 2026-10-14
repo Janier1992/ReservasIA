@@ -103,3 +103,8 @@ grant usage on schema realtime to authenticated, anon;
 grant select on realtime.channels to authenticated, anon;
 grant insert on realtime.messages to authenticated, anon;
 grant execute on function realtime.channel_name() to authenticated, anon;
+create table if not exists realtime.config (
+  id uuid default gen_random_uuid() primary key,
+  retention_days integer default null
+);
+insert into realtime.config (retention_days) select null where not exists (select 1 from realtime.config);
