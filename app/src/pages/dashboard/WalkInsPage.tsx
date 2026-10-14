@@ -8,6 +8,7 @@ import { useCurrentBusinessTheme } from "@/hooks/useBusinessTheme";
 import { useBusinessBranding } from "@/hooks/useBusinessBranding";
 import { useDisplayMode } from "@/hooks/useDisplayMode";
 import { useBoardSettings } from "@/hooks/useBoardSettings";
+import { useBoardRealtime } from "@/hooks/useBoardRealtime";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +74,15 @@ export function WalkInsPage() {
 
   const { display, toggleDisplay } = useDisplayMode();
   const { settings: boardSettings, save: saveBoardSettings } = useBoardSettings();
+
+  // Tiempo real: un pedido por QR, una reserva o un cambio de otro dispositivo
+  // refresca el tablero al instante. La consulta periódica queda de respaldo
+  // (más seguida si el tiempo real no está disponible).
+  const live = useBoardRealtime(currentOrganizationId, () => {
+    queryClient.invalidateQueries({ queryKey: ["walk-ins", currentOrganizationId] });
+    queryClient.invalidateQueries({ queryKey: ["walk-ins-today-reservations", currentOrganizationId] });
+    queryClient.invalidateQueries({ queryKey: ["reservations"] });
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const alertMinutes = boardSettings.wait_alert_minutes;
   // Pantalla que ve el público: el negocio decide si muestra precios y nombres completos.
@@ -89,7 +99,7 @@ export function WalkInsPage() {
     queryKey,
     enabled: !!currentOrganizationId,
     // Varias personas del equipo pueden estar atendiendo la misma fila.
-    refetchInterval: 15_000,
+    refetchInterval: live ? 30_000 : 5_000,
     queryFn: async () => {
       const [active, today] = await Promise.all([
         insforge.database
@@ -117,7 +127,7 @@ export function WalkInsPage() {
   const { data: todayReservations = [] } = useQuery({
     queryKey: todayKey,
     enabled: !!currentOrganizationId,
-    refetchInterval: 30_000,
+    refetchInterval: live ? 60_000 : 10_000,
     queryFn: async () => {
       const { from, to } = zonedDayRange(upcomingDates(timezone, 1)[0], timezone);
       const { data, error } = await insforge.database
