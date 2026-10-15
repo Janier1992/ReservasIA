@@ -1,24 +1,15 @@
-import { logger } from "../../lib/logger.js";
+import { createScheduledJob } from "../../lib/scheduledJob.js";
 import { sendDueSurveys } from "./surveyService.js";
 
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
-let timer: NodeJS.Timeout | null = null;
-
-async function runOnce(): Promise<void> {
-  try {
-    await sendDueSurveys();
-  } catch (err) {
-    logger.error({ err }, "survey_run_failed");
-  }
-}
+// Con varias instancias del server, cada vuelta corre en una sola (ver lib/scheduledJob.ts).
+const job = createScheduledJob("surveys", CHECK_INTERVAL_MS, sendDueSurveys);
 
 export function startSurveyScheduler(): void {
-  runOnce();
-  timer = setInterval(runOnce, CHECK_INTERVAL_MS);
+  job.start();
 }
 
 export function stopSurveyScheduler(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
+  job.stop();
 }

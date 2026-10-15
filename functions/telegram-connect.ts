@@ -1,10 +1,9 @@
 // Edge Function: telegram-connect
 // Guarda el bot token de Telegram de una organización, validándolo primero
-// contra la API de Telegram (getMe). A diferencia de Twilio/Google, no hace
-// falta configurar ningún webhook acá: el compute service atiende cada bot
-// conectado con su propio loop de long-polling (ver
-// server/src/services/telegram/telegramPollingManager.ts), así que no se
-// necesita una URL pública.
+// contra la API de Telegram (getMe). El webhook no se configura acá: el
+// compute service atiende cada bot conectado, por long-polling
+// (telegramPollingManager.ts) o, con TELEGRAM_MODE=webhook, registrándole su
+// webhook en menos de un minuto (telegramWebhookManager.ts).
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
 
 const CORS_HEADERS = {

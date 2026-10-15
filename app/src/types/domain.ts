@@ -8,6 +8,8 @@ export interface Organization {
   status: "active" | "suspended" | "cancelled";
   timezone: string;
   subscription_expires_at: string | null;
+  /** Fin de la prueba gratis del registro autónomo (null: negocio anterior a la prueba). */
+  trial_ends_at?: string | null;
   // Módulos opcionales apagados por soporte (ver lib/modules.ts).
   disabled_modules: string[];
   created_at: string;

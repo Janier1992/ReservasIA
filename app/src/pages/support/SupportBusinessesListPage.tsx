@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Send, MessageCircle, CalendarDays, Bot } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { Badge } from "@/components/ui/badge";
+import { subscriptionState } from "@/lib/subscription";
 import { EmptyTableRow } from "@/components/EmptyTableRow";
 import { QueryErrorState } from "@/components/QueryErrorState";
 import { businessTypeLabel } from "@/lib/businessTypes";
@@ -132,6 +133,11 @@ export function SupportBusinessesListPage() {
                     <Badge variant={b.status === "active" ? "success" : "destructive"}>
                       {b.status === "active" ? "Activa" : b.status === "suspended" ? "Suspendida" : "Cancelada"}
                     </Badge>
+                    {b.status === "active" && subscriptionState(b).kind === "trial" && (
+                      <Badge variant="warning" className="ml-1.5">
+                        Prueba
+                      </Badge>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={b.agentEnabled ? "success" : "muted"}>{b.agentEnabled ? "Activo" : "Pausado"}</Badge>

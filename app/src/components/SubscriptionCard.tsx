@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CreditCard } from "lucide-react";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { daysLeftLabel, subscriptionState } from "@/lib/subscription";
 import type { SubscriptionPayment } from "@/types/domain";
 
 const STATUS_LABELS: Record<SubscriptionPayment["status"], string> = {
@@ -40,6 +42,13 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
   const [viewingId, setViewingId] = useState<string | null>(null);
 
   const organization = memberships.find((m) => m.organization_id === organizationId)?.organizations ?? null;
+  const cardRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+
+  // El aviso de prueba/vencimiento enlaza acá (#suscripcion).
+  useEffect(() => {
+    if (location.hash === "#suscripcion") cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [location.hash]);
 
   const { data: payments = [] } = useQuery({
     queryKey: ["subscription-payments", organizationId],
@@ -114,83 +123,88 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
 
   const expiresAt = organization?.subscription_expires_at ? new Date(organization.subscription_expires_at) : null;
   const isSuspended = organization?.status === "suspended";
+  const state = organization ? subscriptionState(organization) : { kind: "ok" as const };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CreditCard className="h-4 w-4" /> Suscripción
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div
-          className={`rounded-md border p-3 text-sm ${
-            isSuspended ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border"
-          }`}
-        >
-          {isSuspended
-            ? "Tu servicio está suspendido por falta de pago. Reportá tu pago acá abajo para reactivarlo."
-            : expiresAt
-              ? `Suscripción activa hasta el ${expiresAt.toLocaleDateString("es-CO")}.`
-              : "Todavía no tenés una fecha de vencimiento registrada."}
-        </div>
+    <div ref={cardRef} id="suscripcion" className="scroll-mt-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4" /> Suscripción
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div
+            className={`rounded-md border p-3 text-sm ${
+              isSuspended ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-border"
+            }`}
+          >
+            {isSuspended
+              ? "Tu servicio está suspendido por falta de pago. Reportá tu pago acá abajo para reactivarlo."
+              : state.kind === "trial"
+                ? `Estás en la prueba gratis: ${daysLeftLabel(state.daysLeft)} (hasta el ${state.endsAt.toLocaleDateString("es-CO")}). Reportá tu pago cuando quieras: se suma al final de la prueba.`
+                : expiresAt
+                ? `Suscripción activa hasta el ${expiresAt.toLocaleDateString("es-CO")}.`
+                : "Todavía no tenés una fecha de vencimiento registrada."}
+          </div>
 
-        {!readOnly && (
-          <div className="space-y-3 rounded-md border border-border p-3">
-            <p className="text-sm text-muted-foreground">
-              Pagá por Nequi y subí acá la captura del comprobante. Una vez que soporte lo confirme, tu servicio se
-              reactiva (o extiende) automáticamente y te llega un correo de confirmación.
-            </p>
-            <div className="grid grid-cols-2 gap-3">
+          {!readOnly && (
+            <div className="space-y-3 rounded-md border border-border p-3">
+              <p className="text-sm text-muted-foreground">
+                Pagá por Nequi y subí acá la captura del comprobante. Una vez que soporte lo confirme, tu servicio se
+                reactiva (o extiende) automáticamente y te llega un correo de confirmación.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Monto pagado (opcional)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    disabled={submitting}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Nota (opcional)</Label>
+                  <Input disabled={submitting} value={note} onChange={(e) => setNote(e.target.value)} />
+                </div>
+              </div>
               <div className="space-y-1.5">
-                <Label>Monto pagado (opcional)</Label>
-                <Input
-                  type="number"
-                  min={0}
+                <Label htmlFor="receipt-upload">Comprobante de pago</Label>
+                <input
+                  id="receipt-upload"
+                  type="file"
+                  accept="image/*"
                   disabled={submitting}
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={handleReceiptChange}
+                  className="block text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground file:hover:opacity-90 disabled:opacity-60"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label>Nota (opcional)</Label>
-                <Input disabled={submitting} value={note} onChange={(e) => setNote(e.target.value)} />
-              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="receipt-upload">Comprobante de pago</Label>
-              <input
-                id="receipt-upload"
-                type="file"
-                accept="image/*"
-                disabled={submitting}
-                onChange={handleReceiptChange}
-                className="block text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground file:hover:opacity-90 disabled:opacity-60"
-              />
-            </div>
-          </div>
-        )}
+          )}
 
-        {payments.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Pagos reportados</p>
-            {payments.map((p) => (
-              <div key={p.id} className="flex items-center justify-between gap-3 rounded-md border border-border p-2 text-sm">
-                <div>
-                  <span>{new Date(p.created_at).toLocaleDateString("es-CO")}</span>
-                  {p.amount != null && <span className="text-muted-foreground"> — ${p.amount}</span>}
+          {payments.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Pagos reportados</p>
+              {payments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between gap-3 rounded-md border border-border p-2 text-sm">
+                  <div>
+                    <span>{new Date(p.created_at).toLocaleDateString("es-CO")}</span>
+                    {p.amount != null && <span className="text-muted-foreground"> — ${p.amount}</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={STATUS_VARIANTS[p.status]}>{STATUS_LABELS[p.status]}</Badge>
+                    <Button variant="ghost" size="sm" disabled={viewingId === p.id} onClick={() => viewReceipt(p.id)}>
+                      Ver
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={STATUS_VARIANTS[p.status]}>{STATUS_LABELS[p.status]}</Badge>
-                  <Button variant="ghost" size="sm" disabled={viewingId === p.id} onClick={() => viewReceipt(p.id)}>
-                    Ver
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

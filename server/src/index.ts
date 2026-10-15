@@ -2,6 +2,11 @@ import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { startTelegramPollingManager, stopTelegramPollingManager } from "./services/telegram/telegramPollingManager.js";
+import {
+  isTelegramWebhookMode,
+  startTelegramWebhookManager,
+  stopTelegramWebhookManager
+} from "./services/telegram/telegramWebhookManager.js";
 import { startReminderScheduler, stopReminderScheduler } from "./services/reminders/reminderScheduler.js";
 import { startSurveyScheduler, stopSurveyScheduler } from "./services/surveys/surveyScheduler.js";
 import { startOrderReadyNotifier, stopOrderReadyNotifier } from "./services/publicOrders/orderReadyNotifier.js";
@@ -19,7 +24,15 @@ const server = app.listen(env.PORT, () => {
     logger.warn("background_workers_disabled: sin poller de Telegram ni schedulers (DISABLE_BACKGROUND_WORKERS=true)");
     return;
   }
-  startTelegramPollingManager();
+  // Webhook: varias instancias pueden atender Telegram a la vez. Polling: una sola.
+  if (isTelegramWebhookMode()) {
+    startTelegramWebhookManager();
+  } else {
+    if (env.TELEGRAM_MODE === "webhook") {
+      logger.error("telegram_webhook_misconfigured: faltan TELEGRAM_WEBHOOK_BASE_URL o TELEGRAM_WEBHOOK_SECRET (16+ caracteres); sigue en polling");
+    }
+    startTelegramPollingManager();
+  }
   startReminderScheduler();
   startSurveyScheduler();
   startOrderReadyNotifier();
@@ -30,6 +43,7 @@ const server = app.listen(env.PORT, () => {
 function shutdown() {
   if (!env.DISABLE_BACKGROUND_WORKERS) {
     stopTelegramPollingManager();
+    stopTelegramWebhookManager();
     stopReminderScheduler();
     stopSurveyScheduler();
     stopOrderReadyNotifier();

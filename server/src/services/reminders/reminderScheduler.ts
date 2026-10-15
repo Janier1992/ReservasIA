@@ -1,24 +1,15 @@
-import { logger } from "../../lib/logger.js";
+import { createScheduledJob } from "../../lib/scheduledJob.js";
 import { sendDueReservationReminders } from "./reminderService.js";
 
 const CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 minutos: suficiente margen frente a una ventana mínima de 1 hora antes.
 
-let timer: NodeJS.Timeout | null = null;
-
-async function runOnce(): Promise<void> {
-  try {
-    await sendDueReservationReminders();
-  } catch (err) {
-    logger.error({ err }, "reservation_reminders_run_failed");
-  }
-}
+// Con varias instancias del server, cada vuelta corre en una sola (ver lib/scheduledJob.ts).
+const job = createScheduledJob("reminders", CHECK_INTERVAL_MS, sendDueReservationReminders);
 
 export function startReminderScheduler(): void {
-  runOnce();
-  timer = setInterval(runOnce, CHECK_INTERVAL_MS);
+  job.start();
 }
 
 export function stopReminderScheduler(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
+  job.stop();
 }

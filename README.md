@@ -42,6 +42,15 @@ Wizard de 10 pasos: nombre y tipo de negocio, zona horaria, datos de contacto, h
 servicios (con precio, moneda y duración), recursos (mesas/personal/consultorios), configuración del agente de IA, y
 conexión de canales — todo antes de llegar al dashboard.
 
+**Registro autónomo** (sin pasar por soporte), al crear el negocio (`create_organization_with_owner`):
+- **14 días de prueba gratis** (`organizations.trial_ends_at` = `subscription_expires_at`). Un aviso arriba del
+  panel muestra los días que quedan y lleva a reportar el pago; al vencer, el negocio se suspende solo y la pantalla
+  de bloqueo deja reportar el pago ahí mismo. Pagar extiende desde el fin de la prueba. Una prueba por persona.
+- **Módulos del rubro encendidos**: página pública y reportes para todos; atención en sitio en restaurante,
+  barbería, salón de belleza, lavadero y taller (`signup_disabled_modules`). Planes, caja, opiniones y recuperar
+  clientes los sigue encendiendo soporte.
+- **Slug único** aunque dos negocios se llamen igual ("antojitos", "antojitos-2"...).
+
 ### Agente de IA (por negocio, 100% configurable)
 - Responde en el idioma y tono configurados (formal / casual / amable), con instrucciones y reglas propias por
   negocio.
@@ -421,17 +430,25 @@ y `API_KEY` (reservados, ya provistos por InsForge), más `OPENAI_API_KEY`, `OPE
 
 ## Configurar Telegram (canal recomendado, gratis)
 
-A diferencia de WhatsApp, Telegram no cobra por mensaje ni requiere aprobación de negocio, y el compute service lo
-atiende con **long-polling** (`server/src/services/telegram/telegramPollingManager.ts`) en vez de un webhook — por
-eso no hace falta URL pública ni dominio, ni siquiera en producción.
+A diferencia de WhatsApp, Telegram no cobra por mensaje ni requiere aprobación de negocio. El compute service lo
+atiende de dos formas (`TELEGRAM_MODE`):
+
+- **`polling`** (por defecto): long-polling (`telegramPollingManager.ts`). No necesita URL pública, pero **solo
+  puede correr una instancia** del server (dos instancias leyendo el mismo bot = 409 y mensajes duplicados).
+- **`webhook`** (para escalar): Telegram le envía cada mensaje a `POST /api/webhooks/telegram/:organizationId`
+  (`telegramWebhookManager.ts`), con un secreto por negocio derivado de `TELEGRAM_WEBHOOK_SECRET`. Permite varias
+  instancias. Requiere `TELEGRAM_WEBHOOK_BASE_URL` (URL pública HTTPS del server, ej.
+  `https://reservas-server.up.railway.app`) y `TELEGRAM_WEBHOOK_SECRET` (16+ caracteres al azar). Una tarea
+  programada registra el webhook de cada bot conectado (máx. 1 minuto después de conectarlo). Volver a `polling`
+  es seguro: cada poller quita el webhook del bot sin perder mensajes pendientes.
 
 1. Hablá con [@BotFather](https://t.me/BotFather), mandale `/newbot`, seguí las instrucciones y copiá el token
    (formato `123456789:AA...`).
 2. Desde `/dashboard/integrations`, pegá ese token en la tarjeta "Telegram" y conectá — esto valida el token contra
    la API de Telegram y lo guarda en `integrations.credentials`.
-3. Con el compute service corriendo, el `telegramPollingManager` detecta el bot conectado en su próximo ciclo de
-   refresh (máx. 30s) y empieza a atenderlo automáticamente.
-4. "Desconectar" detiene el poller de ese bot en el siguiente ciclo.
+3. Con el compute service corriendo, el bot conectado se empieza a atender solo: en `polling`, en el próximo
+   refresh (máx. 30s); en `webhook`, cuando la tarea de sincronización le registra el webhook (máx. 1 minuto).
+4. "Desconectar" deja de atender ese bot (en `webhook`, los mensajes que sigan llegando se ignoran).
 
 ---
 
@@ -602,8 +619,11 @@ npm run build
 - **Frontend** (`app/`): build estático — se puede desplegar en Vercel, Netlify, cualquier CDN, o
   `npx @insforge/cli deployments deploy app`. Sólo necesita las variables `VITE_*`.
 - **Compute service** (`server/`): necesita un host que mantenga un proceso Node siempre encendido — **no sirve
-  Vercel** para esta parte, porque el poller de Telegram tiene que estar escuchando todo el tiempo. Alternativas
-  con nivel gratuito: Railway, Render, Fly.io; o `npx @insforge/cli compute deploy`; o un VPS con PM2.
+  Vercel** para esta parte (tareas programadas y, en modo `polling`, el poller de Telegram). Alternativas con nivel
+  gratuito: Railway, Render, Fly.io; o `npx @insforge/cli compute deploy`; o un VPS con PM2.
+- **Escalar a varias instancias**: las tareas programadas (recordatorios, encuestas, avisos de "listo",
+  vencimientos, limpieza, registro de webhooks) toman un turno en la base (`acquire_scheduler_lease`) y cada vuelta
+  corre en una sola instancia. Con `TELEGRAM_MODE=webhook` el server se puede replicar sin duplicar nada.
 - **Edge Functions**: `npx @insforge/cli functions deploy <slug> --file functions/<slug>.ts` por cada una, o
   `node scripts/deploy-functions.mjs` para todas.
 - **Base de datos**: aplicar migraciones nuevas con `npx @insforge/cli db migrations up --all`.

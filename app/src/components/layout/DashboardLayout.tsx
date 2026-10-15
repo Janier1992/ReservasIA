@@ -31,6 +31,7 @@ import { useSupportStaff } from "@/hooks/useSupportStaff";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { SubscriptionBanner } from "@/components/SubscriptionBanner";
 import { useApplyBusinessTheme } from "@/hooks/useBusinessTheme";
 import { isModuleEnabled, type ModuleKey } from "@/lib/modules";
 import type { BusinessVocabulary } from "@/lib/businessThemes";
@@ -204,6 +205,7 @@ export function DashboardLayout() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <SubscriptionBanner />
           {/* `key` fuerza a remontar el boundary al cambiar de ruta, así que
               navegar a otra sección "limpia" el error en vez de quedar
               atascado en el fallback de la pantalla anterior. */}
