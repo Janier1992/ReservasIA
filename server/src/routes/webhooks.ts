@@ -8,6 +8,9 @@ import { handleInboundMessage } from "../services/conversations/inboundMessageHa
 import { runAgentTurn } from "../services/agent/agentRuntime.js";
 import { extractOrderCode, handleOrderCodeMessage } from "../services/publicOrders/publicOrderService.js";
 import { webhookRateLimiter } from "../middleware/rateLimit.js";
+import { processUpdate } from "../services/telegram/telegramUpdateHandler.js";
+import { botTokenForWebhook, isValidTelegramWebhookSecret } from "../services/telegram/telegramWebhookManager.js";
+import type { TelegramUpdate } from "../services/telegram/telegramService.js";
 
 export const webhooksRouter = Router();
 
@@ -114,3 +117,42 @@ webhooksRouter.post(
     }
   }
 );
+
+const telegramParamsSchema = z.object({ organizationId: z.string().uuid() });
+
+/**
+ * Webhook de Telegram (modo TELEGRAM_MODE=webhook): una URL por negocio y un
+ * secreto por negocio en el header X-Telegram-Bot-Api-Secret-Token. Responde
+ * 200 apenas valida (Telegram reintenta si tarda) y procesa después; los
+ * reintentos repetidos se descartan en handleInboundMessage. Sin el
+ * limitador por IP de Twilio: todos los mensajes llegan desde las IPs de
+ * Telegram y el secreto ya filtra lo ajeno.
+ */
+webhooksRouter.post("/telegram/:organizationId", async (req, res, next) => {
+  try {
+    const params = telegramParamsSchema.safeParse(req.params);
+    if (!params.success) throw new AppError(ErrorCodes.WEBHOOK_INVALID_PAYLOAD, "Negocio inválido.", 400);
+    const { organizationId } = params.data;
+
+    const secret = req.get("x-telegram-bot-api-secret-token");
+    if (!isValidTelegramWebhookSecret(organizationId, secret)) {
+      throw new AppError(ErrorCodes.WEBHOOK_INVALID_SIGNATURE, "Secreto de Telegram inválido.", 403);
+    }
+
+    const update = req.body as TelegramUpdate;
+    // Telegram necesita el 200 para no reintentar; lo que no es un mensaje se ignora.
+    res.status(200).json({ ok: true });
+    if (typeof update?.update_id !== "number" || !update.message) return;
+
+    const botToken = await botTokenForWebhook(organizationId);
+    if (!botToken) {
+      logger.warn({ organizationId }, "telegram_webhook_without_connected_bot");
+      return;
+    }
+    processUpdate(organizationId, botToken, update).catch((err) =>
+      logger.error({ organizationId, updateId: update.update_id, err }, "telegram_update_processing_failed")
+    );
+  } catch (err) {
+    next(err);
+  }
+});

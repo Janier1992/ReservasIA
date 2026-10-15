@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { env } from "../config/env.js";
 import { getTelegramPollerHealth } from "../services/telegram/telegramPollingManager.js";
+import { isTelegramWebhookMode } from "../services/telegram/telegramWebhookManager.js";
 
 export const healthRouter = Router();
 
@@ -11,7 +12,8 @@ export const healthRouter = Router();
 const TELEGRAM_STALE_THRESHOLD_MS = 2 * 60 * 1000;
 
 healthRouter.get("/", (_req, res) => {
-  const telegram = getTelegramPollerHealth();
+  // En modo webhook no hay pollers: Telegram empuja los mensajes.
+  const telegram = { mode: isTelegramWebhookMode() ? "webhook" : "polling", ...getTelegramPollerHealth() };
   const telegramStale =
     telegram.activeOrgCount > 0 &&
     (!telegram.lastPollSuccessAt || Date.now() - new Date(telegram.lastPollSuccessAt).getTime() > TELEGRAM_STALE_THRESHOLD_MS);

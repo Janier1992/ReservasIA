@@ -5,6 +5,7 @@ import { useSupportStaff } from "@/hooks/useSupportStaff";
 import { useDeletedAccount } from "@/hooks/useDeletedAccount";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { SubscriptionCard } from "@/components/SubscriptionCard";
 import { AcceptInvites } from "./AcceptInvites";
 import { FullscreenLoader } from "./RequireAuth";
 
@@ -13,10 +14,10 @@ const CANCELLED_MESSAGE = "Esta cuenta fue cancelada. Contactá al negocio prove
 const DELETED_ACCOUNT_MESSAGE =
   "El negocio fue eliminado. Para más información, debés contactar a Soporte: synflow.ia@gmail.com";
 
-function BlockedOrganizationScreen({ message }: { message: string }) {
+function BlockedOrganizationScreen({ message, children }: { message: string; children?: React.ReactNode }) {
   const { signOut } = useAuth();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4 py-8">
       <div className="w-full max-w-md space-y-4 rounded-lg border border-destructive/30 bg-card p-6 text-center">
         <h1 className="text-xl font-semibold text-destructive">Cuenta bloqueada</h1>
         <p className="text-sm text-muted-foreground">{message}</p>
@@ -24,6 +25,7 @@ function BlockedOrganizationScreen({ message }: { message: string }) {
           Cerrar sesión
         </Button>
       </div>
+      {children && <div className="w-full max-w-md">{children}</div>}
     </div>
   );
 }
@@ -36,7 +38,7 @@ function BlockedOrganizationScreen({ message }: { message: string }) {
  * onboarding para crear un negocio propio.
  */
 export function RequireOrganization() {
-  const { memberships, isLoading, currentOrganizationId } = useOrganization();
+  const { memberships, isLoading, currentOrganizationId, currentRole } = useOrganization();
   const { data: pendingInvites = [], isLoading: invitesLoading, refetch: refetchInvites } = usePendingInvitesForMe();
   const { isSupportStaff, isLoading: supportLoading } = useSupportStaff();
   const { isDeletedAccount, isLoading: deletedLoading } = useDeletedAccount();
@@ -74,7 +76,15 @@ export function RequireOrganization() {
   if (!currentOrganizationId) return <FullscreenLoader />;
 
   const currentOrgStatus = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations.status;
-  if (currentOrgStatus === "suspended") return <BlockedOrganizationScreen message={SUSPENDED_MESSAGE} />;
+  if (currentOrgStatus === "suspended") {
+    // Dueño y admin pueden reportar el pago desde acá mismo: al confirmarlo
+    // soporte, el negocio se reactiva solo.
+    return (
+      <BlockedOrganizationScreen message={SUSPENDED_MESSAGE}>
+        {currentRole !== "staff" && <SubscriptionCard organizationId={currentOrganizationId} />}
+      </BlockedOrganizationScreen>
+    );
+  }
   if (currentOrgStatus === "cancelled") return <BlockedOrganizationScreen message={CANCELLED_MESSAGE} />;
 
   return <Outlet />;

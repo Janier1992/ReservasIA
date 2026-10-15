@@ -1,5 +1,6 @@
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
+import { createScheduledJob } from "../../lib/scheduledJob.js";
 import { loadConnectedTelegramBotToken, sendTelegramMessage } from "../telegram/telegramService.js";
 import { sendWhatsAppMessage } from "../twilio/twilioService.js";
 import { buildOrderReadyText, orderDescription, type NotifyChannel, type OrderItem } from "./publicOrderService.js";
@@ -105,27 +106,14 @@ export async function sendReadyOrderNotifications(now = new Date()): Promise<{ s
   return { sent, failed };
 }
 
-let timer: NodeJS.Timeout | null = null;
-let running = false;
-
-async function runOnce(): Promise<void> {
-  if (running) return; // Un envío lento no debe solapar la siguiente vuelta.
-  running = true;
-  try {
-    await sendReadyOrderNotifications();
-  } catch (err) {
-    logger.error({ err }, "order_ready_run_failed");
-  } finally {
-    running = false;
-  }
-}
+// Con varias instancias del server, cada vuelta corre en una sola (ver
+// lib/scheduledJob.ts), así un aviso de "listo" nunca sale dos veces.
+const job = createScheduledJob("order_ready_notifier", CHECK_INTERVAL_MS, sendReadyOrderNotifications);
 
 export function startOrderReadyNotifier(): void {
-  runOnce();
-  timer = setInterval(runOnce, CHECK_INTERVAL_MS);
+  job.start();
 }
 
 export function stopOrderReadyNotifier(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
+  job.stop();
 }

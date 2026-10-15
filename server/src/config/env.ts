@@ -46,6 +46,14 @@ const envSchema = z.object({
     .default("false")
     .transform((v) => v === "true"),
 
+  // Telegram: "polling" (por defecto, un solo server) o "webhook" (Telegram
+  // le envía cada mensaje al server; permite correr varias instancias).
+  // El modo webhook necesita la URL pública del server y un secreto propio;
+  // sin ellos se queda en polling.
+  TELEGRAM_MODE: z.enum(["polling", "webhook"]).default("polling"),
+  TELEGRAM_WEBHOOK_BASE_URL: z.string().optional().default(""),
+  TELEGRAM_WEBHOOK_SECRET: z.string().optional().default(""),
+
   // Railway lo inyecta solo en cada deploy; se expone en /api/health para
   // poder confirmar qué commit está corriendo.
   RAILWAY_GIT_COMMIT_SHA: z.string().optional().default("")

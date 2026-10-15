@@ -84,7 +84,7 @@ export function RegisterPage() {
   }
 
   return (
-    <AuthLayout title="Crear cuenta" subtitle="Empezá a gestionar las reservas de tu negocio">
+    <AuthLayout title="Crear cuenta" subtitle="Probá gratis 14 días, sin tarjeta. Configurás tu negocio en minutos.">
       <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-1.5">
           <Label htmlFor="fullName">Nombre completo</Label>

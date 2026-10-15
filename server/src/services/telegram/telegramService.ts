@@ -250,3 +250,41 @@ export async function downloadTelegramPhoto(
   const mimeType = extension === "png" ? "image/png" : "image/jpeg";
   return { bytes: new Uint8Array(buffer), mimeType };
 }
+
+export interface TelegramWebhookInfo {
+  url: string;
+  pending_update_count?: number;
+  last_error_message?: string;
+}
+
+async function callTelegram<T>(botToken: string, method: string, body: Record<string, unknown> = {}): Promise<T> {
+  const res = await fetchWithTimeout(
+    `${TELEGRAM_API_BASE}/bot${botToken}/${method}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+    SEND_TIMEOUT_MS
+  );
+  const data = (await res.json().catch(() => null)) as { ok?: boolean; result?: T; description?: string } | null;
+  if (!res.ok || !data?.ok) {
+    throw new AppError(ErrorCodes.INTERNAL_ERROR, `${method} falló: ${data?.description ?? res.status}`, 502);
+  }
+  return data.result as T;
+}
+
+/** Webhook configurado hoy en el bot ("" si atiende por polling). */
+export function getTelegramWebhookInfo(botToken: string): Promise<TelegramWebhookInfo> {
+  return callTelegram<TelegramWebhookInfo>(botToken, "getWebhookInfo");
+}
+
+/**
+ * Telegram entrega cada mensaje a esta URL con el header
+ * X-Telegram-Bot-Api-Secret-Token = secretToken. Los mensajes que quedaron
+ * pendientes mientras no había webhook se entregan igual.
+ */
+export async function setTelegramWebhook(botToken: string, url: string, secretToken: string): Promise<void> {
+  await callTelegram(botToken, "setWebhook", { url, secret_token: secretToken, allowed_updates: ["message"], max_connections: 40 });
+}
+
+/** Vuelve el bot a polling (getUpdates falla con 409 mientras haya webhook). */
+export async function deleteTelegramWebhook(botToken: string): Promise<void> {
+  await callTelegram(botToken, "deleteWebhook", { drop_pending_updates: false });
+}

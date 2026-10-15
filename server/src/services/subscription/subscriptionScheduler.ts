@@ -1,26 +1,17 @@
-import { logger } from "../../lib/logger.js";
+import { createScheduledJob } from "../../lib/scheduledJob.js";
 import { suspendExpiredSubscriptions } from "./subscriptionService.js";
 
 // El vencimiento de una suscripción no es tan sensible al minuto como un
 // recordatorio de turno — revisarlo una vez por hora alcanza de sobra.
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
-let timer: NodeJS.Timeout | null = null;
-
-async function runOnce(): Promise<void> {
-  try {
-    await suspendExpiredSubscriptions();
-  } catch (err) {
-    logger.error({ err }, "subscription_expiry_run_failed");
-  }
-}
+// Con varias instancias del server, cada vuelta corre en una sola (ver lib/scheduledJob.ts).
+const job = createScheduledJob("subscription_expiry", CHECK_INTERVAL_MS, suspendExpiredSubscriptions);
 
 export function startSubscriptionScheduler(): void {
-  runOnce();
-  timer = setInterval(runOnce, CHECK_INTERVAL_MS);
+  job.start();
 }
 
 export function stopSubscriptionScheduler(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
+  job.stop();
 }
