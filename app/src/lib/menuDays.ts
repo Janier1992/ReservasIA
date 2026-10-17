@@ -56,3 +56,9 @@ export function localDateIn(timezone: string, now = new Date()): string {
 export function isSoldOut(soldOutOn: string | null | undefined, today: string): boolean {
   return !!soldOutOn && soldOutOn.slice(0, 10) === today;
 }
+
+/** ¿Ya hay un producto con ese nombre en la carta? (sin mayúsculas ni espacios de más) */
+export function isOnMenuAlready(name: string, services: { name: string }[]): boolean {
+  const key = name.trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
+  return services.some((s) => s.name.trim().replace(/\s+/g, " ").toLocaleLowerCase("es") === key);
+}

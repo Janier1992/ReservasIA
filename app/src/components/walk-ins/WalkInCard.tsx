@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Bell, Check, Pencil, QrCode, Trash2, User, UserX } from "lucide-react";
+import { Bell, BookPlus, Check, Pencil, QrCode, Trash2, User, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,10 @@ interface Props {
   hidePrices?: boolean;
   /** Nombre abreviado, "Andrea G." (pantalla que ve el público). */
   hideNames?: boolean;
+  /** Guardar en la carta algo pedido fuera de ella (solo dueño/admin, fuera del modo pantalla). */
+  onSaveToMenu?: (name: string) => void;
+  /** ¿Ese nombre ya está en la carta? (para no ofrecer guardarlo de nuevo). */
+  isOnMenu?: (name: string) => boolean;
   /** Selector de recurso para atender (solo en espera). */
   resourceSelect?: ReactNode;
   onServe?: () => void;
@@ -73,6 +77,8 @@ export function WalkInCard({
   waitAlertMinutes,
   hidePrices,
   hideNames,
+  onSaveToMenu,
+  isOnMenu,
   resourceSelect,
   onServe,
   onComplete,
@@ -157,6 +163,22 @@ export function WalkInCard({
                       Fuera de la carta
                     </Badge>{" "}
                     <span className="text-muted-foreground">precio por confirmar</span>
+                    {!display &&
+                      onSaveToMenu &&
+                      (isOnMenu?.(item.name) ? (
+                        <span className="block text-success">
+                          <Check className="inline h-3.5 w-3.5" /> Ya está en la carta
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="mt-0.5 flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
+                          onClick={() => onSaveToMenu(item.name)}
+                          aria-label={`Guardar ${item.name} en la carta`}
+                        >
+                          <BookPlus className="h-3.5 w-3.5" /> Guardar en la carta
+                        </button>
+                      ))}
                   </span>
                 )}
                 {!hidePrices && item.quantity > 1 && item.unit_price !== null && item.unit_price !== undefined && (

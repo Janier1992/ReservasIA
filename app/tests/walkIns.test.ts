@@ -188,3 +188,11 @@ describe("shortName", () => {
     expect(shortName("luis pérez")).toBe("luis P.");
   });
 });
+
+describe("isOnMenuAlready", () => {
+  it("compara sin mayúsculas ni espacios de más", async () => {
+    const { isOnMenuAlready } = await import("@/lib/menuDays");
+    expect(isOnMenuAlready("  arepa  con QUESO ", [{ name: "Arepa con queso" }])).toBe(true);
+    expect(isOnMenuAlready("Arepa sola", [{ name: "Arepa con queso" }])).toBe(false);
+  });
+});
