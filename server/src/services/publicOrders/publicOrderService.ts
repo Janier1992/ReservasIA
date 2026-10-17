@@ -32,6 +32,10 @@ export interface PublicCustomItemInput {
   name: string;
   quantity: number;
   forNames?: string[];
+  /** Qué lleva el plato, escrito por el cliente. */
+  includes?: string;
+  /** Precio por unidad que indicó el cliente (el negocio lo valida al cobrar). */
+  unitPrice?: number;
 }
 
 export interface PublicOrderInput {
@@ -82,23 +86,37 @@ export function formatTicket(ticketNumber: number | null | undefined): string {
 export const MAX_ORDER_LINES = 20;
 export const MAX_ITEM_QUANTITY = 20;
 export const MAX_FOR_NAME_LENGTH = 40;
+const MAX_INCLUDES_LENGTH = 300;
 export const MAX_CUSTOM_ITEMS = 5;
 export const MAX_CUSTOM_ITEM_LENGTH = 80;
+export const MAX_CUSTOM_ITEM_PRICE = 100_000_000;
 
-/** Pedidos escritos a mano, limpios: sin precio (lo confirma el negocio). */
-export function customOrderItems(custom: PublicCustomItemInput[] | undefined): OrderItem[] {
+/**
+ * Pedidos escritos a mano, limpios. Con precio indicado por el cliente se
+ * guarda en la moneda del negocio; sin él, el precio lo confirma el negocio.
+ */
+export function customOrderItems(custom: PublicCustomItemInput[] | undefined, currency: string | null = null): OrderItem[] {
   return (custom ?? [])
     .map((c) => ({ ...c, name: c.name.trim().replace(/\s+/g, " ").slice(0, MAX_CUSTOM_ITEM_LENGTH) }))
     .filter((c) => c.name.length > 0)
     .slice(0, MAX_CUSTOM_ITEMS)
     .map((c) => {
-      const item: OrderItem = { service_id: null, name: c.name, quantity: c.quantity, unit_price: null, currency: null, custom: true };
+      const priced = typeof c.unitPrice === "number" && Number.isFinite(c.unitPrice) && c.unitPrice >= 0 && c.unitPrice <= MAX_CUSTOM_ITEM_PRICE;
+      const item: OrderItem = {
+        service_id: null,
+        name: c.name,
+        quantity: c.quantity,
+        unit_price: priced ? Math.round(c.unitPrice!) : null,
+        currency: priced ? currency : null,
+        custom: true
+      };
+      const includes = c.includes?.trim().replace(/\s+/g, " ").slice(0, MAX_INCLUDES_LENGTH);
+      if (includes) item.includes = includes;
       const forNames = cleanForNames(c.forNames, c.quantity);
       if (forNames.length > 0) item.for_names = forNames;
       return item;
     });
 }
-const MAX_INCLUDES_LENGTH = 300;
 
 /** Nombres limpios (sin vacíos), como máximo uno por unidad pedida. */
 export function cleanForNames(names: string[] | undefined, quantity: number): string[] {
@@ -184,12 +202,19 @@ async function loadOrderItems(organizationId: string, timezone: string, requeste
   });
 }
 
+/** Moneda del negocio, solo si algún pedido escrito a mano trae precio. */
+async function businessCurrency(organizationId: string, custom: PublicCustomItemInput[] | undefined): Promise<string | null> {
+  if (!custom?.some((c) => typeof c.unitPrice === "number")) return null;
+  const { data } = await insforgeAdmin.database.from("business_profiles").select("currency").eq("organization_id", organizationId).maybeSingle();
+  return (data as { currency?: string } | null)?.currency ?? "COP";
+}
+
 export async function createPublicOrder(slug: string, input: PublicOrderInput, now = new Date()): Promise<PublicOrderResult> {
   const org = await resolveOrganization(slug);
   if (publicPageMode(org.business_type, org.disabled_modules) !== "order") {
     throw new AppError(ErrorCodes.ORGANIZATION_NOT_FOUND, "Este negocio no recibe pedidos en línea.", 404);
   }
-  const custom = customOrderItems(input.customItems);
+  const custom = customOrderItems(input.customItems, await businessCurrency(org.id, input.customItems));
   if (input.items.length === 0 && custom.length === 0) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Elegí al menos un producto o escribí lo que querés pedir.", 400);
   }

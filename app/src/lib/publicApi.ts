@@ -114,7 +114,7 @@ export const publicApi = {
     body: {
       items: { serviceId: string; quantity: number; forNames?: string[] }[];
       /** Lo que no está en la carta, escrito por el cliente (el negocio confirma el precio). */
-      customItems?: { name: string; quantity: number }[];
+      customItems?: { name: string; quantity: number; includes?: string; unitPrice?: number }[];
       name: string;
       phone?: string;
       notes?: string;
