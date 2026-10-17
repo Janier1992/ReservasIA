@@ -148,6 +148,11 @@ describe("walkInTotal", () => {
     expect(walkInTotal(walkIn({ services: { name: "Lavado", duration_minutes: 30, price: 35000, currency: "COP" } }))).toEqual({ amount: 35000, currency: "COP" });
   });
 
+  it("marca el total como parcial si hay productos fuera de la carta sin precio", () => {
+    const custom = { service_id: null, name: "Arepa con queso", quantity: 1, unit_price: null, currency: null, custom: true };
+    expect(walkInTotal(walkIn({ order_items: [item(20000, 2), custom] }))).toEqual({ amount: 40000, currency: "COP", partial: true });
+  });
+
   it("devuelve null si nada tiene precio", () => {
     expect(walkInTotal(walkIn({ order_items: [item(null, 1)] }))).toBeNull();
     expect(walkInTotal(walkIn({}))).toBeNull();

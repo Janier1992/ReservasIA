@@ -174,7 +174,7 @@ export function PaymentDialog({ open, onOpenChange, organizationId, draft, title
             <div className="space-y-2 rounded-lg border border-border p-3">
               <ul className="divide-y divide-border text-sm">
                 {orderItems.map((i) => (
-                  <li key={i.service_id} className="flex gap-3 py-1.5 first:pt-0 last:pb-0">
+                  <li key={i.service_id ?? `custom-${i.name}`} className="flex gap-3 py-1.5 first:pt-0 last:pb-0">
                     <span className="w-8 shrink-0 font-semibold tabular-nums">{i.quantity}×</span>
                     <span className="min-w-0 flex-1 truncate">{i.name}</span>
                     <span className="shrink-0 tabular-nums">{formatCurrency((i.unit_price ?? 0) * i.quantity, i.currency)}</span>

@@ -27,8 +27,17 @@ export interface PublicOrderItemInput {
   forNames?: string[];
 }
 
+/** Algo que no está en la carta: el cliente lo escribe y el negocio confirma el precio. */
+export interface PublicCustomItemInput {
+  name: string;
+  quantity: number;
+  forNames?: string[];
+}
+
 export interface PublicOrderInput {
   items: PublicOrderItemInput[];
+  /** Pedidos escritos a mano (no están en la carta). */
+  customItems?: PublicCustomItemInput[];
   name: string;
   phone?: string;
   notes?: string;
@@ -36,7 +45,8 @@ export interface PublicOrderInput {
 
 /** Producto del pedido tal como estaba en la carta al momento de pedir (walk_ins.order_items). */
 export interface OrderItem {
-  service_id: string;
+  /** null en lo que el cliente escribió a mano (no está en la carta). */
+  service_id: string | null;
   name: string;
   quantity: number;
   unit_price: number | null;
@@ -45,6 +55,8 @@ export interface OrderItem {
   includes?: string | null;
   /** Para quién es cada unidad, si el cliente lo escribió. */
   for_names?: string[];
+  /** Lo escribió el cliente: no está en la carta y el precio lo confirma el negocio. */
+  custom?: true;
 }
 
 export interface PublicOrderResult {
@@ -70,6 +82,22 @@ export function formatTicket(ticketNumber: number | null | undefined): string {
 export const MAX_ORDER_LINES = 20;
 export const MAX_ITEM_QUANTITY = 20;
 export const MAX_FOR_NAME_LENGTH = 40;
+export const MAX_CUSTOM_ITEMS = 5;
+export const MAX_CUSTOM_ITEM_LENGTH = 80;
+
+/** Pedidos escritos a mano, limpios: sin precio (lo confirma el negocio). */
+export function customOrderItems(custom: PublicCustomItemInput[] | undefined): OrderItem[] {
+  return (custom ?? [])
+    .map((c) => ({ ...c, name: c.name.trim().replace(/\s+/g, " ").slice(0, MAX_CUSTOM_ITEM_LENGTH) }))
+    .filter((c) => c.name.length > 0)
+    .slice(0, MAX_CUSTOM_ITEMS)
+    .map((c) => {
+      const item: OrderItem = { service_id: null, name: c.name, quantity: c.quantity, unit_price: null, currency: null, custom: true };
+      const forNames = cleanForNames(c.forNames, c.quantity);
+      if (forNames.length > 0) item.for_names = forNames;
+      return item;
+    });
+}
 const MAX_INCLUDES_LENGTH = 300;
 
 /** Nombres limpios (sin vacíos), como máximo uno por unidad pedida. */
@@ -161,7 +189,15 @@ export async function createPublicOrder(slug: string, input: PublicOrderInput, n
   if (publicPageMode(org.business_type, org.disabled_modules) !== "order") {
     throw new AppError(ErrorCodes.ORGANIZATION_NOT_FOUND, "Este negocio no recibe pedidos en línea.", 404);
   }
-  const items = await loadOrderItems(org.id, org.timezone, input.items, now);
+  const custom = customOrderItems(input.customItems);
+  if (input.items.length === 0 && custom.length === 0) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, "Elegí al menos un producto o escribí lo que querés pedir.", 400);
+  }
+  const fromMenu = input.items.length > 0 ? await loadOrderItems(org.id, org.timezone, input.items, now) : [];
+  const items = [...fromMenu, ...custom];
+  if (items.length > MAX_ORDER_LINES) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, "Tu pedido tiene demasiados productos distintos.", 400);
+  }
   const code = generateOrderCode();
   const phone = input.phone ? normalizePhone(input.phone) : "";
 

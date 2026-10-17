@@ -125,9 +125,10 @@ export async function assertActiveService(organizationId: string, serviceId: str
   return service as { id: string; duration_minutes: number };
 }
 
-export async function getPublicAvailability(slug: string, serviceId: string, date: string, now = new Date()) {
+/** Sin serviceId: "otro servicio" descrito por el cliente, con la duración por defecto del negocio. */
+export async function getPublicAvailability(slug: string, serviceId: string | undefined, date: string, now = new Date()) {
   const org = await resolveOrganization(slug);
-  await assertActiveService(org.id, serviceId);
+  if (serviceId) await assertActiveService(org.id, serviceId);
   const { slots, reason, timezone } = await getAvailableSlots({ organizationId: org.id, date, serviceId, now });
   // Solo inicio/fin: qué recurso queda libre es un detalle interno del negocio.
   return { timezone, reason: slots.length === 0 ? reason ?? "No hay horarios disponibles ese día." : undefined, slots: slots.map((s) => ({ start: s.start, end: s.end })) };
@@ -141,7 +142,9 @@ export function normalizePhone(raw: string): string {
 }
 
 export interface PublicBookingInput {
-  serviceId: string;
+  /** Servicio de la lista; sin él, customService describe lo que necesita el cliente. */
+  serviceId?: string;
+  customService?: string;
   start: string; // ISO, uno de los slots devueltos por getPublicAvailability
   date: string; // YYYY-MM-DD en la zona del negocio (la del slot)
   name: string;
@@ -154,12 +157,16 @@ export interface PublicBookingInput {
 
 export async function createPublicReservation(slug: string, input: PublicBookingInput, now = new Date()) {
   const org = await resolveOrganization(slug);
-  const service = await assertActiveService(org.id, input.serviceId);
+  const custom = input.customService?.trim().replace(/\s+/g, " ");
+  if (!input.serviceId && !custom) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, "Elegí un servicio o describí lo que necesitás.", 400);
+  }
+  const service = input.serviceId ? await assertActiveService(org.id, input.serviceId) : null;
 
   // Se vuelve a calcular la disponibilidad en el momento de reservar: el
   // horario que el visitante eligió puede haberse ocupado mientras llenaba
   // el formulario. Si ya no está en la lista, no se reserva.
-  const { slots } = await getAvailableSlots({ organizationId: org.id, date: input.date, serviceId: service.id, now });
+  const { slots } = await getAvailableSlots({ organizationId: org.id, date: input.date, serviceId: service?.id, now });
   const requestedStart = new Date(input.start).getTime();
   const slot = slots.find((s) => new Date(s.start).getTime() === requestedStart);
   if (!slot) {
@@ -171,7 +178,8 @@ export async function createPublicReservation(slug: string, input: PublicBooking
 
   // Datos de salud (Ley 1581): el motivo de consulta solo se guarda si el
   // paciente marcó la autorización (o ya la había dado antes).
-  let notes = input.notes?.trim() || null;
+  // Lo que pidió fuera de la lista va primero en las indicaciones de la reserva.
+  let notes = [custom ? `Servicio solicitado: ${custom}` : null, input.notes?.trim() || null].filter(Boolean).join(". ") || null;
   if (requiresHealthDataConsent(org.business_type)) {
     if (input.healthDataConsent && !customer.health_data_consent_at) {
       await insforgeAdmin.database
@@ -186,13 +194,14 @@ export async function createPublicReservation(slug: string, input: PublicBooking
   const reservation = await createReservation({
     organizationId: org.id,
     customerId: customer.id,
-    serviceId: service.id,
+    serviceId: service?.id ?? null,
     // El primer recurso libre del slot (si el negocio usa recursos); la
     // restricción EXCLUDE de la tabla sigue siendo la garantía final.
     resourceId: slot.availableResourceIds[0] ?? null,
     conversationId: null,
     startAt,
-    endAt: addMinutes(startAt, service.duration_minutes),
+    // Sin servicio de la lista, el turno dura lo que el horario ofrecido (duración por defecto).
+    endAt: service ? addMinutes(startAt, service.duration_minutes) : new Date(slot.end),
     partySize: null,
     customerName: input.name.trim(),
     specialRequests: notes,

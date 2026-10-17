@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { formatInTimeZone } from "date-fns-tz";
 import { es } from "date-fns/locale";
-import { ArrowLeft, CalendarCheck, Check, Clock, MapPin } from "lucide-react";
+import { ArrowLeft, CalendarCheck, Check, Clock, MapPin, PencilLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,8 @@ import { PublicOrderView } from "./PublicOrderView";
 import { NotifyChannelsCard } from "./NotifyChannelsCard";
 
 const DAYS_SHOWN = 14;
+const MIN_OTHER_SERVICE = 3;
+const MAX_OTHER_SERVICE = 120;
 
 function SectionTitle({ step, children }: { step: number; children: React.ReactNode }) {
   return (
@@ -33,6 +35,11 @@ function SectionTitle({ step, children }: { step: number; children: React.ReactN
 export function PublicBookingPage() {
   const { slug = "" } = useParams<{ slug: string }>();
   const [service, setService] = useState<PublicService | null>(null);
+  // "Otro servicio": lo que necesita no está en la lista y lo describe con sus palabras.
+  const [other, setOther] = useState(false);
+  const [otherText, setOtherText] = useState("");
+  const otherReady = other && otherText.trim().length >= MIN_OTHER_SERVICE;
+  const chosenName = service?.name ?? (other ? otherText.trim() : "");
   const [date, setDate] = useState<string | null>(null);
   const [slot, setSlot] = useState<PublicSlot | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "", website: "" });
@@ -58,9 +65,9 @@ export function PublicBookingPage() {
   );
 
   const slotsQuery = useQuery({
-    queryKey: ["public-slots", slug, service?.id, date],
-    enabled: !!business && !!service && !!date,
-    queryFn: () => publicApi.availability(slug, service!.id, date!),
+    queryKey: ["public-slots", slug, service?.id ?? (other ? "other" : null), date],
+    enabled: !!business && (!!service || other) && !!date,
+    queryFn: () => publicApi.availability(slug, service?.id ?? null, date!),
     retry: false
   });
 
@@ -72,6 +79,8 @@ export function PublicBookingPage() {
   function startOver() {
     setConfirmed(null);
     setService(null);
+    setOther(false);
+    setOtherText("");
     setDate(null);
     setSlot(null);
     setSubmitError(null);
@@ -82,12 +91,12 @@ export function PublicBookingPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!service || !date || !slot) return;
+    if ((!service && !otherReady) || !date || !slot) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
       const result = await publicApi.book(slug, {
-        serviceId: service.id,
+        ...(service ? { serviceId: service.id } : { customService: otherText.trim() }),
         date,
         start: slot.start,
         name: form.name,
@@ -142,7 +151,7 @@ export function PublicBookingPage() {
         </div>
         <h1 className="font-display text-3xl font-semibold">¡Listo, {form.name.split(" ")[0]}!</h1>
         <p className="text-muted-foreground">
-          Tu reserva de <strong className="text-foreground">{service?.name}</strong> en {business.name} quedó para el{" "}
+          Tu reserva de <strong className="text-foreground">{chosenName}</strong> en {business.name} quedó para el{" "}
           <strong className="text-foreground">{fmt(confirmed.start_at, "EEEE d 'de' MMMM 'a las' h:mm a")}</strong>.
         </p>
         {business.address && (
@@ -170,39 +179,70 @@ export function PublicBookingPage() {
       <div className="space-y-10">
         <section className="space-y-4">
           <SectionTitle step={1}>Elegí el servicio</SectionTitle>
-          {business.services.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Este negocio todavía no publicó servicios.</p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {business.services.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    setService(s);
-                    setSlot(null);
-                    if (!date) setDate(dates[0] ?? null);
-                  }}
-                  aria-pressed={service?.id === s.id}
-                  className={cn(
-                    "flex flex-col items-start gap-1 rounded-2xl border bg-card p-4 text-left transition-colors hover:border-primary/60",
-                    service?.id === s.id ? "border-primary ring-2 ring-primary/20" : "border-border"
-                  )}
-                >
-                  <span className="font-medium">{s.name}</span>
-                  <span className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" /> {s.durationMinutes} min
-                    </span>
-                    {s.price !== null && <span>{formatCurrency(s.price, s.currency)}</span>}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {business.services.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  setService(s);
+                  setOther(false);
+                  setSlot(null);
+                  if (!date) setDate(dates[0] ?? null);
+                }}
+                aria-pressed={service?.id === s.id}
+                className={cn(
+                  "flex flex-col items-start gap-1 rounded-2xl border bg-card p-4 text-left transition-colors hover:border-primary/60",
+                  service?.id === s.id ? "border-primary ring-2 ring-primary/20" : "border-border"
+                )}
+              >
+                <span className="font-medium">{s.name}</span>
+                <span className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" /> {s.durationMinutes} min
                   </span>
-                </button>
-              ))}
+                  {s.price !== null && <span>{formatCurrency(s.price, s.currency)}</span>}
+                </span>
+              </button>
+            ))}
+            {/* Lo que necesita no está en la lista: lo describe y el negocio lo ve en la reserva. */}
+            <button
+              type="button"
+              onClick={() => {
+                setService(null);
+                setOther(true);
+                setSlot(null);
+                if (!date) setDate(dates[0] ?? null);
+              }}
+              aria-pressed={other}
+              className={cn(
+                "flex flex-col items-start gap-1 rounded-2xl border border-dashed bg-card p-4 text-left transition-colors hover:border-primary/60",
+                other ? "border-primary ring-2 ring-primary/20" : "border-border"
+              )}
+            >
+              <span className="flex items-center gap-2 font-medium">
+                <PencilLine className="h-4 w-4 text-primary" /> Otro servicio
+              </span>
+              <span className="text-sm text-muted-foreground">¿No está en la lista? Contanos qué necesitás.</span>
+            </button>
+          </div>
+          {other && (
+            <div className="space-y-1.5">
+              <Label htmlFor="pb-other">¿Qué necesitás? *</Label>
+              <Input
+                id="pb-other"
+                autoFocus
+                maxLength={MAX_OTHER_SERVICE}
+                placeholder="Escribí el servicio que buscás"
+                value={otherText}
+                onChange={(e) => setOtherText(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">El negocio lo ve en tu reserva y te confirma el valor.</p>
             </div>
           )}
         </section>
 
-        {service && (
+        {(service || other) && (
           <section className="space-y-4">
             <SectionTitle step={2}>Elegí día y hora</SectionTitle>
             <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
@@ -261,7 +301,7 @@ export function PublicBookingPage() {
             <SectionTitle step={3}>Tus datos</SectionTitle>
             <form onSubmit={submit} className="space-y-4 rounded-2xl border border-border bg-card p-5">
               <p className="text-sm text-muted-foreground">
-                {service?.name} · <span className="inline-block first-letter:uppercase">{fmt(slot.start, "EEEE d 'de' MMMM, h:mm a")}</span>
+                {chosenName} · <span className="inline-block first-letter:uppercase">{fmt(slot.start, "EEEE d 'de' MMMM, h:mm a")}</span>
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
@@ -311,7 +351,7 @@ export function PublicBookingPage() {
                   {submitError}
                 </p>
               )}
-              <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+              <Button type="submit" size="lg" className="w-full" disabled={submitting || (other && !otherReady)}>
                 {submitting ? "Reservando..." : "Confirmar reserva"}
               </Button>
               <p className="text-xs text-muted-foreground">Al reservar, {business.name} recibe tu nombre y celular para gestionar la cita.</p>

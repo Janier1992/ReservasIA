@@ -146,6 +146,8 @@ export function cardSizeFor(density: BoardDensity, display: boolean): CardSize {
 export interface Money {
   amount: number;
   currency: string | null;
+  /** Hay productos sin precio (ej. fuera de la carta): el monto es solo de lo que tiene precio. */
+  partial?: boolean;
 }
 
 /**
@@ -157,10 +159,12 @@ export function walkInTotal(w: Pick<WalkIn, "order_items" | "services">): Money 
   if (w.order_items && w.order_items.length > 0) {
     const priced = w.order_items.filter((i) => i.unit_price !== null && i.unit_price !== undefined);
     if (priced.length === 0) return null;
-    return {
+    const total: Money = {
       amount: priced.reduce((sum, i) => sum + Number(i.unit_price) * i.quantity, 0),
       currency: priced[0].currency
     };
+    if (priced.length < w.order_items.length) total.partial = true;
+    return total;
   }
   const price = w.services?.price;
   return price === null || price === undefined ? null : { amount: Number(price), currency: w.services?.currency ?? null };

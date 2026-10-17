@@ -4,7 +4,14 @@ import { z } from "zod";
 import { publicApiRateLimiter } from "../middleware/rateLimit.js";
 import { ErrorCodes } from "../utils/AppError.js";
 import { createPublicReservation, getPublicAvailability, getPublicBusiness } from "../services/publicBooking/publicBookingService.js";
-import { createPublicOrder, MAX_FOR_NAME_LENGTH, MAX_ITEM_QUANTITY, MAX_ORDER_LINES } from "../services/publicOrders/publicOrderService.js";
+import {
+  createPublicOrder,
+  MAX_CUSTOM_ITEM_LENGTH,
+  MAX_CUSTOM_ITEMS,
+  MAX_FOR_NAME_LENGTH,
+  MAX_ITEM_QUANTITY,
+  MAX_ORDER_LINES
+} from "../services/publicOrders/publicOrderService.js";
 
 /**
  * API de la página pública de reservas (/r/:slug en el frontend). Sin
@@ -42,27 +49,34 @@ const orderRateLimiter = rateLimit({
 const slugSchema =z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).max(80);
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
+// Sin serviceId: "otro servicio" que el cliente describe (duración por defecto del negocio).
 const availabilityQuerySchema = z.object({
-  serviceId: z.string().uuid(),
+  serviceId: z.string().uuid().optional(),
   date: dateSchema
 });
 
-const bookingBodySchema = z.object({
-  serviceId: z.string().uuid(),
-  date: dateSchema,
-  start: z.string().datetime(),
-  name: z.string().trim().min(2).max(80),
-  phone: z
-    .string()
-    .trim()
-    .max(20)
-    .refine((v) => v.replace(/\D/g, "").length >= 7, "Teléfono inválido"),
-  email: z.string().trim().email().max(120).optional().or(z.literal("")),
-  notes: z.string().trim().max(300).optional(),
-  healthDataConsent: z.boolean().optional(),
-  // Campo trampa: invisible para personas, los bots lo llenan.
-  website: z.string().max(0).optional()
-});
+const MAX_CUSTOM_SERVICE_LENGTH = 120;
+
+const bookingBodySchema = z
+  .object({
+    serviceId: z.string().uuid().optional(),
+    // Lo que el cliente necesita cuando no está en la lista de servicios.
+    customService: z.string().trim().min(3).max(MAX_CUSTOM_SERVICE_LENGTH).optional(),
+    date: dateSchema,
+    start: z.string().datetime(),
+    name: z.string().trim().min(2).max(80),
+    phone: z
+      .string()
+      .trim()
+      .max(20)
+      .refine((v) => v.replace(/\D/g, "").length >= 7, "Teléfono inválido"),
+    email: z.string().trim().email().max(120).optional().or(z.literal("")),
+    notes: z.string().trim().max(300).optional(),
+    healthDataConsent: z.boolean().optional(),
+    // Campo trampa: invisible para personas, los bots lo llenan.
+    website: z.string().max(0).optional()
+  })
+  .refine((b) => !!b.serviceId !== !!b.customService, { message: "Elegí un servicio o describí lo que necesitás.", path: ["serviceId"] });
 
 const orderItemSchema = z.object({
   serviceId: z.string().uuid(),
@@ -71,9 +85,17 @@ const orderItemSchema = z.object({
   forNames: z.array(z.string().max(MAX_FOR_NAME_LENGTH)).max(MAX_ITEM_QUANTITY).optional()
 });
 
+const customItemSchema = z.object({
+  name: z.string().trim().min(2).max(MAX_CUSTOM_ITEM_LENGTH),
+  quantity: z.number().int().min(1).max(MAX_ITEM_QUANTITY),
+  forNames: z.array(z.string().max(MAX_FOR_NAME_LENGTH)).max(MAX_ITEM_QUANTITY).optional()
+});
+
 const orderBodySchema = z
   .object({
-    items: z.array(orderItemSchema).min(1).max(MAX_ORDER_LINES).optional(),
+    items: z.array(orderItemSchema).max(MAX_ORDER_LINES).optional(),
+    // Lo que no está en la carta, escrito por el cliente.
+    customItems: z.array(customItemSchema).max(MAX_CUSTOM_ITEMS).optional(),
     // Formato anterior (un solo producto): lo sigue mandando una pestaña
     // abierta antes de desplegar el carrito.
     serviceId: z.string().uuid().optional(),
@@ -87,7 +109,10 @@ const orderBodySchema = z
     notes: z.string().trim().max(300).optional(),
     website: z.string().max(0).optional()
   })
-  .refine((b) => b.items || b.serviceId, { message: "Elegí al menos un producto.", path: ["items"] });
+  .refine((b) => (b.items?.length ?? 0) > 0 || (b.customItems?.length ?? 0) > 0 || b.serviceId, {
+    message: "Elegí al menos un producto o escribí lo que querés pedir.",
+    path: ["items"]
+  });
 
 type Handler =(req: Request, res: Response) => Promise<void>;
 const wrap = (fn: Handler) => (req: Request, res: Response, next: NextFunction) => fn(req, res).catch(next);
@@ -118,6 +143,7 @@ publicRouter.post(
     const body = bookingBodySchema.parse(req.body);
     const reservation = await createPublicReservation(slugSchema.parse(req.params.slug), {
       serviceId: body.serviceId,
+      customService: body.customService,
       date: body.date,
       start: body.start,
       name: body.name,
@@ -136,7 +162,8 @@ publicRouter.post(
   wrap(async (req, res) => {
     const body = orderBodySchema.parse(req.body);
     const order = await createPublicOrder(slugSchema.parse(req.params.slug), {
-      items: body.items ?? [{ serviceId: body.serviceId!, quantity: 1 }],
+      items: body.items ?? (body.serviceId ? [{ serviceId: body.serviceId, quantity: 1 }] : []),
+      customItems: body.customItems,
       name: body.name,
       phone: body.phone || undefined,
       notes: body.notes

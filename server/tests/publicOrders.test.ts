@@ -165,6 +165,49 @@ describe("createPublicOrder", () => {
     expect(order.items).toEqual([{ name: "Almuerzo ejecutivo", quantity: 3, forNames: ["Ana", "Luis", "Pedro"] }]);
   });
 
+  it("takes something that is not on the menu, written by the customer, with the price to confirm", async () => {
+    useDb({
+      organizations: ok(restaurant),
+      services: ok([burger]),
+      walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z" }), ok([{ id: "w-1" }])],
+      integrations: ok([])
+    });
+    const order = await createPublicOrder("antojitos", {
+      items: [{ serviceId: "svc-1", quantity: 1 }],
+      customItems: [{ name: "  Arepa   con queso ", quantity: 2, forNames: ["Ana"] }],
+      name: "Ana Ruiz"
+    });
+    expect(insertedInto("walk_ins")).toMatchObject({
+      service_id: null,
+      order_items: [
+        { service_id: "svc-1", name: "Hamburguesa", unit_price: 18000 },
+        { service_id: null, name: "Arepa con queso", quantity: 2, unit_price: null, currency: null, custom: true, for_names: ["Ana"] }
+      ]
+    });
+    // Con algo sin precio, el total lo confirma el negocio.
+    expect(order).toMatchObject({ serviceName: "Hamburguesa y 2× Arepa con queso", total: null });
+  });
+
+  it("accepts an order made only of things written by the customer", async () => {
+    useDb({
+      organizations: ok(restaurant),
+      walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z" }), ok([{ id: "w-1" }])],
+      integrations: ok([])
+    });
+    await createPublicOrder("antojitos", { items: [], customItems: [{ name: "Jugo de mora en agua", quantity: 1 }], name: "Ana" });
+    expect(insertedInto("walk_ins")).toMatchObject({
+      service_id: null,
+      order_items: [{ service_id: null, name: "Jugo de mora en agua", quantity: 1, custom: true }]
+    });
+  });
+
+  it("rejects an empty order", async () => {
+    useDb({ organizations: ok(restaurant) });
+    await expect(createPublicOrder("antojitos", { items: [], customItems: [{ name: "   ", quantity: 1 }], name: "Ana" })).rejects.toMatchObject({
+      statusCode: 400
+    });
+  });
+
   it("rejects the order when a product is no longer on the menu", async () => {
     useDb({ organizations: ok(restaurant), services: ok([burger]) });
     await expect(

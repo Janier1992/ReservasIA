@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, Check, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, Minus, PencilLine, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,16 @@ import { cartCount, cartLines, cartTotal, MAX_ITEM_QUANTITY, setCartQuantity, ty
 import { PublicApiError, publicApi, type PublicBusiness, type PublicOrder } from "@/lib/publicApi";
 import { PublicBusinessHeader } from "./PublicBusinessHeader";
 import { NotifyChannelsCard } from "./NotifyChannelsCard";
+
+/** Lo que el cliente escribe porque no está en la carta (el negocio confirma el precio). */
+interface CustomLine {
+  id: number;
+  name: string;
+  quantity: number;
+}
+
+const MAX_CUSTOM_LINES = 5;
+const MAX_CUSTOM_NAME = 80;
 
 interface Props {
   slug: string;
@@ -51,6 +61,9 @@ export function PublicOrderView({ slug, business, icon }: Props) {
   const [cart, setCart] = useState<Cart>({});
   // Para quién es cada porción, por producto (opcional).
   const [forNames, setForNames] = useState<Record<string, string[]>>({});
+  const [customLines, setCustomLines] = useState<CustomLine[]>([]);
+  const [customDraft, setCustomDraft] = useState("");
+  const nextCustomId = useRef(1);
   const [form, setForm] = useState({ name: "", phone: "", notes: "", website: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,16 +71,35 @@ export function PublicOrderView({ slug, business, icon }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
 
   const lines = useMemo(() => cartLines(cart, business.services), [cart, business.services]);
-  const count = cartCount(lines);
+  const customCount = customLines.reduce((sum, c) => sum + c.quantity, 0);
+  const count = cartCount(lines) + customCount;
+  const hasOrder = lines.length > 0 || customLines.length > 0;
+  // Con algo escrito a mano el total es solo de lo de la carta; el resto lo confirma el negocio.
   const total = cartTotal(lines);
+  const totalLabel = customLines.length > 0 ? "Total de la carta" : "Total";
   const change = (productId: string, quantity: number) => setCart((current) => setCartQuantity(current, productId, quantity));
   const productsLabel = (n: number) => `${n} ${n === 1 ? "producto" : "productos"}`;
+
+  function addCustom() {
+    const name = customDraft.trim().replace(/\s+/g, " ");
+    if (name.length < 2 || customLines.length >= MAX_CUSTOM_LINES) return;
+    setCustomLines((current) => [...current, { id: nextCustomId.current++, name: name.slice(0, MAX_CUSTOM_NAME), quantity: 1 }]);
+    setCustomDraft("");
+  }
+
+  function changeCustom(id: number, quantity: number) {
+    setCustomLines((current) =>
+      quantity <= 0 ? current.filter((c) => c.id !== id) : current.map((c) => (c.id === id ? { ...c, quantity: Math.min(quantity, MAX_ITEM_QUANTITY) } : c))
+    );
+  }
 
   /** Volver a la carta para otro pedido, sin recargar la página (se conservan nombre y celular). */
   function startOver() {
     setOrder(null);
     setCart({});
     setForNames({});
+    setCustomLines([]);
+    setCustomDraft("");
     setError(null);
     setForm((f) => ({ ...f, notes: "" }));
     window.scrollTo({ top: 0 });
@@ -75,7 +107,7 @@ export function PublicOrderView({ slug, business, icon }: Props) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (lines.length === 0) return;
+    if (!hasOrder) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -85,6 +117,7 @@ export function PublicOrderView({ slug, business, icon }: Props) {
             const names = (forNames[l.product.id] ?? []).slice(0, l.quantity).map((n) => n.trim()).filter(Boolean);
             return names.length > 0 ? { serviceId: l.product.id, quantity: l.quantity, forNames: names } : { serviceId: l.product.id, quantity: l.quantity };
           }),
+          customItems: customLines.length > 0 ? customLines.map((c) => ({ name: c.name, quantity: c.quantity })) : undefined,
           name: form.name,
           phone: form.phone || undefined,
           notes: form.notes || undefined,
@@ -127,8 +160,8 @@ export function PublicOrderView({ slug, business, icon }: Props) {
         {items.length > 0 && (
           <div className="w-full rounded-2xl border border-border bg-card p-4 text-left">
             <ul className="divide-y divide-border text-sm">
-              {items.map((item) => (
-                <li key={item.name} className="flex gap-3 py-2 first:pt-0 last:pb-0">
+              {items.map((item, index) => (
+                <li key={`${item.name}-${index}`} className="flex gap-3 py-2 first:pt-0 last:pb-0">
                   <span className="w-8 shrink-0 font-semibold tabular-nums">{item.quantity}×</span>
                   <span className="flex-1">
                     {item.name}
@@ -137,6 +170,11 @@ export function PublicOrderView({ slug, business, icon }: Props) {
                 </li>
               ))}
             </ul>
+            {order.total == null && customLines.length > 0 && (
+              <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+                El precio de lo que escribiste fuera de la carta te lo confirman en {business.name}.
+              </p>
+            )}
             {order.total != null && (
               <p className="mt-3 flex justify-between border-t border-border pt-3 font-semibold">
                 <span>Total</span>
@@ -210,7 +248,40 @@ export function PublicOrderView({ slug, business, icon }: Props) {
           )}
         </section>
 
-        {lines.length > 0 && (
+        {/* Lo que no está en la carta: el cliente lo escribe y el negocio confirma el precio. */}
+        <section className="space-y-3 rounded-2xl border border-dashed border-border bg-card/60 p-4" aria-labelledby="po-custom-title">
+          <div className="flex items-start gap-3">
+            <PencilLine className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+            <div>
+              <h2 id="po-custom-title" className="font-medium">
+                ¿No encontrás lo que querés?
+              </h2>
+              <p className="text-sm text-muted-foreground">Escribilo y lo sumamos a tu pedido. El precio te lo confirman en el local.</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              aria-label="Pedido fuera de la carta"
+              maxLength={MAX_CUSTOM_NAME}
+              placeholder="Ej: arepa con queso, jugo de mora en agua"
+              value={customDraft}
+              disabled={customLines.length >= MAX_CUSTOM_LINES}
+              onChange={(e) => setCustomDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCustom();
+                }
+              }}
+            />
+            <Button type="button" variant="outline" className="shrink-0 rounded-full" onClick={addCustom} disabled={customDraft.trim().length < 2 || customLines.length >= MAX_CUSTOM_LINES}>
+              <Plus className="h-4 w-4" /> Agregar
+            </Button>
+          </div>
+          {customLines.length >= MAX_CUSTOM_LINES && <p className="text-xs text-muted-foreground">Podés agregar hasta {MAX_CUSTOM_LINES} cosas fuera de la carta.</p>}
+        </section>
+
+        {hasOrder && (
           <form ref={formRef} onSubmit={submit} className="scroll-mt-6 space-y-5 rounded-2xl border border-border bg-card p-5">
             <div className="space-y-3">
               <h2 className="font-display text-lg font-semibold">Tu pedido</h2>
@@ -246,10 +317,19 @@ export function PublicOrderView({ slug, business, icon }: Props) {
                     </div>
                   </li>
                 ))}
+                {customLines.map((c) => (
+                  <li key={`custom-${c.id}`} className="flex items-center gap-3 py-3 first:pt-0">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{c.name}</p>
+                      <p className="text-xs text-muted-foreground">Fuera de la carta · precio por confirmar</p>
+                    </div>
+                    <QuantityStepper name={c.name} quantity={c.quantity} onChange={(q) => changeCustom(c.id, q)} />
+                  </li>
+                ))}
               </ul>
               {total && (
                 <p className="flex justify-between border-t border-border pt-3 font-semibold">
-                  <span>Total</span>
+                  <span>{totalLabel}</span>
                   <span className="tabular-nums">{formatCurrency(total.total, total.currency)}</span>
                 </p>
               )}
@@ -299,7 +379,7 @@ export function PublicOrderView({ slug, business, icon }: Props) {
             <ShoppingBag className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
             <p className="min-w-0 flex-1 text-sm">
               <span className="font-semibold">{productsLabel(count)}</span>
-              {total && <span className="text-muted-foreground"> · {formatCurrency(total.total, total.currency)}</span>}
+              {total && customLines.length === 0 && <span className="text-muted-foreground"> · {formatCurrency(total.total, total.currency)}</span>}
             </p>
             <Button type="button" onClick={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
               Ver pedido

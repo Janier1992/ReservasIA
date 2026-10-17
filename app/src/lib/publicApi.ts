@@ -84,13 +84,26 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const publicApi = {
   business: (slug: string) => call<PublicBusiness>(`/businesses/${encodeURIComponent(slug)}`),
-  availability: (slug: string, serviceId: string, date: string) =>
+  /** serviceId null: "otro servicio" descrito por el cliente (duración por defecto del negocio). */
+  availability: (slug: string, serviceId: string | null, date: string) =>
     call<{ timezone: string; reason?: string; slots: PublicSlot[] }>(
-      `/businesses/${encodeURIComponent(slug)}/availability?serviceId=${encodeURIComponent(serviceId)}&date=${date}`
+      `/businesses/${encodeURIComponent(slug)}/availability?${serviceId ? `serviceId=${encodeURIComponent(serviceId)}&` : ""}date=${date}`
     ),
   book: (
     slug: string,
-    body: { serviceId: string; date: string; start: string; name: string; phone: string; email?: string; notes?: string; website?: string; healthDataConsent?: boolean }
+    body: {
+      serviceId?: string;
+      /** Lo que necesita cuando no está en la lista de servicios. */
+      customService?: string;
+      date: string;
+      start: string;
+      name: string;
+      phone: string;
+      email?: string;
+      notes?: string;
+      website?: string;
+      healthDataConsent?: boolean;
+    }
   ) =>
     call<PublicBooking>(`/businesses/${encodeURIComponent(slug)}/reservations`, {
       method: "POST",
@@ -98,7 +111,15 @@ export const publicApi = {
     }),
   order: (
     slug: string,
-    body: { items: { serviceId: string; quantity: number; forNames?: string[] }[]; name: string; phone?: string; notes?: string; website?: string }
+    body: {
+      items: { serviceId: string; quantity: number; forNames?: string[] }[];
+      /** Lo que no está en la carta, escrito por el cliente (el negocio confirma el precio). */
+      customItems?: { name: string; quantity: number }[];
+      name: string;
+      phone?: string;
+      notes?: string;
+      website?: string;
+    }
   ) =>
     call<PublicOrder>(`/businesses/${encodeURIComponent(slug)}/orders`, { method: "POST", body: JSON.stringify(body) })
 };
