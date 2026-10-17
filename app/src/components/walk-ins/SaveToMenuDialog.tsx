@@ -7,15 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { isNonNegativeNumber } from "@/lib/validation";
 import { isOnMenuAlready } from "@/lib/menuDays";
-import type { Service } from "@/types/domain";
+import type { OrderItem, Service } from "@/types/domain";
 
 /** Duración de un producto de la carta (no se agenda: solo es requerida por la tabla). */
 const MENU_ITEM_MINUTES = 15;
 
 interface Props {
   organizationId: string;
-  /** Nombre que escribió el cliente; null = cerrado. */
-  itemName: string | null;
+  /** Lo que escribió el cliente (nombre, qué lleva, precio); null = cerrado. */
+  item: Pick<OrderItem, "name" | "includes" | "unit_price"> | null;
   /** Carta actual, para no duplicar un producto que ya existe. */
   services: Pick<Service, "name">[];
   currency: string;
@@ -27,13 +27,13 @@ interface Props {
  * Guardar en la carta lo que un cliente pidió a mano (fuera de la carta), con
  * su precio: la próxima vez ya aparece en el QR para elegirlo.
  */
-export function SaveToMenuDialog({ organizationId, itemName, services, currency, onClose, onSaved }: Props) {
+export function SaveToMenuDialog({ organizationId, item, services, currency, onClose, onSaved }: Props) {
   const [form, setForm] = useState({ name: "", price: "", description: "" });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (itemName !== null) setForm({ name: itemName, price: "", description: "" });
-  }, [itemName]);
+    if (item) setForm({ name: item.name, price: item.unit_price != null ? String(item.unit_price) : "", description: item.includes ?? "" });
+  }, [item]);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -70,7 +70,7 @@ export function SaveToMenuDialog({ organizationId, itemName, services, currency,
   }
 
   return (
-    <Dialog open={itemName !== null} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={item !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Guardar en la carta</DialogTitle>

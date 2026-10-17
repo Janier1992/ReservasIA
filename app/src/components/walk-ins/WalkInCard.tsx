@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/currency";
 import { formatTicket, formatWait, isWaitOverdue, minutesBetween, notifyStatus, serviceProgress, shortName, walkInAssetLabel, walkInTotal, type CardSize } from "@/lib/walkIns";
-import type { WalkIn } from "@/types/domain";
+import type { OrderItem, WalkIn } from "@/types/domain";
 
 interface Props {
   walkIn: WalkIn;
@@ -26,7 +26,7 @@ interface Props {
   /** Nombre abreviado, "Andrea G." (pantalla que ve el público). */
   hideNames?: boolean;
   /** Guardar en la carta algo pedido fuera de ella (solo dueño/admin, fuera del modo pantalla). */
-  onSaveToMenu?: (name: string) => void;
+  onSaveToMenu?: (item: OrderItem) => void;
   /** ¿Ese nombre ya está en la carta? (para no ofrecer guardarlo de nuevo). */
   isOnMenu?: (name: string) => boolean;
   /** Selector de recurso para atender (solo en espera). */
@@ -157,12 +157,21 @@ export function WalkInCard({
                     <span className="shrink-0 tabular-nums">{formatCurrency(Number(item.unit_price) * item.quantity, item.currency)}</span>
                   )}
                 </span>
+                {!hidePrices && item.quantity > 1 && item.unit_price !== null && item.unit_price !== undefined && (
+                  <span className="block text-[0.85em] font-normal text-muted-foreground tabular-nums">{formatCurrency(Number(item.unit_price), item.currency)} c/u</span>
+                )}
+                {item.includes && <span className="block text-[0.85em] font-normal text-muted-foreground">Incluye: {item.includes}</span>}
+                {item.for_names && item.for_names.length > 0 && (
+                  <span className="block text-[0.85em] font-normal">
+                    <span className="text-muted-foreground">Para:</span> {item.for_names.join(", ")}
+                  </span>
+                )}
                 {item.custom && (
                   <span className="block text-[0.85em] font-normal">
                     <Badge variant="warning" className="px-1.5 py-0 text-[0.85em]">
                       Fuera de la carta
                     </Badge>{" "}
-                    <span className="text-muted-foreground">precio por confirmar</span>
+                    <span className="text-muted-foreground">{item.unit_price != null ? "precio indicado por el cliente" : "precio por confirmar"}</span>
                     {!display &&
                       onSaveToMenu &&
                       (isOnMenu?.(item.name) ? (
@@ -173,21 +182,12 @@ export function WalkInCard({
                         <button
                           type="button"
                           className="mt-0.5 flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
-                          onClick={() => onSaveToMenu(item.name)}
+                          onClick={() => onSaveToMenu(item)}
                           aria-label={`Guardar ${item.name} en la carta`}
                         >
                           <BookPlus className="h-3.5 w-3.5" /> Guardar en la carta
                         </button>
                       ))}
-                  </span>
-                )}
-                {!hidePrices && item.quantity > 1 && item.unit_price !== null && item.unit_price !== undefined && (
-                  <span className="block text-[0.85em] font-normal text-muted-foreground tabular-nums">{formatCurrency(Number(item.unit_price), item.currency)} c/u</span>
-                )}
-                {item.includes && <span className="block text-[0.85em] font-normal text-muted-foreground">Incluye: {item.includes}</span>}
-                {item.for_names && item.for_names.length > 0 && (
-                  <span className="block text-[0.85em] font-normal">
-                    <span className="text-muted-foreground">Para:</span> {item.for_names.join(", ")}
                   </span>
                 )}
               </li>

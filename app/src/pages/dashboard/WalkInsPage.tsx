@@ -30,7 +30,7 @@ import { playAlertSound } from "@/lib/alertSound";
 import { zonedDayRange } from "@/lib/payments";
 import { orderItemsForSale, summarizeOrderItems } from "@/lib/orderCart";
 import { upcomingDates } from "@/lib/publicBookingUtils";
-import type { Reservation, Resource, Service, WalkIn } from "@/types/domain";
+import type { OrderItem, Reservation, Resource, Service, WalkIn } from "@/types/domain";
 
 // Radix Select no admite un item con value "": este valor representa "sin elegir".
 const NONE = "none";
@@ -86,7 +86,7 @@ export function WalkInsPage() {
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Pedido fuera de la carta que el dueño/admin quiere guardar en ella.
-  const [savingToMenu, setSavingToMenu] = useState<string | null>(null);
+  const [savingToMenu, setSavingToMenu] = useState<OrderItem | null>(null);
   const alertMinutes = boardSettings.wait_alert_minutes;
   // Pantalla que ve el público: el negocio decide si muestra precios y nombres completos.
   const hidePrices = display && boardSettings.display_hide_prices;
@@ -545,7 +545,7 @@ export function WalkInsPage() {
       {currentOrganizationId && (
         <SaveToMenuDialog
           organizationId={currentOrganizationId}
-          itemName={savingToMenu}
+          item={savingToMenu}
           services={services}
           currency={services[0]?.currency ?? DEFAULT_CURRENCY}
           onClose={() => setSavingToMenu(null)}

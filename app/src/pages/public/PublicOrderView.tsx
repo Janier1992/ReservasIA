@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, Check, Minus, PencilLine, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Minus, PencilLine, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,8 +17,14 @@ import { NotifyChannelsCard } from "./NotifyChannelsCard";
 interface CustomLine {
   id: number;
   name: string;
+  /** Qué lleva el plato. */
+  includes: string;
+  /** Precio por unidad que indicó el cliente; null = lo confirma el negocio. */
+  unitPrice: number | null;
   quantity: number;
 }
+
+const EMPTY_CUSTOM = { name: "", includes: "", price: "", quantity: 1 };
 
 const MAX_CUSTOM_LINES = 5;
 const MAX_CUSTOM_NAME = 80;
@@ -62,7 +68,8 @@ export function PublicOrderView({ slug, business, icon }: Props) {
   // Para quién es cada porción, por producto (opcional).
   const [forNames, setForNames] = useState<Record<string, string[]>>({});
   const [customLines, setCustomLines] = useState<CustomLine[]>([]);
-  const [customDraft, setCustomDraft] = useState("");
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customDraft, setCustomDraft] = useState(EMPTY_CUSTOM);
   const nextCustomId = useRef(1);
   const [form, setForm] = useState({ name: "", phone: "", notes: "", website: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -74,17 +81,37 @@ export function PublicOrderView({ slug, business, icon }: Props) {
   const customCount = customLines.reduce((sum, c) => sum + c.quantity, 0);
   const count = cartCount(lines) + customCount;
   const hasOrder = lines.length > 0 || customLines.length > 0;
-  // Con algo escrito a mano el total es solo de lo de la carta; el resto lo confirma el negocio.
-  const total = cartTotal(lines);
-  const totalLabel = customLines.length > 0 ? "Total de la carta" : "Total";
+  // Moneda del negocio (la de su carta) para lo que el cliente escribe con precio.
+  const currency = business.services[0]?.currency ?? "COP";
+  const menuTotal = cartTotal(lines);
+  // Total con lo de la carta y lo escrito a mano con precio; "parcial" si algo no tiene precio.
+  const pricedSum =
+    lines.reduce((sum, l) => sum + (l.subtotal ?? 0), 0) + customLines.reduce((sum, c) => sum + (c.unitPrice ?? 0) * c.quantity, 0);
+  const anyPriced = lines.some((l) => l.subtotal !== null) || customLines.some((c) => c.unitPrice !== null);
+  const totalComplete = lines.every((l) => l.subtotal !== null) && customLines.every((c) => c.unitPrice !== null);
+  const total = anyPriced ? { total: pricedSum, currency: menuTotal?.currency ?? lines[0]?.product.currency ?? currency } : null;
+  const totalLabel = totalComplete ? "Total" : "Total parcial";
   const change = (productId: string, quantity: number) => setCart((current) => setCartQuantity(current, productId, quantity));
   const productsLabel = (n: number) => `${n} ${n === 1 ? "producto" : "productos"}`;
 
+  const draftPrice = customDraft.price.trim() === "" ? null : Number(customDraft.price);
+  const draftValid = customDraft.name.trim().length >= 2 && (draftPrice === null || (Number.isFinite(draftPrice) && draftPrice >= 0));
+
   function addCustom() {
-    const name = customDraft.trim().replace(/\s+/g, " ");
-    if (name.length < 2 || customLines.length >= MAX_CUSTOM_LINES) return;
-    setCustomLines((current) => [...current, { id: nextCustomId.current++, name: name.slice(0, MAX_CUSTOM_NAME), quantity: 1 }]);
-    setCustomDraft("");
+    const name = customDraft.name.trim().replace(/\s+/g, " ");
+    if (!draftValid || customLines.length >= MAX_CUSTOM_LINES) return;
+    setCustomLines((current) => [
+      ...current,
+      {
+        id: nextCustomId.current++,
+        name: name.slice(0, MAX_CUSTOM_NAME),
+        includes: customDraft.includes.trim().slice(0, 300),
+        unitPrice: draftPrice === null ? null : Math.round(draftPrice),
+        quantity: Math.min(Math.max(1, customDraft.quantity), MAX_ITEM_QUANTITY)
+      }
+    ]);
+    setCustomDraft(EMPTY_CUSTOM);
+    setCustomOpen(false);
   }
 
   function changeCustom(id: number, quantity: number) {
@@ -99,7 +126,8 @@ export function PublicOrderView({ slug, business, icon }: Props) {
     setCart({});
     setForNames({});
     setCustomLines([]);
-    setCustomDraft("");
+    setCustomDraft(EMPTY_CUSTOM);
+    setCustomOpen(false);
     setError(null);
     setForm((f) => ({ ...f, notes: "" }));
     window.scrollTo({ top: 0 });
@@ -117,7 +145,15 @@ export function PublicOrderView({ slug, business, icon }: Props) {
             const names = (forNames[l.product.id] ?? []).slice(0, l.quantity).map((n) => n.trim()).filter(Boolean);
             return names.length > 0 ? { serviceId: l.product.id, quantity: l.quantity, forNames: names } : { serviceId: l.product.id, quantity: l.quantity };
           }),
-          customItems: customLines.length > 0 ? customLines.map((c) => ({ name: c.name, quantity: c.quantity })) : undefined,
+          customItems:
+            customLines.length > 0
+              ? customLines.map((c) => ({
+                  name: c.name,
+                  quantity: c.quantity,
+                  ...(c.includes ? { includes: c.includes } : {}),
+                  ...(c.unitPrice !== null ? { unitPrice: c.unitPrice } : {})
+                }))
+              : undefined,
           name: form.name,
           phone: form.phone || undefined,
           notes: form.notes || undefined,
@@ -170,7 +206,7 @@ export function PublicOrderView({ slug, business, icon }: Props) {
                 </li>
               ))}
             </ul>
-            {order.total == null && customLines.length > 0 && (
+            {order.total == null && customLines.some((c) => c.unitPrice === null) && (
               <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
                 El precio de lo que escribiste fuera de la carta te lo confirman en {business.name}.
               </p>
@@ -248,37 +284,89 @@ export function PublicOrderView({ slug, business, icon }: Props) {
           )}
         </section>
 
-        {/* Lo que no está en la carta: el cliente lo escribe y el negocio confirma el precio. */}
-        <section className="space-y-3 rounded-2xl border border-dashed border-border bg-card/60 p-4" aria-labelledby="po-custom-title">
-          <div className="flex items-start gap-3">
+        {/* Lo que no está en la carta: el cliente lo describe (y, si lo sabe, el precio). */}
+        <section className="rounded-2xl border border-dashed border-border bg-card/60" aria-labelledby="po-custom-title">
+          <button
+            type="button"
+            className="flex w-full items-start gap-3 p-4 text-left"
+            aria-expanded={customOpen}
+            aria-controls="po-custom-form"
+            onClick={() => setCustomOpen((open) => !open)}
+          >
             <PencilLine className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-            <div>
-              <h2 id="po-custom-title" className="font-medium">
+            <span className="min-w-0 flex-1">
+              <span id="po-custom-title" className="block font-medium">
                 ¿No encontrás lo que querés?
-              </h2>
-              <p className="text-sm text-muted-foreground">Escribilo y lo sumamos a tu pedido. El precio te lo confirman en el local.</p>
+              </span>
+              <span className="block text-sm text-muted-foreground">Agregá un plato que no está en la carta, con lo que lleva y su precio.</span>
+            </span>
+            <ChevronDown className={cn("mt-0.5 h-5 w-5 shrink-0 text-muted-foreground transition-transform", customOpen && "rotate-180")} aria-hidden="true" />
+          </button>
+          {customOpen && (
+            <div id="po-custom-form" className="space-y-3 border-t border-dashed border-border p-4">
+              {customLines.length >= MAX_CUSTOM_LINES ? (
+                <p className="text-sm text-muted-foreground">Podés agregar hasta {MAX_CUSTOM_LINES} platos fuera de la carta.</p>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="po-custom-name">Nombre del plato *</Label>
+                    <Input
+                      id="po-custom-name"
+                      maxLength={MAX_CUSTOM_NAME}
+                      placeholder="Ej: Bandeja especial"
+                      value={customDraft.name}
+                      onChange={(e) => setCustomDraft({ ...customDraft, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="po-custom-includes">¿Qué lleva? (opcional)</Label>
+                    <Input
+                      id="po-custom-includes"
+                      maxLength={300}
+                      placeholder="Ej: arroz, frijoles, chicharrón y huevo"
+                      value={customDraft.includes}
+                      onChange={(e) => setCustomDraft({ ...customDraft, includes: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="po-custom-price">Precio ({currency}, opcional)</Label>
+                      <Input
+                        id="po-custom-price"
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        placeholder="Ej: 25000"
+                        value={customDraft.price}
+                        onChange={(e) => setCustomDraft({ ...customDraft, price: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="po-custom-qty">Cantidad</Label>
+                      <Input
+                        id="po-custom-qty"
+                        type="number"
+                        min={1}
+                        max={MAX_ITEM_QUANTITY}
+                        inputMode="numeric"
+                        value={customDraft.quantity}
+                        onChange={(e) => setCustomDraft({ ...customDraft, quantity: Number(e.target.value) || 1 })}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">El local confirma el precio al entregarte el pedido.</p>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setCustomOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="button" onClick={addCustom} disabled={!draftValid}>
+                      <Plus className="h-4 w-4" /> Agregar al pedido
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Input
-              aria-label="Pedido fuera de la carta"
-              maxLength={MAX_CUSTOM_NAME}
-              placeholder="Ej: arepa con queso, jugo de mora en agua"
-              value={customDraft}
-              disabled={customLines.length >= MAX_CUSTOM_LINES}
-              onChange={(e) => setCustomDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addCustom();
-                }
-              }}
-            />
-            <Button type="button" variant="outline" className="shrink-0 rounded-full" onClick={addCustom} disabled={customDraft.trim().length < 2 || customLines.length >= MAX_CUSTOM_LINES}>
-              <Plus className="h-4 w-4" /> Agregar
-            </Button>
-          </div>
-          {customLines.length >= MAX_CUSTOM_LINES && <p className="text-xs text-muted-foreground">Podés agregar hasta {MAX_CUSTOM_LINES} cosas fuera de la carta.</p>}
+          )}
         </section>
 
         {hasOrder && (
@@ -321,7 +409,11 @@ export function PublicOrderView({ slug, business, icon }: Props) {
                   <li key={`custom-${c.id}`} className="flex items-center gap-3 py-3 first:pt-0">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">Fuera de la carta · precio por confirmar</p>
+                      {c.includes && <p className="text-xs text-muted-foreground">Incluye: {c.includes}</p>}
+                      <p className="text-xs tabular-nums text-muted-foreground">
+                        {c.unitPrice !== null ? `${formatCurrency(c.unitPrice * c.quantity, currency)} · ` : ""}Fuera de la carta
+                        {c.unitPrice === null ? " · precio por confirmar" : ""}
+                      </p>
                     </div>
                     <QuantityStepper name={c.name} quantity={c.quantity} onChange={(q) => changeCustom(c.id, q)} />
                   </li>
@@ -379,7 +471,7 @@ export function PublicOrderView({ slug, business, icon }: Props) {
             <ShoppingBag className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
             <p className="min-w-0 flex-1 text-sm">
               <span className="font-semibold">{productsLabel(count)}</span>
-              {total && customLines.length === 0 && <span className="text-muted-foreground"> · {formatCurrency(total.total, total.currency)}</span>}
+              {total && totalComplete && <span className="text-muted-foreground"> · {formatCurrency(total.total, total.currency)}</span>}
             </p>
             <Button type="button" onClick={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
               Ver pedido

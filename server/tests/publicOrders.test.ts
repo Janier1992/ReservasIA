@@ -188,6 +188,29 @@ describe("createPublicOrder", () => {
     expect(order).toMatchObject({ serviceName: "Hamburguesa y 2× Arepa con queso", total: null });
   });
 
+  it("keeps what a written-in dish includes and the price the customer gave, in the business currency", async () => {
+    useDb({
+      organizations: ok(restaurant),
+      services: ok([burger]),
+      business_profiles: ok({ currency: "COP" }),
+      walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z" }), ok([{ id: "w-1" }])],
+      integrations: ok([])
+    });
+    const order = await createPublicOrder("antojitos", {
+      items: [{ serviceId: "svc-1", quantity: 1 }],
+      customItems: [{ name: "Bandeja especial", quantity: 2, includes: " frijoles,  chicharrón y huevo ", unitPrice: 25000 }],
+      name: "Ana"
+    });
+    expect(insertedInto("walk_ins")).toMatchObject({
+      order_items: [
+        { service_id: "svc-1" },
+        { service_id: null, name: "Bandeja especial", quantity: 2, includes: "frijoles, chicharrón y huevo", unit_price: 25000, currency: "COP", custom: true }
+      ]
+    });
+    // Todo tiene precio: el total se calcula completo.
+    expect(order).toMatchObject({ total: 68000, currency: "COP" });
+  });
+
   it("accepts an order made only of things written by the customer", async () => {
     useDb({
       organizations: ok(restaurant),
