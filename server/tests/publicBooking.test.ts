@@ -115,6 +115,38 @@ describe("public booking API", () => {
     expect(createReservationMock).toHaveBeenLastCalledWith(expect.objectContaining({ specialRequests: "Dolor de muela" }));
   });
 
+  it("books a service that is not on the list, described by the customer, with the default duration", async () => {
+    const { serviceId: _omit, ...rest } = validBooking;
+    const res = await request(app)
+      .post("/api/public/businesses/lavadero-aguaclara/reservations")
+      .set("X-Forwarded-For", nextIp())
+      .send({ ...rest, customService: "Lavado de tapicería del techo" });
+    expect(res.status).toBe(201);
+    expect(getAvailableSlotsMock).toHaveBeenLastCalledWith(expect.objectContaining({ serviceId: undefined }));
+    expect(createReservationMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        serviceId: null,
+        endAt: new Date(SLOT.end),
+        specialRequests: "Servicio solicitado: Lavado de tapicería del techo. Placa GHT331"
+      })
+    );
+  });
+
+  it("asks for exactly one: a listed service or a description", async () => {
+    const { serviceId: _omit, ...rest } = validBooking;
+    for (const body of [rest, { ...validBooking, customService: "Otra cosa" }]) {
+      const res = await request(app).post("/api/public/businesses/lavadero-aguaclara/reservations").set("X-Forwarded-For", nextIp()).send(body);
+      expect(res.status).toBe(400);
+    }
+    expect(createReservationMock).not.toHaveBeenCalled();
+  });
+
+  it("offers times for a service that is not on the list", async () => {
+    const res = await request(app).get("/api/public/businesses/lavadero-aguaclara/availability?date=2026-10-01");
+    expect(res.status).toBe(200);
+    expect(res.body.slots).toEqual([{ start: SLOT.start, end: SLOT.end }]);
+  });
+
   it("refuses a slot that was taken while the visitor filled the form", async () => {
     getAvailableSlotsMock.mockResolvedValue({ slots: [], timezone: "America/Bogota" });
     const res = await request(app).post("/api/public/businesses/lavadero-aguaclara/reservations").set("X-Forwarded-For", nextIp()).send(validBooking);

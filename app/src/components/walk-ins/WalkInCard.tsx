@@ -141,8 +141,8 @@ export function WalkInCard({
       <div className={cn("space-y-1", sz.body)}>
         {w.order_items && w.order_items.length > 0 && (
           <ul aria-label={`Pedido de ${shownName}`}>
-            {w.order_items.map((item) => (
-              <li key={item.service_id} className="font-medium">
+            {w.order_items.map((item, index) => (
+              <li key={item.service_id ?? `custom-${index}`} className="font-medium">
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="min-w-0">
                     <span className="font-semibold tabular-nums">{item.quantity}×</span> {item.name}
@@ -151,6 +151,14 @@ export function WalkInCard({
                     <span className="shrink-0 tabular-nums">{formatCurrency(Number(item.unit_price) * item.quantity, item.currency)}</span>
                   )}
                 </span>
+                {item.custom && (
+                  <span className="block text-[0.85em] font-normal">
+                    <Badge variant="warning" className="px-1.5 py-0 text-[0.85em]">
+                      Fuera de la carta
+                    </Badge>{" "}
+                    <span className="text-muted-foreground">precio por confirmar</span>
+                  </span>
+                )}
                 {!hidePrices && item.quantity > 1 && item.unit_price !== null && item.unit_price !== undefined && (
                   <span className="block text-[0.85em] font-normal text-muted-foreground tabular-nums">{formatCurrency(Number(item.unit_price), item.currency)} c/u</span>
                 )}
@@ -166,7 +174,7 @@ export function WalkInCard({
         )}
         {total && (
           <p className={cn("flex items-baseline justify-between gap-2 font-semibold", hasOrder && "border-t border-dashed border-border pt-1")}>
-            <span className={cn(!hasOrder && "font-normal text-muted-foreground")}>{hasOrder ? "Total" : "Valor"}</span>
+            <span className={cn(!hasOrder && "font-normal text-muted-foreground")}>{hasOrder ? (total.partial ? "Total parcial" : "Total") : "Valor"}</span>
             <span className="tabular-nums">{formatCurrency(total.amount, total.currency)}</span>
           </p>
         )}

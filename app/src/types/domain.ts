@@ -211,7 +211,8 @@ export type WalkInStatus = "waiting" | "in_service" | "done" | "left";
 
 /** Producto de un pedido por QR, tal como estaba en la carta al pedir. */
 export interface OrderItem {
-  service_id: string;
+  /** null en lo que el cliente escribió a mano (no está en la carta). */
+  service_id: string | null;
   name: string;
   quantity: number;
   unit_price: number | null;
@@ -220,6 +221,8 @@ export interface OrderItem {
   includes?: string | null;
   /** Para quién es cada porción, si el cliente lo escribió. */
   for_names?: string[];
+  /** Fuera de la carta: lo escribió el cliente y el precio lo confirma el negocio. */
+  custom?: boolean;
 }
 
 export interface WalkIn {
