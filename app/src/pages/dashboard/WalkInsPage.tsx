@@ -19,11 +19,12 @@ import { WalkInCard } from "@/components/walk-ins/WalkInCard";
 import { BoardSettingsDialog } from "@/components/walk-ins/BoardSettingsDialog";
 import { WalkInBoardHeader, WalkInBoardSection, WalkInStatTiles } from "@/components/walk-ins/WalkInBoard";
 import { WalkInEditDialog } from "@/components/walk-ins/WalkInEditDialog";
+import { SaveToMenuDialog } from "@/components/walk-ins/SaveToMenuDialog";
 import { WalkInRegisterForm } from "@/components/walk-ins/WalkInRegisterForm";
 import { isModuleEnabled } from "@/lib/modules";
-import { isOnMenu, isSoldOut, localDateIn, weekdayIn } from "@/lib/menuDays";
+import { isOnMenu, isOnMenuAlready, isSoldOut, localDateIn, weekdayIn } from "@/lib/menuDays";
 import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/lib/currency";
+import { DEFAULT_CURRENCY, formatCurrency } from "@/lib/currency";
 import { boardDensity, cardSizeFor, formatTicket, formatWait, isWaitOverdue, shortName, sumWalkInTotals, walkInErrorMessage, walkInStats, walkInTotal } from "@/lib/walkIns";
 import { playAlertSound } from "@/lib/alertSound";
 import { zonedDayRange } from "@/lib/payments";
@@ -84,6 +85,8 @@ export function WalkInsPage() {
     queryClient.invalidateQueries({ queryKey: ["reservations"] });
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Pedido fuera de la carta que el dueño/admin quiere guardar en ella.
+  const [savingToMenu, setSavingToMenu] = useState<string | null>(null);
   const alertMinutes = boardSettings.wait_alert_minutes;
   // Pantalla que ve el público: el negocio decide si muestra precios y nombres completos.
   const hidePrices = display && boardSettings.display_hide_prices;
@@ -351,6 +354,8 @@ export function WalkInsPage() {
     onDelete: () => remove(w),
     display,
     size: cardSize,
+    onSaveToMenu: canDelete ? setSavingToMenu : undefined,
+    isOnMenu: (name: string) => isOnMenuAlready(name, services),
     waitAlertMinutes: alertMinutes,
     hidePrices,
     hideNames
@@ -537,6 +542,19 @@ export function WalkInsPage() {
       )}
       </div>
 
+      {currentOrganizationId && (
+        <SaveToMenuDialog
+          organizationId={currentOrganizationId}
+          itemName={savingToMenu}
+          services={services}
+          currency={services[0]?.currency ?? DEFAULT_CURRENCY}
+          onClose={() => setSavingToMenu(null)}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: ["walk-ins-services", currentOrganizationId] });
+            queryClient.invalidateQueries({ queryKey: ["services"] });
+          }}
+        />
+      )}
       <BoardSettingsDialog open={settingsOpen} settings={boardSettings} onClose={() => setSettingsOpen(false)} onSave={saveBoardSettings} />
       <WalkInEditDialog walkIn={editing} services={services} showPartySize={showPartySize} onClose={() => setEditing(null)} onSaved={refresh} />
       {currentOrganizationId && (
