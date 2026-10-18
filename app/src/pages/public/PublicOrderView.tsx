@@ -14,20 +14,9 @@ import { PublicApiError, publicApi, type PublicBusiness, type PublicOrder } from
 import { PublicBusinessHeader } from "./PublicBusinessHeader";
 import { NotifyChannelsCard } from "./NotifyChannelsCard";
 
-/** Lo que el cliente escribe porque no está en la carta (el negocio confirma el precio). */
-interface CustomLine {
-  id: number;
-  name: string;
-  /** Qué lleva el plato. */
-  includes: string;
-  /** Precio por unidad que indicó el cliente; null = lo confirma el negocio. */
-  unitPrice: number | null;
-  quantity: number;
-}
-
+/** Plato que no está en la carta: nombre, qué lleva y precio. */
 const EMPTY_CUSTOM = { name: "", includes: "", price: "" };
 
-const MAX_CUSTOM_LINES = 5;
 const MAX_CUSTOM_NAME = 80;
 
 interface Props {
@@ -68,10 +57,10 @@ export function PublicOrderView({ slug, business, icon }: Props) {
   const [cart, setCart] = useState<Cart>({});
   // Para quién es cada porción, por producto (opcional).
   const [forNames, setForNames] = useState<Record<string, string[]>>({});
-  const [customLines, setCustomLines] = useState<CustomLine[]>([]);
   const [customOpen, setCustomOpen] = useState(false);
   const [customDraft, setCustomDraft] = useState(EMPTY_CUSTOM);
-  const nextCustomId = useRef(1);
+  // Guardar el plato escrito a mano en la carta: solo si se marca.
+  const [addToMenu, setAddToMenu] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", notes: "", website: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,56 +68,27 @@ export function PublicOrderView({ slug, business, icon }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
 
   const lines = useMemo(() => cartLines(cart, business.services), [cart, business.services]);
-  const customCount = customLines.reduce((sum, c) => sum + c.quantity, 0);
-  const count = cartCount(lines) + customCount;
-  const hasOrder = lines.length > 0 || customLines.length > 0;
-  // Moneda del negocio (la de su carta) para lo que el cliente escribe con precio.
+  const count = cartCount(lines);
+  const hasOrder = lines.length > 0;
+  // Moneda del negocio (la de su carta) para el plato escrito a mano.
   const currency = business.services[0]?.currency ?? "COP";
-  const menuTotal = cartTotal(lines);
-  // Total con lo de la carta y lo escrito a mano con precio; "parcial" si algo no tiene precio.
-  const pricedSum =
-    lines.reduce((sum, l) => sum + (l.subtotal ?? 0), 0) + customLines.reduce((sum, c) => sum + (c.unitPrice ?? 0) * c.quantity, 0);
-  const anyPriced = lines.some((l) => l.subtotal !== null) || customLines.some((c) => c.unitPrice !== null);
-  const totalComplete = lines.every((l) => l.subtotal !== null) && customLines.every((c) => c.unitPrice !== null);
-  const total = anyPriced ? { total: pricedSum, currency: menuTotal?.currency ?? lines[0]?.product.currency ?? currency } : null;
-  const totalLabel = totalComplete ? "Total" : "Total parcial";
+  const total = cartTotal(lines);
   const change = (productId: string, quantity: number) => setCart((current) => setCartQuantity(current, productId, quantity));
   const productsLabel = (n: number) => `${n} ${n === 1 ? "producto" : "productos"}`;
 
-  // Nombre y precio son obligatorios: el plato queda guardado en la carta del local.
+  // Nombre y precio del plato son obligatorios.
   const draftPrice = Number(customDraft.price.replace(/\D/g, ""));
-  const draftValid = customDraft.name.trim().length >= 2 && customDraft.price.trim() !== "" && Number.isFinite(draftPrice) && draftPrice > 0;
-
-  function addCustom() {
-    const name = customDraft.name.trim().replace(/\s+/g, " ");
-    if (!draftValid || customLines.length >= MAX_CUSTOM_LINES) return;
-    setCustomLines((current) => [
-      ...current,
-      {
-        id: nextCustomId.current++,
-        name: name.slice(0, MAX_CUSTOM_NAME),
-        includes: customDraft.includes.trim().slice(0, 300),
-        unitPrice: Math.round(draftPrice),
-        quantity: 1
-      }
-    ]);
-    setCustomDraft(EMPTY_CUSTOM);
-    setCustomOpen(false);
-  }
-
-  function changeCustom(id: number, quantity: number) {
-    setCustomLines((current) =>
-      quantity <= 0 ? current.filter((c) => c.id !== id) : current.map((c) => (c.id === id ? { ...c, quantity: Math.min(quantity, MAX_ITEM_QUANTITY) } : c))
-    );
-  }
+  const draftValid = customDraft.name.trim().length >= 2 && Number.isFinite(draftPrice) && draftPrice > 0;
+  // El plato escrito va en el pedido si está completo (desde su formulario o desde "Tu pedido").
+  const draftInOrder = customOpen && draftValid;
 
   /** Volver a la carta para otro pedido, sin recargar la página (se conservan nombre y celular). */
   function startOver() {
     setOrder(null);
     setCart({});
     setForNames({});
-    setCustomLines([]);
     setCustomDraft(EMPTY_CUSTOM);
+    setAddToMenu(false);
     setCustomOpen(false);
     setError(null);
     setForm((f) => ({ ...f, notes: "" }));
@@ -137,7 +97,7 @@ export function PublicOrderView({ slug, business, icon }: Props) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!hasOrder) return;
+    if (!hasOrder && !draftInOrder) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -147,15 +107,17 @@ export function PublicOrderView({ slug, business, icon }: Props) {
             const names = (forNames[l.product.id] ?? []).slice(0, l.quantity).map((n) => n.trim()).filter(Boolean);
             return names.length > 0 ? { serviceId: l.product.id, quantity: l.quantity, forNames: names } : { serviceId: l.product.id, quantity: l.quantity };
           }),
-          customItems:
-            customLines.length > 0
-              ? customLines.map((c) => ({
-                  name: c.name,
-                  quantity: c.quantity,
-                  ...(c.includes ? { includes: c.includes } : {}),
-                  ...(c.unitPrice !== null ? { unitPrice: c.unitPrice } : {})
-                }))
-              : undefined,
+          customItems: draftInOrder
+            ? [
+                {
+                  name: customDraft.name.trim().replace(/\s+/g, " ").slice(0, MAX_CUSTOM_NAME),
+                  quantity: 1,
+                  ...(customDraft.includes.trim() ? { includes: customDraft.includes.trim().slice(0, 300) } : {}),
+                  unitPrice: Math.round(draftPrice),
+                  addToMenu
+                }
+              ]
+            : undefined,
           name: form.name,
           phone: form.phone || undefined,
           notes: form.notes || undefined,
@@ -208,11 +170,6 @@ export function PublicOrderView({ slug, business, icon }: Props) {
                 </li>
               ))}
             </ul>
-            {order.total == null && customLines.some((c) => c.unitPrice === null) && (
-              <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
-                El precio de lo que escribiste fuera de la carta te lo confirman en {business.name}.
-              </p>
-            )}
             {order.total != null && (
               <p className="mt-3 flex justify-between border-t border-border pt-3 font-semibold">
                 <span>Total</span>
@@ -314,58 +271,82 @@ export function PublicOrderView({ slug, business, icon }: Props) {
           </button>
           {customOpen && (
             <div id="po-custom-form" className="border-t border-border bg-muted/30 p-4 sm:p-5">
-              {customLines.length >= MAX_CUSTOM_LINES ? (
-                <p className="text-sm text-muted-foreground">Podés agregar hasta {MAX_CUSTOM_LINES} platos fuera de la carta.</p>
-              ) : (
-                <form
-                  className="space-y-3"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    addCustom();
-                  }}
-                >
-                  <Input
-                    aria-label="Nombre del plato"
-                    className="h-12 bg-card text-base font-medium"
-                    maxLength={MAX_CUSTOM_NAME}
-                    placeholder="Nombre del plato"
-                    value={customDraft.name}
-                    onChange={(e) => setCustomDraft({ ...customDraft, name: e.target.value })}
-                  />
-                  <Textarea
-                    aria-label="Qué lleva el plato"
-                    className="min-h-20 resize-none bg-card text-sm"
-                    maxLength={300}
-                    placeholder="¿Qué lleva? Ej: arroz, frijoles, chicharrón y huevo"
-                    value={customDraft.includes}
-                    onChange={(e) => setCustomDraft({ ...customDraft, includes: e.target.value })}
-                  />
-                  <div className="flex gap-3">
-                    <div className="relative flex-1">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true">
-                        $
-                      </span>
-                      <Input
-                        aria-label={`Precio en ${currency}`}
-                        className="h-12 bg-card pl-7 pr-14 text-base tabular-nums"
-                        inputMode="numeric"
-                        placeholder="Precio"
-                        value={customDraft.price}
-                        onChange={(e) => {
-                          const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
-                          setCustomDraft({ ...customDraft, price: digits ? Number(digits).toLocaleString("es-CO") : "" });
-                        }}
-                      />
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground" aria-hidden="true">
-                        {currency}
-                      </span>
-                    </div>
-                    <Button type="submit" className="h-12 shrink-0 rounded-xl px-5" disabled={!draftValid}>
-                      <Plus className="h-4 w-4" /> Agregar
-                    </Button>
+              <form className="space-y-3" onSubmit={submit}>
+                <Input
+                  aria-label="Nombre del plato"
+                  className="h-12 bg-card text-base font-medium"
+                  required
+                  minLength={2}
+                  maxLength={MAX_CUSTOM_NAME}
+                  placeholder="Nombre del plato"
+                  value={customDraft.name}
+                  onChange={(e) => setCustomDraft({ ...customDraft, name: e.target.value })}
+                />
+                <Textarea
+                  aria-label="Qué lleva el plato"
+                  className="min-h-20 resize-none bg-card text-sm"
+                  maxLength={300}
+                  placeholder="¿Qué lleva? Ej: arroz, frijoles, chicharrón y huevo"
+                  value={customDraft.includes}
+                  onChange={(e) => setCustomDraft({ ...customDraft, includes: e.target.value })}
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true">
+                      $
+                    </span>
+                    <Input
+                      aria-label={`Precio en ${currency}`}
+                      className="h-12 bg-card pl-7 pr-14 text-base tabular-nums"
+                      inputMode="numeric"
+                      required
+                      placeholder="Precio"
+                      value={customDraft.price}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
+                        setCustomDraft({ ...customDraft, price: digits ? Number(digits).toLocaleString("es-CO") : "" });
+                      }}
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground" aria-hidden="true">
+                      {currency}
+                    </span>
                   </div>
-                </form>
-              )}
+                  <Input
+                    aria-label="Quién recibe el pedido"
+                    className="h-12 bg-card text-base"
+                    autoComplete="given-name"
+                    required
+                    minLength={2}
+                    maxLength={80}
+                    placeholder="¿Quién recibe el pedido?"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </div>
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 shrink-0 cursor-pointer accent-primary"
+                    checked={addToMenu}
+                    onChange={(e) => setAddToMenu(e.target.checked)}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">Agregar este plato al menú</span>
+                    <span className="block text-xs text-muted-foreground">Queda guardado con su precio para los próximos pedidos.</span>
+                  </span>
+                </label>
+                {error && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {error}
+                  </p>
+                )}
+                <Button type="submit" size="lg" className="h-12 w-full rounded-xl" disabled={!draftValid || form.name.trim().length < 2 || submitting}>
+                  {submitting
+                    ? "Enviando..."
+                    : `Hacer pedido${draftValid && (!hasOrder || total) ? ` · ${formatCurrency(draftPrice + (total?.total ?? 0), total?.currency ?? currency)}` : ""}`}
+                </Button>
+                {hasOrder && <p className="text-center text-xs text-muted-foreground">Incluye también {productsLabel(count)} de la carta.</p>}
+              </form>
             </div>
           )}
         </section>
@@ -406,22 +387,10 @@ export function PublicOrderView({ slug, business, icon }: Props) {
                     </div>
                   </li>
                 ))}
-                {customLines.map((c) => (
-                  <li key={`custom-${c.id}`} className="flex items-center gap-3 py-3 first:pt-0">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{c.name}</p>
-                      {c.includes && <p className="text-xs text-muted-foreground">Incluye: {c.includes}</p>}
-                      <p className="text-xs tabular-nums text-muted-foreground">
-                        {c.unitPrice !== null ? `${formatCurrency(c.unitPrice * c.quantity, currency)} · ` : ""}Plato agregado por vos
-                      </p>
-                    </div>
-                    <QuantityStepper name={c.name} quantity={c.quantity} onChange={(q) => changeCustom(c.id, q)} />
-                  </li>
-                ))}
               </ul>
               {total && (
                 <p className="flex justify-between border-t border-border pt-3 font-semibold">
-                  <span>{totalLabel}</span>
+                  <span>Total</span>
                   <span className="tabular-nums">{formatCurrency(total.total, total.currency)}</span>
                 </p>
               )}
@@ -451,13 +420,13 @@ export function PublicOrderView({ slug, business, icon }: Props) {
                 <input id="po-website" tabIndex={-1} autoComplete="off" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
               </div>
             </div>
-            {error && (
+            {error && !customOpen && (
               <p role="alert" className="text-sm text-destructive">
                 {error}
               </p>
             )}
             <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-              {submitting ? "Enviando..." : `Hacer pedido · ${productsLabel(count)}`}
+              {submitting ? "Enviando..." : `Hacer pedido · ${productsLabel(count + (draftInOrder ? 1 : 0))}`}
             </Button>
           </form>
         )}
@@ -471,7 +440,7 @@ export function PublicOrderView({ slug, business, icon }: Props) {
             <ShoppingBag className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
             <p className="min-w-0 flex-1 text-sm">
               <span className="font-semibold">{productsLabel(count)}</span>
-              {total && totalComplete && <span className="text-muted-foreground"> · {formatCurrency(total.total, total.currency)}</span>}
+              {total && <span className="text-muted-foreground"> · {formatCurrency(total.total, total.currency)}</span>}
             </p>
             <Button type="button" onClick={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
               Ver pedido

@@ -36,6 +36,8 @@ export interface PublicCustomItemInput {
   includes?: string;
   /** Precio por unidad que indicó el cliente (el negocio lo valida al cobrar). */
   unitPrice?: number;
+  /** Guardar el plato en la carta del local (solo si trae precio). */
+  addToMenu?: boolean;
 }
 
 export interface PublicOrderInput {
@@ -212,7 +214,7 @@ export function menuNameKey(name: string): string {
 }
 
 /**
- * Lo que el cliente escribió con precio queda en la carta: si ya hay un
+ * Lo escrito a mano que se pidió guardar (con precio) queda en la carta: si ya hay un
  * producto con ese nombre se usa ese (con su precio); si no, se crea uno
  * nuevo con el nombre, lo que lleva y el precio indicados. Si no se puede
  * guardar, el pedido sigue igual (fuera de la carta).
@@ -289,12 +291,15 @@ export async function createPublicOrder(slug: string, input: PublicOrderInput, n
   if (publicPageMode(org.business_type, org.disabled_modules) !== "order") {
     throw new AppError(ErrorCodes.ORGANIZATION_NOT_FOUND, "Este negocio no recibe pedidos en línea.", 404);
   }
-  const written = customOrderItems(input.customItems, await businessCurrency(org.id, input.customItems));
-  if (input.items.length === 0 && written.length === 0) {
+  const currency = await businessCurrency(org.id, input.customItems);
+  // Solo lo que se marcó para guardar va a la carta; lo demás queda fuera de la carta.
+  const toMenu = customOrderItems(input.customItems?.filter((c) => c.addToMenu), currency);
+  const writtenOnly = customOrderItems(input.customItems?.filter((c) => !c.addToMenu), currency);
+  if (input.items.length === 0 && toMenu.length + writtenOnly.length === 0) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Elegí al menos un producto o escribí lo que querés pedir.", 400);
   }
   const fromMenu = input.items.length > 0 ? await loadOrderItems(org.id, org.timezone, input.items, now) : [];
-  const custom = await addCustomItemsToMenu(org.id, written);
+  const custom = [...(await addCustomItemsToMenu(org.id, toMenu)), ...writtenOnly];
   const items = [...fromMenu, ...custom];
   if (items.length > MAX_ORDER_LINES) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Tu pedido tiene demasiados productos distintos.", 400);

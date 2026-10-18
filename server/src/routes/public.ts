@@ -91,6 +91,8 @@ const customItemSchema = z.object({
   // Qué lleva el plato y su precio por unidad, si el cliente los indica.
   includes: z.string().trim().max(300).optional(),
   unitPrice: z.number().min(0).max(MAX_CUSTOM_ITEM_PRICE).optional(),
+  // Si quien pide marcó guardar el plato en la carta del local.
+  addToMenu: z.boolean().optional(),
   quantity: z.number().int().min(1).max(MAX_ITEM_QUANTITY),
   forNames: z.array(z.string().max(MAX_FOR_NAME_LENGTH)).max(MAX_ITEM_QUANTITY).optional()
 });
