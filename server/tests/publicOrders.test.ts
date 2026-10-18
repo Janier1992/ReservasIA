@@ -199,7 +199,7 @@ describe("createPublicOrder", () => {
     });
     const order = await createPublicOrder("antojitos", {
       items: [{ serviceId: "svc-1", quantity: 1 }],
-      customItems: [{ name: "Bandeja especial", quantity: 2, includes: " frijoles,  chicharrón y huevo ", unitPrice: 25000 }],
+      customItems: [{ name: "Bandeja especial", quantity: 2, includes: " frijoles,  chicharrón y huevo ", unitPrice: 25000, addToMenu: true }],
       name: "Ana"
     });
     expect(insertedInto("services")).toMatchObject({
@@ -227,11 +227,26 @@ describe("createPublicOrder", () => {
       walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z" }), ok([{ id: "w-1" }])],
       integrations: ok([])
     });
-    await createPublicOrder("antojitos", { items: [], customItems: [{ name: "  hamburguesa ", quantity: 1, unitPrice: 1 }], name: "Ana" });
+    await createPublicOrder("antojitos", { items: [], customItems: [{ name: "  hamburguesa ", quantity: 1, unitPrice: 1, addToMenu: true }], name: "Ana" });
     expect(insertedInto("services")).toBeUndefined();
     const stored = (insertedInto("walk_ins") as { order_items: Record<string, unknown>[] }).order_items[0];
     expect(stored).toMatchObject({ service_id: "svc-1", name: "Hamburguesa", unit_price: 18000 });
     expect(stored.custom).toBeUndefined();
+  });
+
+  it("keeps a priced written-in dish off the menu when saving was not checked", async () => {
+    useDb({
+      organizations: ok(restaurant),
+      business_profiles: ok({ currency: "COP" }),
+      walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z" }), ok([{ id: "w-1" }])],
+      integrations: ok([])
+    });
+    const order = await createPublicOrder("antojitos", { items: [], customItems: [{ name: "Bandeja especial", quantity: 1, unitPrice: 25000 }], name: "Laura" });
+    expect(insertedInto("services")).toBeUndefined();
+    expect(insertedInto("walk_ins")).toMatchObject({
+      order_items: [{ service_id: null, name: "Bandeja especial", unit_price: 25000, currency: "COP", custom: true }]
+    });
+    expect(order).toMatchObject({ total: 25000, currency: "COP" });
   });
 
   it("accepts an order made only of things written by the customer", async () => {
