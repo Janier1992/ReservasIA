@@ -166,29 +166,38 @@ export function WalkInCard({
                     <span className="text-muted-foreground">Para:</span> {item.for_names.join(", ")}
                   </span>
                 )}
-                {item.custom && (
+                {item.added_to_menu ? (
                   <span className="block text-[0.85em] font-normal">
-                    <Badge variant="warning" className="px-1.5 py-0 text-[0.85em]">
-                      Fuera de la carta
+                    <Badge variant="success" className="px-1.5 py-0 text-[0.85em]">
+                      Nuevo en la carta
                     </Badge>{" "}
-                    <span className="text-muted-foreground">{item.unit_price != null ? "precio indicado por el cliente" : "precio por confirmar"}</span>
-                    {!display &&
-                      onSaveToMenu &&
-                      (isOnMenu?.(item.name) ? (
-                        <span className="block text-success">
-                          <Check className="inline h-3.5 w-3.5" /> Ya está en la carta
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          className="mt-0.5 flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
-                          onClick={() => onSaveToMenu(item)}
-                          aria-label={`Guardar ${item.name} en la carta`}
-                        >
-                          <BookPlus className="h-3.5 w-3.5" /> Guardar en la carta
-                        </button>
-                      ))}
+                    <span className="text-muted-foreground">lo agregó el cliente con su precio</span>
                   </span>
+                ) : (
+                  item.custom && (
+                    <span className="block text-[0.85em] font-normal">
+                      <Badge variant="warning" className="px-1.5 py-0 text-[0.85em]">
+                        Fuera de la carta
+                      </Badge>{" "}
+                      <span className="text-muted-foreground">{item.unit_price != null ? "precio indicado por el cliente" : "precio por confirmar"}</span>
+                      {!display &&
+                        onSaveToMenu &&
+                        (isOnMenu?.(item.name) ? (
+                          <span className="block text-success">
+                            <Check className="inline h-3.5 w-3.5" /> Ya está en la carta
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="mt-0.5 flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
+                            onClick={() => onSaveToMenu(item)}
+                            aria-label={`Guardar ${item.name} en la carta`}
+                          >
+                            <BookPlus className="h-3.5 w-3.5" /> Guardar en la carta
+                          </button>
+                        ))}
+                    </span>
+                  )
                 )}
               </li>
             ))}

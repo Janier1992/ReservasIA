@@ -221,8 +221,10 @@ export interface OrderItem {
   includes?: string | null;
   /** Para quién es cada porción, si el cliente lo escribió. */
   for_names?: string[];
-  /** Fuera de la carta: lo escribió el cliente y el precio lo confirma el negocio. */
+  /** Fuera de la carta: lo escribió el cliente. */
   custom?: boolean;
+  /** Lo escrito por el cliente se guardó solo como producto nuevo de la carta. */
+  added_to_menu?: boolean;
 }
 
 export interface WalkIn {

@@ -188,10 +188,11 @@ describe("createPublicOrder", () => {
     expect(order).toMatchObject({ serviceName: "Hamburguesa y 2× Arepa con queso", total: null });
   });
 
-  it("keeps what a written-in dish includes and the price the customer gave, in the business currency", async () => {
+  it("adds a written-in dish with its price to the menu and links the order to it", async () => {
     useDb({
       organizations: ok(restaurant),
-      services: ok([burger]),
+      // 1) productos del pedido, 2) carta para buscar el nombre, 3) producto nuevo creado
+      services: [ok([burger]), ok([burger]), ok({ id: "svc-new", name: "Bandeja especial", description: "frijoles, chicharrón y huevo", price: 25000, currency: "COP" })],
       business_profiles: ok({ currency: "COP" }),
       walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z" }), ok([{ id: "w-1" }])],
       integrations: ok([])
@@ -201,14 +202,36 @@ describe("createPublicOrder", () => {
       customItems: [{ name: "Bandeja especial", quantity: 2, includes: " frijoles,  chicharrón y huevo ", unitPrice: 25000 }],
       name: "Ana"
     });
+    expect(insertedInto("services")).toMatchObject({
+      organization_id: "org-1",
+      name: "Bandeja especial",
+      description: "frijoles, chicharrón y huevo",
+      price: 25000,
+      currency: "COP",
+      duration_minutes: 15
+    });
     expect(insertedInto("walk_ins")).toMatchObject({
       order_items: [
         { service_id: "svc-1" },
-        { service_id: null, name: "Bandeja especial", quantity: 2, includes: "frijoles, chicharrón y huevo", unit_price: 25000, currency: "COP", custom: true }
+        { service_id: "svc-new", name: "Bandeja especial", quantity: 2, unit_price: 25000, currency: "COP", custom: true, added_to_menu: true }
       ]
     });
-    // Todo tiene precio: el total se calcula completo.
     expect(order).toMatchObject({ total: 68000, currency: "COP" });
+  });
+
+  it("reuses the menu product when the written-in name already exists, with the business price", async () => {
+    useDb({
+      organizations: ok(restaurant),
+      services: ok([{ ...burger, name: "Hamburguesa", description: null }]),
+      business_profiles: ok({ currency: "COP" }),
+      walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z" }), ok([{ id: "w-1" }])],
+      integrations: ok([])
+    });
+    await createPublicOrder("antojitos", { items: [], customItems: [{ name: "  hamburguesa ", quantity: 1, unitPrice: 1 }], name: "Ana" });
+    expect(insertedInto("services")).toBeUndefined();
+    const stored = (insertedInto("walk_ins") as { order_items: Record<string, unknown>[] }).order_items[0];
+    expect(stored).toMatchObject({ service_id: "svc-1", name: "Hamburguesa", unit_price: 18000 });
+    expect(stored.custom).toBeUndefined();
   });
 
   it("accepts an order made only of things written by the customer", async () => {
