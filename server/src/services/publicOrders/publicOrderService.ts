@@ -59,8 +59,10 @@ export interface OrderItem {
   includes?: string | null;
   /** Para quién es cada unidad, si el cliente lo escribió. */
   for_names?: string[];
-  /** Lo escribió el cliente: no está en la carta y el precio lo confirma el negocio. */
+  /** Lo escribió el cliente: no estaba en la carta. */
   custom?: true;
+  /** Lo escrito por el cliente se guardó como producto nuevo de la carta con este pedido. */
+  added_to_menu?: true;
 }
 
 export interface PublicOrderResult {
@@ -202,6 +204,79 @@ async function loadOrderItems(organizationId: string, timezone: string, requeste
   });
 }
 
+const MENU_ITEM_MINUTES = 15;
+
+/** Mismo nombre de producto sin importar mayúsculas ni espacios de más. */
+export function menuNameKey(name: string): string {
+  return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
+}
+
+/**
+ * Lo que el cliente escribió con precio queda en la carta: si ya hay un
+ * producto con ese nombre se usa ese (con su precio); si no, se crea uno
+ * nuevo con el nombre, lo que lleva y el precio indicados. Si no se puede
+ * guardar, el pedido sigue igual (fuera de la carta).
+ */
+async function addCustomItemsToMenu(organizationId: string, items: OrderItem[]): Promise<OrderItem[]> {
+  const toMenu = items.filter((i) => i.unit_price !== null);
+  if (toMenu.length === 0) return items;
+  const { data: existing } = await insforgeAdmin.database
+    .from("services")
+    .select("id, name, description, price, currency")
+    .eq("organization_id", organizationId);
+  const byName = new Map(
+    ((existing ?? []) as { id: string; name: string; description: string | null; price: number | null; currency: string | null }[]).map((s) => [
+      menuNameKey(s.name),
+      s
+    ])
+  );
+  const result: OrderItem[] = [];
+  for (const item of items) {
+    if (item.unit_price === null) {
+      result.push(item);
+      continue;
+    }
+    const found = byName.get(menuNameKey(item.name));
+    if (found) {
+      // Ya estaba en la carta: vale el producto (y el precio) del negocio.
+      result.push({
+        ...item,
+        service_id: found.id,
+        name: found.name,
+        unit_price: found.price === null ? item.unit_price : Number(found.price),
+        currency: found.price === null ? item.currency : found.currency,
+        includes: found.description?.trim() || item.includes,
+        custom: undefined
+      });
+      continue;
+    }
+    const { data: created, error } = await insforgeAdmin.database
+      .from("services")
+      .insert([
+        {
+          organization_id: organizationId,
+          name: item.name,
+          description: item.includes ?? null,
+          duration_minutes: MENU_ITEM_MINUTES,
+          price: item.unit_price,
+          currency: item.currency
+        }
+      ])
+      .select("id, name, description, price, currency")
+      .single();
+    if (error || !created) {
+      logger.warn({ organizationId, err: error }, "custom_item_add_to_menu_failed");
+      result.push(item);
+      continue;
+    }
+    const row = created as { id: string; name: string; description: string | null; price: number | null; currency: string | null };
+    byName.set(menuNameKey(row.name), row);
+    result.push({ ...item, service_id: row.id, added_to_menu: true });
+  }
+  // Sin claves undefined en el jsonb.
+  return result.map((i) => JSON.parse(JSON.stringify(i)) as OrderItem);
+}
+
 /** Moneda del negocio, solo si algún pedido escrito a mano trae precio. */
 async function businessCurrency(organizationId: string, custom: PublicCustomItemInput[] | undefined): Promise<string | null> {
   if (!custom?.some((c) => typeof c.unitPrice === "number")) return null;
@@ -214,11 +289,12 @@ export async function createPublicOrder(slug: string, input: PublicOrderInput, n
   if (publicPageMode(org.business_type, org.disabled_modules) !== "order") {
     throw new AppError(ErrorCodes.ORGANIZATION_NOT_FOUND, "Este negocio no recibe pedidos en línea.", 404);
   }
-  const custom = customOrderItems(input.customItems, await businessCurrency(org.id, input.customItems));
-  if (input.items.length === 0 && custom.length === 0) {
+  const written = customOrderItems(input.customItems, await businessCurrency(org.id, input.customItems));
+  if (input.items.length === 0 && written.length === 0) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Elegí al menos un producto o escribí lo que querés pedir.", 400);
   }
   const fromMenu = input.items.length > 0 ? await loadOrderItems(org.id, org.timezone, input.items, now) : [];
+  const custom = await addCustomItemsToMenu(org.id, written);
   const items = [...fromMenu, ...custom];
   if (items.length > MAX_ORDER_LINES) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Tu pedido tiene demasiados productos distintos.", 400);

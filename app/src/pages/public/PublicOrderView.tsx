@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, Check, ChevronDown, Minus, PencilLine, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/currency";
@@ -24,7 +25,7 @@ interface CustomLine {
   quantity: number;
 }
 
-const EMPTY_CUSTOM = { name: "", includes: "", price: "", quantity: 1 };
+const EMPTY_CUSTOM = { name: "", includes: "", price: "" };
 
 const MAX_CUSTOM_LINES = 5;
 const MAX_CUSTOM_NAME = 80;
@@ -94,8 +95,9 @@ export function PublicOrderView({ slug, business, icon }: Props) {
   const change = (productId: string, quantity: number) => setCart((current) => setCartQuantity(current, productId, quantity));
   const productsLabel = (n: number) => `${n} ${n === 1 ? "producto" : "productos"}`;
 
-  const draftPrice = customDraft.price.trim() === "" ? null : Number(customDraft.price);
-  const draftValid = customDraft.name.trim().length >= 2 && (draftPrice === null || (Number.isFinite(draftPrice) && draftPrice >= 0));
+  // Nombre y precio son obligatorios: el plato queda guardado en la carta del local.
+  const draftPrice = Number(customDraft.price.replace(/\D/g, ""));
+  const draftValid = customDraft.name.trim().length >= 2 && customDraft.price.trim() !== "" && Number.isFinite(draftPrice) && draftPrice > 0;
 
   function addCustom() {
     const name = customDraft.name.trim().replace(/\s+/g, " ");
@@ -106,8 +108,8 @@ export function PublicOrderView({ slug, business, icon }: Props) {
         id: nextCustomId.current++,
         name: name.slice(0, MAX_CUSTOM_NAME),
         includes: customDraft.includes.trim().slice(0, 300),
-        unitPrice: draftPrice === null ? null : Math.round(draftPrice),
-        quantity: Math.min(Math.max(1, customDraft.quantity), MAX_ITEM_QUANTITY)
+        unitPrice: Math.round(draftPrice),
+        quantity: 1
       }
     ]);
     setCustomDraft(EMPTY_CUSTOM);
@@ -284,86 +286,85 @@ export function PublicOrderView({ slug, business, icon }: Props) {
           )}
         </section>
 
-        {/* Lo que no está en la carta: el cliente lo describe (y, si lo sabe, el precio). */}
-        <section className="rounded-2xl border border-dashed border-border bg-card/60" aria-labelledby="po-custom-title">
+        {/* Lo que no está en la carta: nombre, lo que lleva y precio; queda en la carta del local. */}
+        <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <button
             type="button"
-            className="flex w-full items-start gap-3 p-4 text-left"
+            className="flex w-full items-center gap-4 p-4 text-left transition-colors hover:bg-muted/40"
             aria-expanded={customOpen}
             aria-controls="po-custom-form"
             onClick={() => setCustomOpen((open) => !open)}
           >
-            <PencilLine className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-            <span className="min-w-0 flex-1">
-              <span id="po-custom-title" className="block font-medium">
-                ¿No encontrás lo que querés?
-              </span>
-              <span className="block text-sm text-muted-foreground">Agregá un plato que no está en la carta, con lo que lleva y su precio.</span>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <UtensilsCrossed className="h-5 w-5" aria-hidden="true" />
             </span>
-            <ChevronDown className={cn("mt-0.5 h-5 w-5 shrink-0 text-muted-foreground transition-transform", customOpen && "rotate-180")} aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">¿No está en la carta?</span>
+              <span className="block text-sm text-muted-foreground">Agregá tu plato con lo que lleva y su precio.</span>
+            </span>
+            <span
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground transition-transform",
+                customOpen && "rotate-45 border-primary text-primary"
+              )}
+              aria-hidden="true"
+            >
+              <Plus className="h-4 w-4" />
+            </span>
           </button>
           {customOpen && (
-            <div id="po-custom-form" className="space-y-3 border-t border-dashed border-border p-4">
+            <div id="po-custom-form" className="border-t border-border bg-muted/30 p-4 sm:p-5">
               {customLines.length >= MAX_CUSTOM_LINES ? (
                 <p className="text-sm text-muted-foreground">Podés agregar hasta {MAX_CUSTOM_LINES} platos fuera de la carta.</p>
               ) : (
-                <>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="po-custom-name">Nombre del plato *</Label>
-                    <Input
-                      id="po-custom-name"
-                      maxLength={MAX_CUSTOM_NAME}
-                      placeholder="Ej: Bandeja especial"
-                      value={customDraft.name}
-                      onChange={(e) => setCustomDraft({ ...customDraft, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="po-custom-includes">¿Qué lleva? (opcional)</Label>
-                    <Input
-                      id="po-custom-includes"
-                      maxLength={300}
-                      placeholder="Ej: arroz, frijoles, chicharrón y huevo"
-                      value={customDraft.includes}
-                      onChange={(e) => setCustomDraft({ ...customDraft, includes: e.target.value })}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="po-custom-price">Precio ({currency}, opcional)</Label>
+                <form
+                  className="space-y-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    addCustom();
+                  }}
+                >
+                  <Input
+                    aria-label="Nombre del plato"
+                    className="h-12 bg-card text-base font-medium"
+                    maxLength={MAX_CUSTOM_NAME}
+                    placeholder="Nombre del plato"
+                    value={customDraft.name}
+                    onChange={(e) => setCustomDraft({ ...customDraft, name: e.target.value })}
+                  />
+                  <Textarea
+                    aria-label="Qué lleva el plato"
+                    className="min-h-20 resize-none bg-card text-sm"
+                    maxLength={300}
+                    placeholder="¿Qué lleva? Ej: arroz, frijoles, chicharrón y huevo"
+                    value={customDraft.includes}
+                    onChange={(e) => setCustomDraft({ ...customDraft, includes: e.target.value })}
+                  />
+                  <div className="flex gap-3">
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true">
+                        $
+                      </span>
                       <Input
-                        id="po-custom-price"
-                        type="number"
-                        min={0}
+                        aria-label={`Precio en ${currency}`}
+                        className="h-12 bg-card pl-7 pr-14 text-base tabular-nums"
                         inputMode="numeric"
-                        placeholder="Ej: 25000"
+                        placeholder="Precio"
                         value={customDraft.price}
-                        onChange={(e) => setCustomDraft({ ...customDraft, price: e.target.value })}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
+                          setCustomDraft({ ...customDraft, price: digits ? Number(digits).toLocaleString("es-CO") : "" });
+                        }}
                       />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground" aria-hidden="true">
+                        {currency}
+                      </span>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="po-custom-qty">Cantidad</Label>
-                      <Input
-                        id="po-custom-qty"
-                        type="number"
-                        min={1}
-                        max={MAX_ITEM_QUANTITY}
-                        inputMode="numeric"
-                        value={customDraft.quantity}
-                        onChange={(e) => setCustomDraft({ ...customDraft, quantity: Number(e.target.value) || 1 })}
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">El local confirma el precio al entregarte el pedido.</p>
-                  <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => setCustomOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button type="button" onClick={addCustom} disabled={!draftValid}>
-                      <Plus className="h-4 w-4" /> Agregar al pedido
+                    <Button type="submit" className="h-12 shrink-0 rounded-xl px-5" disabled={!draftValid}>
+                      <Plus className="h-4 w-4" /> Agregar
                     </Button>
                   </div>
-                </>
+                </form>
               )}
             </div>
           )}
@@ -411,8 +412,7 @@ export function PublicOrderView({ slug, business, icon }: Props) {
                       <p className="text-sm font-medium">{c.name}</p>
                       {c.includes && <p className="text-xs text-muted-foreground">Incluye: {c.includes}</p>}
                       <p className="text-xs tabular-nums text-muted-foreground">
-                        {c.unitPrice !== null ? `${formatCurrency(c.unitPrice * c.quantity, currency)} · ` : ""}Fuera de la carta
-                        {c.unitPrice === null ? " · precio por confirmar" : ""}
+                        {c.unitPrice !== null ? `${formatCurrency(c.unitPrice * c.quantity, currency)} · ` : ""}Plato agregado por vos
                       </p>
                     </div>
                     <QuantityStepper name={c.name} quantity={c.quantity} onChange={(q) => changeCustom(c.id, q)} />
