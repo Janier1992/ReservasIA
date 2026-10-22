@@ -58,11 +58,17 @@ export function getTelegramPollerHealth(): {
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener("abort", () => {
+    // El listener se quita al terminar la espera: si no, cada reintento deja
+    // uno colgado en el signal del poller (MaxListenersExceededWarning).
+    const onAbort = () => {
       clearTimeout(timer);
       resolve();
-    });
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 }
 
@@ -93,7 +99,10 @@ async function runPollLoop(organizationId: string, botToken: string, signal: Abo
         }
       }
     } catch (err) {
-      if (signal.aborted || (err as { name?: string }).name === "AbortError") break;
+      // Solo se corta si se pidió parar este poller. Un AbortError sin eso es
+      // el timeout propio de getUpdates (red caída o lenta): se reintenta, si
+      // no el bot quedaba sin leer para siempre tras un corte de red.
+      if (signal.aborted) break;
       if ((err as { code?: string }).code === TELEGRAM_POLL_CONFLICT) {
         conflictedOrgs.add(organizationId);
         logger.error(
@@ -139,10 +148,13 @@ async function refreshPollers(): Promise<void> {
     // sin esto, /api/health marcaría "degraded" por unos segundos en cada
     // arranque/redeploy.
     lastPollSuccessAt = Date.now();
-    runPollLoop(organizationId, botToken, controller.signal).catch((err) => {
-      logger.error({ organizationId, err }, "telegram_poll_loop_crashed");
-      activePollers.delete(organizationId);
-    });
+    runPollLoop(organizationId, botToken, controller.signal)
+      .catch((err) => logger.error({ organizationId, err }, "telegram_poll_loop_crashed"))
+      .finally(() => {
+        // Si el loop terminó sin que nadie lo parara, el próximo refresh lo
+        // vuelve a arrancar (no queda registrado como activo sin estarlo).
+        if (activePollers.get(organizationId)?.controller === controller) activePollers.delete(organizationId);
+      });
   }
 }
 
