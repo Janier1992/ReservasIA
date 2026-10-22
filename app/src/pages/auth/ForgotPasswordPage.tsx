@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { AuthLayout } from "./AuthLayout";
 
@@ -62,7 +63,7 @@ export function ForgotPasswordPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="newPassword">Nueva contraseña</Label>
-            <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            <PasswordInput id="newPassword" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
           </div>
           <Button className="w-full" onClick={onResetPassword} disabled={submitting}>
             {submitting ? "Guardando..." : "Restablecer contraseña"}
