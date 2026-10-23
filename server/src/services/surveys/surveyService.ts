@@ -2,7 +2,7 @@ import { env } from "../../config/env.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { loadConnectedTelegramBotToken, sendTelegramMessage } from "../telegram/telegramService.js";
-import { sendWhatsAppMessage } from "../twilio/twilioService.js";
+import { sendWhatsAppMessage } from "../whatsapp/whatsappSender.js";
 
 const TELEGRAM_PREFIX = "telegram:";
 /** Se pide la opinión entre 2 y 48 horas después de terminada la atención. */

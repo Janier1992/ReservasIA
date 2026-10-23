@@ -31,6 +31,18 @@ const FALLBACK_REPLY =
 // cuando no lo hace (o filtra un tag equivalente que todavía no vimos).
 const KNOWN_LEAKED_CONTROL_TOKENS = ["<CPA_DONE>"];
 
+/**
+ * Si una persona del negocio respondió hace poco en la conversación (desde su
+ * app de WhatsApp Business o desde el Inbox), el agente se calla durante este
+ * lapso: así el cliente no recibe dos respuestas a la vez. Pasado ese tiempo
+ * sin que el negocio vuelva a escribir, el agente retoma solo.
+ */
+export const HUMAN_TAKEOVER_MS = 30 * 60 * 1000;
+
+export function humanTakeoverActive(rows: Pick<Message, "role" | "created_at">[], now: number = Date.now()): boolean {
+  return rows.some((r) => r.role === "staff" && now - new Date(r.created_at).getTime() < HUMAN_TAKEOVER_MS);
+}
+
 function stripLeakedControlTokens(text: string): string {
   return text.replace(/<\/?[A-Z][A-Z0-9_]*>/g, "").trim();
 }
@@ -231,6 +243,11 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
   if (historyError) {
     logAgentEvent(logCtx, { scope: "agent", result: "error", message: "history_load_failed" });
     return { reply: FALLBACK_REPLY, roundsUsed: 0 };
+  }
+
+  if (!previewMode && humanTakeoverActive((historyRows ?? []) as Message[])) {
+    logAgentEvent(logCtx, { scope: "agent", result: "success", message: "human_takeover_skipping" });
+    return { reply: null, roundsUsed: 0 };
   }
 
   const orderedHistory = ((historyRows ?? []) as Message[]).slice().reverse();
