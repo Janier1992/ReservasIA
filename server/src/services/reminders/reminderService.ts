@@ -3,7 +3,7 @@ import { es } from "date-fns/locale";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { sendTelegramMessage } from "../telegram/telegramService.js";
-import { sendWhatsAppReminderTemplate } from "../twilio/twilioService.js";
+import { sendWhatsAppReminderTemplate } from "../whatsapp/whatsappSender.js";
 
 const TELEGRAM_PHONE_PREFIX = "telegram:";
 

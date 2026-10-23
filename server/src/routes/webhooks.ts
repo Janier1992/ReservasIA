@@ -3,7 +3,7 @@ import express from "express";
 import { z } from "zod";
 import { logger } from "../lib/logger.js";
 import { AppError, ErrorCodes } from "../utils/AppError.js";
-import { resolveOrganizationForIncomingNumber, sendWhatsAppMessage, validateTwilioSignature } from "../services/twilio/twilioService.js";
+import { resolveOrganizationForIncomingNumber, sendTwilioWhatsAppMessage, validateTwilioSignature } from "../services/twilio/twilioService.js";
 import { handleInboundMessage } from "../services/conversations/inboundMessageHandler.js";
 import { runAgentTurn } from "../services/agent/agentRuntime.js";
 import { extractOrderCode, handleOrderCodeMessage } from "../services/publicOrders/publicOrderService.js";
@@ -11,6 +11,9 @@ import { webhookRateLimiter } from "../middleware/rateLimit.js";
 import { processUpdate } from "../services/telegram/telegramUpdateHandler.js";
 import { botTokenForWebhook, isValidTelegramWebhookSecret } from "../services/telegram/telegramWebhookManager.js";
 import type { TelegramUpdate } from "../services/telegram/telegramService.js";
+import { loadYCloudIntegration, verifyYCloudSignature } from "../services/ycloud/ycloudService.js";
+import { handleYCloudEvent, type YCloudEvent } from "../services/ycloud/ycloudEventHandler.js";
+import type { RawBodyRequest } from "../app.js";
 
 export const webhooksRouter = Router();
 
@@ -92,7 +95,7 @@ webhooksRouter.post(
           customerId,
           conversationId
         })
-          .then((reply) => sendWhatsAppMessage(routing.organizationId, fromPhone, reply))
+          .then((reply) => sendTwilioWhatsAppMessage(routing.organizationId, fromPhone, reply))
           .catch((err) => logger.error({ organizationId: routing.organizationId, conversationId, err }, "order_code_link_failed"));
         return;
       }
@@ -106,7 +109,7 @@ webhooksRouter.post(
       })
         .then(async (result) => {
           if (result.reply) {
-            await sendWhatsAppMessage(routing.organizationId, fromPhone, result.reply);
+            await sendTwilioWhatsAppMessage(routing.organizationId, fromPhone, result.reply);
           }
         })
         .catch((err) => {
@@ -151,6 +154,39 @@ webhooksRouter.post("/telegram/:organizationId", async (req, res, next) => {
     }
     processUpdate(organizationId, botToken, update).catch((err) =>
       logger.error({ organizationId, updateId: update.update_id, err }, "telegram_update_processing_failed")
+    );
+  } catch (err) {
+    next(err);
+  }
+});
+
+const ycloudParamsSchema = z.object({ organizationId: z.string().uuid() });
+
+/**
+ * Webhook de YCloud (WhatsApp en coexistencia con la app del negocio): una
+ * URL por negocio, registrada al conectar (functions/ycloud-connect.ts), y la
+ * firma YCloud-Signature con el secreto de ese endpoint. Responde 200 apenas
+ * valida (YCloud reintenta si tarda) y procesa después; las reentregas del
+ * mismo mensaje se descartan en handleInboundMessage.
+ */
+webhooksRouter.post("/ycloud/:organizationId", async (req, res, next) => {
+  try {
+    const params = ycloudParamsSchema.safeParse(req.params);
+    if (!params.success) throw new AppError(ErrorCodes.WEBHOOK_INVALID_PAYLOAD, "Negocio inválido.", 400);
+    const { organizationId } = params.data;
+
+    const integration = await loadYCloudIntegration(organizationId);
+    if (!integration) throw new AppError(ErrorCodes.INTEGRATION_NOT_CONNECTED, "Este negocio no tiene WhatsApp por YCloud conectado.", 404);
+
+    const rawBody = (req as RawBodyRequest).rawBody ?? "";
+    if (!verifyYCloudSignature(integration.credentials.webhook_secret, req.get("ycloud-signature"), rawBody)) {
+      throw new AppError(ErrorCodes.WEBHOOK_INVALID_SIGNATURE, "Firma de YCloud inválida.", 403);
+    }
+
+    res.status(200).json({ ok: true });
+    const event = req.body as YCloudEvent;
+    handleYCloudEvent(organizationId, integration, event).catch((err) =>
+      logger.error({ organizationId, eventId: event?.id, eventType: event?.type, err }, "ycloud_event_processing_failed")
     );
   } catch (err) {
     next(err);

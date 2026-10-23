@@ -64,7 +64,7 @@ async function loadTwilioIntegration(organizationId: string) {
   return data;
 }
 
-export async function sendWhatsAppMessage(organizationId: string, toPhone: string, body: string): Promise<void> {
+export async function sendTwilioWhatsAppMessage(organizationId: string, toPhone: string, body: string): Promise<void> {
   const data = await loadTwilioIntegration(organizationId);
   const credentials = data.credentials as unknown as TwilioCredentials;
   const fromNumber = (data.metadata as Record<string, unknown>).whatsapp_number as string;
@@ -90,7 +90,7 @@ export async function sendWhatsAppMessage(organizationId: string, toPhone: strin
  * functions/twilio-connect.ts) — el llamador debe tratarlo como "no se
  * pudo enviar todavía", nunca reintentar con texto libre.
  */
-export async function sendWhatsAppReminderTemplate(
+export async function sendTwilioWhatsAppReminderTemplate(
   organizationId: string,
   toPhone: string,
   variables: Record<string, string>

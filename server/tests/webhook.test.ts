@@ -10,7 +10,7 @@ const runAgentTurnMock = vi.fn();
 vi.mock("../src/services/twilio/twilioService.js", () => ({
   resolveOrganizationForIncomingNumber: (...args: unknown[]) => routingMock(...args),
   validateTwilioSignature: (...args: unknown[]) => validateSignatureMock(...args),
-  sendWhatsAppMessage: (...args: unknown[]) => sendWhatsAppMessageMock(...args)
+  sendTwilioWhatsAppMessage: (...args: unknown[]) => sendWhatsAppMessageMock(...args)
 }));
 
 vi.mock("../src/services/agent/agentRuntime.js", () => ({

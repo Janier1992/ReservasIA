@@ -7,6 +7,9 @@ import { logger } from "./lib/logger.js";
 import { apiRouter } from "./routes/index.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 
+/** Request con el cuerpo JSON sin parsear (lo usan los webhooks firmados). */
+export type RawBodyRequest = express.Request & { rawBody?: string };
+
 export function createApp() {
   const app = express();
 
@@ -24,7 +27,16 @@ export function createApp() {
 
   // application/json global; las rutas de webhooks que necesitan
   // application/x-www-form-urlencoded (Twilio) registran su propio parser.
-  app.use(express.json({ limit: "1mb" }));
+  // Se guarda también el cuerpo crudo: la firma de YCloud se calcula sobre
+  // esos bytes exactos, no sobre el JSON ya parseado.
+  app.use(
+    express.json({
+      limit: "1mb",
+      verify: (req, _res, buf) => {
+        (req as RawBodyRequest).rawBody = buf.toString("utf8");
+      }
+    })
+  );
 
   app.use("/api", apiRouter);
 

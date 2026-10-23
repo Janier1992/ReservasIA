@@ -5,17 +5,19 @@ import { toast } from "sonner";
 import { CalendarDays, MessageCircle, Send } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { functionsClient } from "@/lib/functionsClient";
+import { env } from "@/lib/env";
 import { useOrganization } from "@/hooks/useOrganization";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryErrorState } from "@/components/QueryErrorState";
 
 interface IntegrationRow {
-  provider: "twilio" | "google_calendar" | "telegram";
+  provider: "twilio" | "google_calendar" | "telegram" | "ycloud";
   status: "connected" | "disconnected" | "error";
   metadata: Record<string, unknown>;
   connected_at: string | null;
@@ -27,6 +29,8 @@ export function IntegrationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [twilioForm, setTwilioForm] = useState({ accountSid: "", authToken: "", whatsappNumber: "" });
   const [telegramToken, setTelegramToken] = useState("");
+  const [ycloudForm, setYcloudForm] = useState({ apiKey: "", phoneNumber: "" });
+  const [ycloudSaving, setYcloudSaving] = useState(false);
 
   const {
     data: integrations = [],
@@ -49,6 +53,7 @@ export function IntegrationsPage() {
   const twilio = integrations.find((i) => i.provider === "twilio");
   const google = integrations.find((i) => i.provider === "google_calendar");
   const telegram = integrations.find((i) => i.provider === "telegram");
+  const ycloud = integrations.find((i) => i.provider === "ycloud");
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["integrations-status", currentOrganizationId] });
 
@@ -103,6 +108,35 @@ export function IntegrationsPage() {
     try {
       await functionsClient.post("twilio-disconnect", { organization_id: currentOrganizationId });
       toast.success("WhatsApp desconectado.");
+      invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo desconectar WhatsApp.");
+    }
+  }
+
+  async function connectYCloud() {
+    setYcloudSaving(true);
+    try {
+      const res = await functionsClient.post<{ phoneNumber: string }>("ycloud-connect", {
+        organization_id: currentOrganizationId,
+        apiKey: ycloudForm.apiKey,
+        phoneNumber: ycloudForm.phoneNumber || undefined,
+        webhookBaseUrl: env.API_URL
+      });
+      toast.success(`WhatsApp conectado: ${res.phoneNumber}`);
+      setYcloudForm({ apiKey: "", phoneNumber: "" });
+      invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo conectar WhatsApp.");
+    } finally {
+      setYcloudSaving(false);
+    }
+  }
+
+  async function disconnectYCloud() {
+    try {
+      await functionsClient.post("ycloud-disconnect", { organization_id: currentOrganizationId });
+      toast.success("WhatsApp desconectado. Tu número sigue funcionando normal en la app.");
       invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo desconectar WhatsApp.");
@@ -189,6 +223,73 @@ export function IntegrationsPage() {
               />
               <Button onClick={connectTelegram}>Conectar Telegram</Button>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-success" />
+            <CardTitle>WhatsApp Business (YCloud)</CardTitle>
+          </div>
+          <Badge variant={ycloud?.status === "connected" ? "success" : "muted"}>
+            {ycloud?.status === "connected" ? "Connected" : "Disconnected"}
+          </Badge>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <CardDescription>
+            Tu agente atiende en tu mismo número de WhatsApp, y vos seguís usando la app de WhatsApp Business en el celular. Si respondés
+            vos desde la app, el agente se pausa 30 minutos en ese chat para no pisarte.
+          </CardDescription>
+          {ycloud?.status === "connected" ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Número: {String(ycloud.metadata?.display_phone_number ?? ycloud.metadata?.phone_number ?? "—")}
+                {ycloud.metadata?.verified_name ? ` · ${String(ycloud.metadata.verified_name)}` : ""}
+              </p>
+              <Button variant="outline" onClick={disconnectYCloud}>
+                Desconectar
+              </Button>
+            </>
+          ) : (
+            <>
+              <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+                <li>
+                  Creá tu cuenta en{" "}
+                  <a href="https://www.ycloud.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                    YCloud
+                  </a>
+                  .
+                </li>
+                <li>Conectá ahí tu número de WhatsApp Business eligiendo la opción de usarlo también en la app (coexistencia).</li>
+                <li>Copiá tu API key de YCloud (Desarrolladores → API Keys) y pegala acá.</li>
+              </ol>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="ycloud-key">API key de YCloud</Label>
+                  <PasswordInput
+                    id="ycloud-key"
+                    autoComplete="off"
+                    value={ycloudForm.apiKey}
+                    onChange={(e) => setYcloudForm({ ...ycloudForm, apiKey: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="ycloud-phone">Número (solo si tenés varios en YCloud)</Label>
+                  <Input
+                    id="ycloud-phone"
+                    inputMode="tel"
+                    placeholder="+57 300 123 4567"
+                    value={ycloudForm.phoneNumber}
+                    onChange={(e) => setYcloudForm({ ...ycloudForm, phoneNumber: e.target.value })}
+                  />
+                </div>
+              </div>
+              <Button onClick={connectYCloud} disabled={!ycloudForm.apiKey.trim() || ycloudSaving}>
+                {ycloudSaving ? "Conectando..." : "Conectar WhatsApp"}
+              </Button>
+            </>
           )}
         </CardContent>
       </Card>

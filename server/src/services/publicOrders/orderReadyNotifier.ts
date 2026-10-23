@@ -2,7 +2,7 @@ import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { createScheduledJob } from "../../lib/scheduledJob.js";
 import { loadConnectedTelegramBotToken, sendTelegramMessage } from "../telegram/telegramService.js";
-import { sendWhatsAppMessage } from "../twilio/twilioService.js";
+import { sendWhatsAppMessage } from "../whatsapp/whatsappSender.js";
 import { buildOrderReadyText, orderDescription, type NotifyChannel, type OrderItem } from "./publicOrderService.js";
 
 const TELEGRAM_PREFIX = "telegram:";

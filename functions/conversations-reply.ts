@@ -76,6 +76,30 @@ export default async function handler(req: Request): Promise<Response> {
   const customerPhone = (conversation as { customers?: { phone?: string } | null }).customers?.phone;
   if (conversation.channel === "whatsapp" && customerPhone) {
     const admin = createAdminClient({ baseUrl, apiKey: Deno.env.get("API_KEY")! });
+    // WhatsApp por YCloud (el número propio del negocio) tiene prioridad sobre Twilio.
+    const { data: ycloud } = await admin.database
+      .from("integrations")
+      .select("credentials, metadata, status")
+      .eq("organization_id", organizationId)
+      .eq("provider", "ycloud")
+      .maybeSingle();
+    if (ycloud?.status === "connected") {
+      try {
+        const apiKey = (ycloud.credentials as { api_key: string }).api_key;
+        const fromNumber = (ycloud.metadata as Record<string, unknown>).phone_number as string;
+        const to = `+${customerPhone.replace(/[^\d]/g, "")}`;
+        const res = await fetch("https://api.ycloud.com/v2/whatsapp/messages/sendDirectly", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+          body: JSON.stringify({ from: fromNumber, to, type: "text", text: { body: content } })
+        });
+        if (!res.ok) console.error("conversations_reply_ycloud_send_failed", res.status, await res.text());
+      } catch (err) {
+        console.error("conversations_reply_ycloud_send_failed", err);
+      }
+      return jsonResponse(message, 201);
+    }
+
     const { data: integration } = await admin.database
       .from("integrations")
       .select("credentials, metadata, status")

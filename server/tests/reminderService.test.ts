@@ -14,7 +14,7 @@ vi.mock("../src/services/telegram/telegramService.js", () => ({
   sendTelegramMessage: (...args: unknown[]) => sendTelegramMessageMock(...args)
 }));
 vi.mock("../src/services/twilio/twilioService.js", () => ({
-  sendWhatsAppReminderTemplate: (...args: unknown[]) => sendWhatsAppReminderTemplateMock(...args)
+  sendTwilioWhatsAppReminderTemplate: (...args: unknown[]) => sendWhatsAppReminderTemplateMock(...args)
 }));
 
 const { sendDueReservationReminders, buildReminderText } = await import("../src/services/reminders/reminderService.js");

@@ -88,6 +88,11 @@ export interface InboundMessageInput {
    * termina mostrando ese id críptico en vez de un nombre.
    */
   customerName?: string;
+  /**
+   * "staff": lo escribió el negocio desde su app de WhatsApp Business (eco de
+   * la coexistencia de YCloud). Queda en el historial y pausa al agente.
+   */
+  role?: "user" | "staff";
 }
 
 export type InboundMessageResult =
@@ -166,7 +171,7 @@ async function persistInboundMessage(input: InboundMessageInput): Promise<Inboun
     {
       organization_id: input.organizationId,
       conversation_id: conversation.id,
-      role: "user",
+      role: input.role ?? "user",
       content,
       external_message_id: input.externalMessageId ?? null,
       message_type: input.messageType ?? "text",
