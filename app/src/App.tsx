@@ -35,6 +35,8 @@ const PlansPage = lazy(() => import("@/pages/dashboard/PlansPage").then((m) => (
 const CashPage = lazy(() => import("@/pages/dashboard/CashPage").then((m) => ({ default: m.CashPage })));
 const SurveysPage = lazy(() => import("@/pages/dashboard/SurveysPage").then((m) => ({ default: m.SurveysPage })));
 const ReactivationPage = lazy(() => import("@/pages/dashboard/ReactivationPage").then((m) => ({ default: m.ReactivationPage })));
+const PrivacyPolicyPage = lazy(() => import("@/pages/legal/PrivacyPolicyPage").then((m) => ({ default: m.PrivacyPolicyPage })));
+const TermsPage = lazy(() => import("@/pages/legal/TermsPage").then((m) => ({ default: m.TermsPage })));
 const SurveyPage = lazy(() => import("@/pages/public/SurveyPage").then((m) => ({ default: m.SurveyPage })));
 const TeamPage = lazy(() => import("@/pages/dashboard/TeamPage").then((m) => ({ default: m.TeamPage })));
 const SettingsPage = lazy(() => import("@/pages/dashboard/SettingsPage").then((m) => ({ default: m.SettingsPage })));
@@ -64,6 +66,8 @@ export default function App() {
                       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                       <Route path="/r/:slug" element={<PublicBookingPage />} />
                       <Route path="/o/:token" element={<SurveyPage />} />
+                      <Route path="/privacidad" element={<PrivacyPolicyPage />} />
+                      <Route path="/terminos" element={<TermsPage />} />
 
                       <Route element={<RequireAuth />}>
                         <Route path="/onboarding" element={<OnboardingWizard />} />
