@@ -9,6 +9,12 @@ import type { Customer } from "../../types/domain.js";
  * mensajes concurrentes disparan la creación al mismo tiempo, el segundo
  * INSERT falla con 23505 y simplemente releemos la fila ganadora.
  */
+/** El cliente dio un email distinto del guardado (sin contar mayúsculas ni espacios). */
+export function isNewEmail(saved: string | null | undefined, given: string | undefined): boolean {
+  const next = given?.trim().toLowerCase();
+  return Boolean(next) && next !== saved?.trim().toLowerCase();
+}
+
 export async function findOrCreateCustomerByPhone(
   organizationId: string,
   phone: string,
@@ -24,11 +30,12 @@ export async function findOrCreateCustomerByPhone(
 
   if (selectError) throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudo buscar el cliente.", 500);
   if (existing) {
-    // Sólo completa datos que faltan (no pisa un nombre/email ya guardado
-    // con uno distinto que el cliente diga de pasada en otra conversación).
+    // El nombre solo se completa si falta (no se pisa con uno dicho de pasada
+    // en otra conversación); el email que el cliente da para una reserva sí
+    // reemplaza al anterior: es a donde espera recibir la confirmación.
     const patch: Partial<Pick<Customer, "name" | "email">> = {};
     if (name && !existing.name) patch.name = name;
-    if (email && !existing.email) patch.email = email;
+    if (isNewEmail(existing.email, email)) patch.email = email!.trim();
     if (Object.keys(patch).length > 0) {
       await updateCustomer(organizationId, existing.id, patch);
       return { ...(existing as Customer), ...patch };
@@ -84,7 +91,7 @@ export async function ensureCustomerDetails(
 
   const patch: Partial<Pick<Customer, "name" | "email">> = {};
   if (name && !existing.name) patch.name = name;
-  if (email && !existing.email) patch.email = email;
+  if (isNewEmail(existing.email, email)) patch.email = email!.trim();
   if (Object.keys(patch).length === 0) return existing as Customer;
 
   return updateCustomer(organizationId, customerId, patch);
