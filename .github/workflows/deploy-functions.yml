@@ -1,0 +1,51 @@
+name: Deploy Edge Functions
+
+# Publica las Edge Functions de functions/ en InsForge: solo las que cambiaron
+# en cada push a main, o las que se indiquen al correrlo a mano (Actions →
+# Deploy Edge Functions → Run workflow; vacío = todas). Necesita los secretos
+# del repositorio INSFORGE_URL e INSFORGE_API_KEY (los mismos valores que usa
+# el compute service en Railway).
+on:
+  push:
+    branches: [main]
+    paths: ["functions/**"]
+  workflow_dispatch:
+    inputs:
+      functions:
+        description: "Funciones a publicar, separadas por espacio (vacío = todas)"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-functions
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Elegir funciones
+        id: pick
+        env:
+          MANUAL: ${{ github.event.inputs.functions }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "slugs=$MANUAL" >> "$GITHUB_OUTPUT"
+          else
+            changed=$(git diff --name-only --diff-filter=AM HEAD~1 HEAD -- 'functions/*.ts' | xargs -r -n1 basename | sed 's/\.ts$//' | tr '\n' ' ')
+            echo "slugs=$changed" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publicar en InsForge
+        if: github.event_name == 'workflow_dispatch' || steps.pick.outputs.slugs != ''
+        env:
+          INSFORGE_URL: ${{ secrets.INSFORGE_URL }}
+          INSFORGE_API_KEY: ${{ secrets.INSFORGE_API_KEY }}
+          SLUGS: ${{ steps.pick.outputs.slugs }}
+        # $SLUGS sin comillas a propósito: un argumento por función.
+        run: node scripts/deploy-functions-api.mjs $SLUGS

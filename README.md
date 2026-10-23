@@ -411,6 +411,11 @@ o una por una:
 npx @insforge/cli functions deploy <slug> --file functions/<slug>.ts
 ```
 
+Sin terminal: el workflow de GitHub Actions **Deploy Edge Functions** publica solo las funciones que cambian en cada
+push a `main`, y se puede correr a mano (Actions → Deploy Edge Functions → Run workflow, con los nombres separados
+por espacio o vacío para todas). Usa los secretos del repositorio `INSFORGE_URL` e `INSFORGE_API_KEY` (los mismos
+valores que el compute service en Railway) y llama a la API de InsForge con `scripts/deploy-functions-api.mjs`.
+
 Cada función necesita estos secretos en InsForge (`npx @insforge/cli secrets add <KEY> <VALUE>`): `INSFORGE_BASE_URL`
 y `API_KEY` (reservados, ya provistos por InsForge), más `OPENAI_API_KEY`, `OPENAI_MODEL`, `GOOGLE_CLIENT_ID`,
 `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` y `OAUTH_STATE_SECRET` (este último con el mismo valor que en el
