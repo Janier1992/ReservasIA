@@ -105,6 +105,17 @@ export function RegisterPage() {
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? "Creando cuenta..." : "Crear cuenta"}
         </Button>
+        <p className="text-center text-xs text-muted-foreground">
+          Al crear tu cuenta aceptás las{" "}
+          <Link to="/terminos" className="text-primary hover:underline">
+            Condiciones del servicio
+          </Link>{" "}
+          y la{" "}
+          <Link to="/privacidad" className="text-primary hover:underline">
+            Política de privacidad
+          </Link>
+          .
+        </p>
       </form>
       <p className="mt-4 text-center text-sm text-muted-foreground">
         ¿Ya tenés cuenta?{" "}

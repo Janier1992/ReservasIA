@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { CalendarClock } from "lucide-react";
 import { InstallAppButton } from "@/components/InstallAppButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LegalLinks } from "@/pages/legal/LegalLayout";
 
 export function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
@@ -19,6 +20,7 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
         <div className="flex justify-center">
           <InstallAppButton />
         </div>
+        <LegalLinks />
       </div>
     </div>
   );
