@@ -1,0 +1,23 @@
+# Reglas de gitleaks: las de siempre, más los ejemplos que no son claves reales.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Ejemplos de la interfaz y valores falsos de las pruebas"
+regexes = [
+  # Ejemplo de formato del token de Telegram en Integraciones.
+  '''123456789:AAEx{10,}''',
+  # Valor de ejemplo del secreto de OAuth (el servidor lo rechaza en producción).
+  '''change-me-in-production''',
+  # Secretos inventados de las pruebas automáticas.
+  '''secreto-de-prueba-\d+''',
+  '''un-secreto-de-verdad-\d+''',
+  '''s3cr3t-telegram''',
+  '''whsec_test''',
+]
+paths = [
+  # Las pruebas usan solo credenciales inventadas.
+  '''^server/tests/''',
+  '''^db-tests/''',
+  '''\.test\.tsx?$''',
+]

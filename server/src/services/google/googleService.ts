@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { google } from "googleapis";
-import { env } from "../../config/env.js";
+import { DEFAULT_OAUTH_STATE_SECRET, env, isDeployed } from "../../config/env.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
@@ -15,13 +15,20 @@ const STATE_TTL_MS = 5 * 60 * 1000;
  * separados por un punto — interoperable entre Deno y Node porque ambos
  * implementan RFC 4648 base64url sobre los mismos bytes.
  */
-function verifyState(state: string): { organizationId: string } {
+export function verifyState(state: string, secret: string = env.OAUTH_STATE_SECRET): { organizationId: string } {
+  // El valor por defecto está publicado en el repositorio: con él cualquiera
+  // podría firmar un `state` y conectar su Google Calendar a otro negocio.
+  if (isDeployed() && secret === DEFAULT_OAUTH_STATE_SECRET) {
+    throw new AppError(ErrorCodes.INTERNAL_ERROR, "Falta configurar OAUTH_STATE_SECRET en el servidor.", 500);
+  }
   const [encoded, signature] = state.split(".");
   if (!encoded || !signature) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Estado de OAuth inválido.", 400);
   }
-  const expected = crypto.createHmac("sha256", env.OAUTH_STATE_SECRET).update(encoded).digest("base64url");
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+  const expected = crypto.createHmac("sha256", secret).update(encoded).digest("base64url");
+  const given = Buffer.from(signature);
+  const wanted = Buffer.from(expected);
+  if (given.byteLength !== wanted.byteLength || !crypto.timingSafeEqual(given, wanted)) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, "Estado de OAuth inválido.", 400);
   }
   const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf-8")) as {

@@ -32,8 +32,10 @@ jobs:
         env:
           VITE_INSFORGE_URL: https://ci.invalid
           VITE_INSFORGE_ANON_KEY: ci-placeholder
+      # Falla con vulnerabilidades altas o críticas en producción, salvo las
+      # aceptadas con motivo y fecha de revisión en scripts/audit-check.mjs.
       - name: Dependencias sin vulnerabilidades altas
-        run: npm audit --omit=dev --audit-level=high
+        run: node scripts/audit-check.mjs
 
   database:
     name: Migraciones y tests de RLS

@@ -1,6 +1,9 @@
 import "dotenv/config";
 import { z } from "zod";
 
+/** Valor de ejemplo (público en el repositorio): en producción no sirve para firmar nada. */
+export const DEFAULT_OAUTH_STATE_SECRET = "change-me-in-production";
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3001),
@@ -34,7 +37,7 @@ const envSchema = z.object({
 
   DEFAULT_TIMEZONE: z.string().default("America/Bogota"),
 
-  OAUTH_STATE_SECRET: z.string().min(8).default("change-me-in-production"),
+  OAUTH_STATE_SECRET: z.string().min(8).default(DEFAULT_OAUTH_STATE_SECRET),
 
   // "true" en el .env LOCAL: no arranca el poller de Telegram ni los
   // schedulers. Si no, un server local con las credenciales de producción
@@ -67,6 +70,14 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+/**
+ * Corre en un servidor real: NODE_ENV=production o desplegado en Railway (que
+ * siempre inyecta RAILWAY_GIT_COMMIT_SHA), aunque NODE_ENV no esté puesto.
+ */
+export function isDeployed(): boolean {
+  return env.NODE_ENV === "production" || Boolean(env.RAILWAY_GIT_COMMIT_SHA);
+}
 
 export const MAX_MESSAGE_LENGTH = 4000;
 export const MAX_CONVERSATION_HISTORY_MESSAGES = 20;

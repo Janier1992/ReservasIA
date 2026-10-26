@@ -1,0 +1,21 @@
+# Dependabot abre PRs para actualizar dependencias con vulnerabilidades
+# conocidas y, una vez por semana, las actualizaciones menores agrupadas.
+# Cada PR pasa por el mismo CI que cualquier cambio.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # Las versiones mayores llegan en PR separados (cambian APIs y se revisan
+    # con calma); no se ignoran porque a veces son el único arreglo de un aviso
+    # de seguridad, y Dependabot aplica los "ignore" también a esos.
+    groups:
+      menores:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly

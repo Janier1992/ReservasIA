@@ -17,7 +17,8 @@ vi.mock("../src/services/reservations/reservationsService.js", () => ({
 vi.mock("../src/services/customers/customersService.js", () => ({
   ensureCustomerDetails: (...args: unknown[]) => ensureCustomerDetailsMock(...args),
   findOrCreateCustomerByPhone: vi.fn(),
-  getCustomerActiveReservations: vi.fn()
+  getCustomerActiveReservations: vi.fn(),
+  getLinkedActiveReservations: vi.fn()
 }));
 
 let businessType = "dental";
