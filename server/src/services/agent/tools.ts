@@ -33,9 +33,9 @@ export const obtenerInfoNegocioSchema = z.object({});
 
 export const consultarServiciosSchema = z.object({});
 
-export const consultarReservasClienteSchema = z.object({
-  telefono: z.string().min(5).max(30).optional()
-});
+// Sin argumentos a propósito: siempre son las reservas del cliente de la
+// conversación, nunca las de un teléfono que alguien escriba en el chat.
+export const consultarReservasClienteSchema = z.object({});
 
 export const crearReservaSchema = z.object({
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "fecha debe tener formato YYYY-MM-DD"),
@@ -102,12 +102,7 @@ const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCom
     function: {
       name: ToolName.ConsultarReservasCliente,
       description: "Busca las reservas activas (pending/confirmed) del cliente actual de la conversación.",
-      parameters: {
-        type: "object",
-        properties: {
-          telefono: { type: "string", description: "Teléfono del cliente, si es distinto al de la conversación." }
-        }
-      }
+      parameters: { type: "object", properties: {} }
     }
   },
   [ToolName.CrearReserva]: {

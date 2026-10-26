@@ -15,7 +15,8 @@ vi.mock("../src/services/reservations/reservationsService.js", () => ({
 vi.mock("../src/services/customers/customersService.js", () => ({
   ensureCustomerDetails: (...args: unknown[]) => ensureCustomerDetailsMock(...args),
   findOrCreateCustomerByPhone: (...args: unknown[]) => findOrCreateCustomerByPhoneMock(...args),
-  getCustomerActiveReservations: vi.fn()
+  getCustomerActiveReservations: vi.fn(),
+  getLinkedActiveReservations: vi.fn()
 }));
 
 let insforgeMockInstance = createInsforgeMock({});

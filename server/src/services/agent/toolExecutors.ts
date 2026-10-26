@@ -2,11 +2,17 @@ import crypto from "node:crypto";
 import { addMinutes, addWeeks, differenceInMinutes } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
 import { insforgeAdmin } from "../../lib/insforge.js";
-import { AppError } from "../../utils/AppError.js";
+import { AppError, ErrorCodes } from "../../utils/AppError.js";
 import { getAvailableSlots } from "../availability/availabilityService.js";
-import { ensureCustomerDetails, findOrCreateCustomerByPhone, getCustomerActiveReservations } from "../customers/customersService.js";
+import {
+  ensureCustomerDetails,
+  findOrCreateCustomerByPhone,
+  getCustomerActiveReservations,
+  getLinkedActiveReservations
+} from "../customers/customersService.js";
 import { createReservation, cancelReservation, getReservationById, rescheduleReservation } from "../reservations/reservationsService.js";
 import { requiresHealthDataConsent } from "./safetyGuardrails.js";
+import type { Reservation } from "../../types/domain.js";
 import {
   ToolName,
   type ToolNameType,
@@ -109,19 +115,41 @@ async function executeConsultarServicios(_rawArgs: unknown, ctx: AgentExecutionC
   });
 }
 
-async function executeConsultarReservasCliente(rawArgs: unknown, ctx: AgentExecutionContext) {
-  const args = consultarReservasClienteSchema.parse(rawArgs);
-  return toResult(async () => {
-    const phone = args.telefono ?? ctx.customerPhone;
-    const { data: customer } = await insforgeAdmin.database
-      .from("customers")
-      .select("id")
-      .eq("organization_id", ctx.organizationId)
-      .eq("phone", phone)
-      .maybeSingle();
+/**
+ * Las reservas que el cliente de ESTA conversación puede ver o cambiar: las
+ * suyas y las de la página pública que vinculó a este chat ("Avisame por...").
+ * Nunca se buscan por un teléfono que el cliente escriba: cualquiera podría
+ * pedir las reservas de otra persona dando su número y luego cancelarlas.
+ */
+async function conversationReservations(ctx: AgentExecutionContext): Promise<Reservation[]> {
+  if (!ctx.customerId) return [];
+  const [own, linked] = await Promise.all([
+    getCustomerActiveReservations(ctx.organizationId, ctx.customerId),
+    getLinkedActiveReservations(ctx.organizationId, ctx.customerPhone)
+  ]);
+  const byId = new Map<string, Reservation>();
+  for (const r of [...own, ...linked] as Reservation[]) byId.set(r.id, r);
+  return [...byId.values()].sort((a, b) => a.start_at.localeCompare(b.start_at));
+}
 
-    if (!customer) return [];
-    const reservations = await getCustomerActiveReservations(ctx.organizationId, customer.id);
+/**
+ * Una reserva que el modelo nombra solo se toca si es de este cliente. Sin
+ * cliente identificado no se toca ninguna: no hay a quién atribuirla.
+ */
+async function reservationOfConversation(ctx: AgentExecutionContext, reservationId: string): Promise<Reservation> {
+  const reservation = await getReservationById(ctx.organizationId, reservationId);
+  const ownsIt = Boolean(ctx.customerId) && reservation.customer_id === ctx.customerId;
+  const linked = Boolean(reservation.notify_identity) && reservation.notify_identity === ctx.customerPhone;
+  if (!ownsIt && !linked) {
+    throw new AppError(ErrorCodes.RESERVATION_NOT_FOUND, "La reserva no existe.", 404);
+  }
+  return reservation;
+}
+
+async function executeConsultarReservasCliente(rawArgs: unknown, ctx: AgentExecutionContext) {
+  consultarReservasClienteSchema.parse(rawArgs);
+  return toResult(async () => {
+    const reservations = await conversationReservations(ctx);
     return reservations.map((r) => ({
       id: r.id,
       start_at: r.start_at,
@@ -278,8 +306,8 @@ async function executeCancelarReserva(rawArgs: unknown, ctx: AgentExecutionConte
   const args = cancelarReservaSchema.parse(rawArgs);
   return toResult(async () => {
     // Verifica ownership explícitamente: nunca confiar en que el reservation_id
-    // que el modelo repite pertenezca realmente a esta organización.
-    await getReservationById(ctx.organizationId, args.reservation_id);
+    // que el modelo repite pertenezca a esta organización y a este cliente.
+    await reservationOfConversation(ctx, args.reservation_id);
     const reservation = await cancelReservation(args.reservation_id);
     return { id: reservation.id, status: reservation.status };
   });
@@ -288,7 +316,7 @@ async function executeCancelarReserva(rawArgs: unknown, ctx: AgentExecutionConte
 async function executeReprogramarReserva(rawArgs: unknown, ctx: AgentExecutionContext) {
   const args = reprogramarReservaSchema.parse(rawArgs);
   return toResult(async () => {
-    const existing = await getReservationById(ctx.organizationId, args.reservation_id);
+    const existing = await reservationOfConversation(ctx, args.reservation_id);
     const durationMinutes = differenceInMinutes(new Date(existing.end_at), new Date(existing.start_at));
     const newStart = fromZonedTime(`${args.nueva_fecha}T${args.nueva_hora}:00`, ctx.timezone);
     const newEnd = addMinutes(newStart, durationMinutes);

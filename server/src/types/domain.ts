@@ -125,6 +125,8 @@ export interface Reservation {
   source: string;
   external_reference: string | null;
   google_event_id: string | null;
+  /** Chat ("telegram:<id>" o número de WhatsApp) vinculado a una reserva de la página pública. */
+  notify_identity?: string | null;
   internal_notes: string | null;
   payment_status: PaymentStatus;
   deposit_amount: number | null;

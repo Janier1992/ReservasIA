@@ -114,13 +114,29 @@ export async function updateCustomer(
   return data as Customer;
 }
 
+const ACTIVE_RESERVATION_STATUSES = ["pending", "confirmed"];
+
+/** Reservas activas de la página pública que el cliente vinculó a este chat ("Avisame por..."). */
+export async function getLinkedActiveReservations(organizationId: string, identity: string) {
+  const { data, error } = await insforgeAdmin.database
+    .from("reservations")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("notify_identity", identity)
+    .in("status", ACTIVE_RESERVATION_STATUSES)
+    .order("start_at", { ascending: true });
+
+  if (error) throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudieron cargar las reservas del cliente.", 500);
+  return data ?? [];
+}
+
 export async function getCustomerActiveReservations(organizationId: string, customerId: string) {
   const { data, error } = await insforgeAdmin.database
     .from("reservations")
     .select("*")
     .eq("organization_id", organizationId)
     .eq("customer_id", customerId)
-    .in("status", ["pending", "confirmed"])
+    .in("status", ACTIVE_RESERVATION_STATUSES)
     .order("start_at", { ascending: true });
 
   if (error) throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudieron cargar las reservas del cliente.", 500);

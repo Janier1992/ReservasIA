@@ -1,7 +1,7 @@
 import pino from "pino";
 import { env } from "../config/env.js";
 
-const REDACT_PATHS = [
+export const REDACT_PATHS = [
   "*.apiKey",
   "*.api_key",
   "*.accessToken",
@@ -14,7 +14,10 @@ const REDACT_PATHS = [
   "*.password",
   "*.secret",
   "req.headers.authorization",
-  "req.headers[\"x-twilio-signature\"]"
+  "req.headers[\"x-twilio-signature\"]",
+  // Con el secreto de Telegram cualquiera podría falsificar mensajes al webhook.
+  "req.headers[\"x-telegram-bot-api-secret-token\"]",
+  "req.headers[\"ycloud-signature\"]"
 ];
 
 export const logger = pino({

@@ -1,5 +1,5 @@
 import { createApp } from "./app.js";
-import { env } from "./config/env.js";
+import { DEFAULT_OAUTH_STATE_SECRET, env, isDeployed } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { startTelegramPollingManager, stopTelegramPollingManager } from "./services/telegram/telegramPollingManager.js";
 import {
@@ -20,6 +20,11 @@ const app = createApp();
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, env: env.NODE_ENV }, "server_started");
+  // No se tumba el arranque (los bots y las reservas siguen funcionando): solo
+  // la conexión con Google queda rechazada hasta configurar el secreto.
+  if (isDeployed() && env.OAUTH_STATE_SECRET === DEFAULT_OAUTH_STATE_SECRET) {
+    logger.error("oauth_state_secret_is_default: configurá OAUTH_STATE_SECRET (el mismo valor en Railway y en InsForge)");
+  }
   if (env.DISABLE_BACKGROUND_WORKERS) {
     logger.warn("background_workers_disabled: sin poller de Telegram ni schedulers (DISABLE_BACKGROUND_WORKERS=true)");
     return;
