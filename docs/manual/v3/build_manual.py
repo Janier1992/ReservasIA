@@ -1,13 +1,21 @@
 """Arma el manual de usuario actualizado a partir del manual original.
 
-Conserva las páginas originales (diseño y capturas), reemplaza la sección 13
-(WhatsApp con Twilio) por las páginas de WhatsApp Business con YCloud y
-corrige las demás menciones a Twilio, la versión y la numeración.
+Conserva las páginas originales (diseño y textos) y:
+  - cambia sus capturas por las de la versión actual de la app (capturas/r*.jpg);
+  - reemplaza el índice por indice.html;
+  - inserta después de la sección 11 las secciones nuevas 12 a 21
+    (secciones-12-21-novedades.html), con lo que se sumó al panel;
+  - reemplaza la sección de WhatsApp con Twilio por la 23, WhatsApp Business con
+    YCloud (seccion-23-whatsapp-ycloud.html);
+  - renumera las secciones originales 12 a 17 como 22 a 27 y corrige las
+    menciones a Twilio y la versión.
 
 Uso (necesita PyMuPDF y la fuente Inter instalada), desde docs/manual/v3:
-    1. Imprimir seccion-13-whatsapp-ycloud.html a PDF con Chrome sin encabezados:
-       chrome --headless --no-pdf-header-footer --print-to-pdf=seccion-13.pdf seccion-13-whatsapp-ycloud.html
-    2. python build_manual.py manual-base-v2.pdf seccion-13.pdf ../Manual-de-usuario-ReservasIA-v3.pdf
+    1. Imprimir cada HTML a PDF con Chrome sin encabezados, por ejemplo:
+       chrome --headless --no-pdf-header-footer --print-to-pdf=indice.pdf indice.html
+       (igual con secciones-12-21-novedades.html y seccion-23-whatsapp-ycloud.html)
+    2. python build_manual.py manual-base-v2.pdf indice.pdf secciones-12-21-novedades.pdf \
+           seccion-23-whatsapp-ycloud.pdf ../Manual-de-usuario-ReservasIA-v3.pdf
 """
 
 import sys
@@ -18,7 +26,33 @@ INTER_DIR = "/usr/share/fonts/opentype/inter"
 BEIGE_BOX = pymupdf.Rect(41.8, 41.8, 570.2, 750.2)
 HEADER_TEXT = "RESERVASIA: MANUAL DE USUARIO"
 HEADER_COLOR = (0x59 / 255, 0x59 / 255, 0x59 / 255)
-OLD_SECTION_13_PAGE = 22  # índice 0: página 23 del original (sección 13 + inicio de la 14)
+LAST_PAGE_SECTION_11 = 20  # índice 0: página 21 del original (fin de la sección 11)
+TELEGRAM_PAGE = 21  # página 22 del original (sección 12, Telegram)
+OLD_WHATSAPP_PAGE = 22  # página 23 del original (sección 13 con Twilio + inicio de la 14), se descarta
+ACCENT = "#b4513a"
+
+# Captura del original (xref de la imagen) -> captura actual. Mismo tamaño y proporción.
+SCREENSHOTS = {
+    72: "r05-login.jpg",
+    74: "r05-reservas-movil.jpg",
+    93: "r08-resumen.jpg",
+    107: "r10-lista.jpg",
+    116: "r11-calendario.jpg",
+    125: "r12-nueva-reserva.jpg",
+    134: "r13-clientes.jpg",
+    140: "r14-cliente.jpg",
+    146: "r15-servicios.jpg",
+    155: "r16-recursos.jpg",
+    161: "r17-agente.jpg",
+    167: "r18-inbox.jpg",
+    173: "r19-integraciones.jpg",
+    182: "r20-equipo.jpg",
+    188: "r21-configuracion.jpg",
+    193: "r21-oscuro.jpg",
+}
+
+# Etiquetas de sección del original que cambian de número: (página, número viejo, nuevo).
+RENUMBERED_CHIPS = [(21, "12.", "22."), (23, "15.", "25."), (24, "16.", "26."), (25, "17.", "27.")]
 
 CSS = """
 @font-face { font-family: Inter; src: url(Inter-Regular.otf); }
@@ -75,31 +109,6 @@ def patch_original(base: pymupdf.Document) -> None:
         erase=pymupdf.Rect(r.x0 - 1, r.y0, r.x1 + 1, r.y1 + 0.5),
     )
 
-    index = base[1]
-    (title,) = index.search_for("WhatsApp: preparado para activarse")
-    (note,) = index.search_for("Qué falta y qué implica")
-    replace_text(
-        index,
-        pymupdf.Rect(title.x0, title.y0 - 1, 330, title.y1 + 9),
-        f'<p style="font-size:13pt;color:{ink}">WhatsApp Business con YCloud</p>',
-    )
-    title_width = pymupdf.Font(fontfile=f"{INTER_DIR}/Inter-Regular.otf").text_length("WhatsApp Business con YCloud", 13)
-    pill_x = title.x0 + title_width + 8
-    pill = pymupdf.Rect(pill_x, title.y0 + 2, pill_x + 36, title.y1 - 0.5)
-    index.draw_rect(pill, color=None, fill=rgb("#f0ded3"), radius=0.5)
-    index.insert_htmlbox(
-        pill + (0, 2.2, 0, 0),
-        '<p style="font-size:7pt;font-weight:bold;color:#b4513a;text-align:center">Nuevo</p>',
-        css=CSS,
-        archive=ARCHIVE,
-        scale_low=1,
-    )
-    replace_text(
-        index,
-        pymupdf.Rect(340, note.y0 - 1, note.x1 + 0.5, note.y1 + 9),
-        f'<p style="font-size:10.5pt;color:{muted};text-align:right">Paso a paso, con tu mismo número</p>',
-    )
-
     integrations = base[18]
     first = integrations.search_for("Desde acá se conecta y desconecta cada canal")[0]
     last = integrations.search_for("Google Calendar), con credenciales propias y aisladas por negocio.")[0]
@@ -108,7 +117,7 @@ def patch_original(base: pymupdf.Document) -> None:
         pymupdf.Rect(42, first.y0 - 1, 570.7, last.y1 + 24),
         f'<p style="font-size:12.5pt;line-height:19.4pt;color:{ink};text-align:justify">Desde acá se conecta y desconecta cada canal '
         "(Telegram, WhatsApp Business con YCloud y Google Calendar), con credenciales propias y aisladas por negocio. La conexión de "
-        "WhatsApp con YCloud se explica paso a paso en la sección 13.</p>",
+        "WhatsApp con YCloud se explica paso a paso en la sección 23.</p>",
     )
 
     security = base[23]
@@ -129,24 +138,79 @@ def patch_original(base: pymupdf.Document) -> None:
         f'<p style="font-size:11pt;color:{ink}">Canal WhatsApp Business (YCloud)</p>',
     )
 
+    references = base[25]
+    line = references.search_for("de la sección 15.")[0]
+    (old,) = references.search_for("15.", clip=line)
+    retype(references, old, "25.", "Inter-Regular.otf", 10.5, muted, fill=rgb("#f5f0e3"))
 
-def main(base_path: str, section_path: str, out_path: str) -> None:
-    base = pymupdf.open(base_path)
-    section = pymupdf.open(section_path)
-    patch_original(base)
+    for page_index, old_label, new_label in RENUMBERED_CHIPS:
+        page = base[page_index]
+        (old,) = [r for r in page.search_for(old_label) if r.x0 < 60 and r.height < 12]
+        retype(page, old, new_label, "Inter-Bold.otf", 9.5, ACCENT, letter_spacing=0.5)
 
-    for page in section:
+    for xref, name in SCREENSHOTS.items():
+        page = next(p for p in base if xref in [img[0] for img in p.get_images()])
+        page.replace_image(xref, filename=f"capturas/{name}")
+
+
+def retype(
+    page: pymupdf.Page,
+    rect: pymupdf.Rect,
+    text: str,
+    font: str,
+    size: float,
+    color: str,
+    letter_spacing: float = 0,
+    fill: tuple[float, float, float] | None = None,
+) -> None:
+    """Cambia un texto corto (un número) por otro, en la misma línea de base."""
+    span = next(
+        s for b in page.get_text("dict", clip=rect)["blocks"] for l in b.get("lines", []) for s in l["spans"] if s["text"].strip()
+    )
+    erase = pymupdf.Rect(rect.x0 - 0.5, rect.y0, rect.x1, rect.y1)
+    page.add_redact_annot(erase, fill=fill or background_at(page, erase))
+    page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE, graphics=pymupdf.PDF_REDACT_LINE_ART_NONE)
+    fontfile = f"{INTER_DIR}/{font}"
+    measure = pymupdf.Font(fontfile=fontfile)
+    x, y = span["origin"]
+    for char in text:
+        page.insert_text((x, y), char, fontname=font.split(".")[0], fontfile=fontfile, fontsize=size, color=rgb(color))
+        x += measure.text_length(char, size) + letter_spacing
+
+
+def with_background(path: str) -> pymupdf.Document:
+    doc = pymupdf.open(path)
+    for page in doc:
         page.draw_rect(BEIGE_BOX, color=None, fill=rgb("#f5f0e3"), overlay=False)
+    return doc
+
+
+def main(base_path: str, index_path: str, news_path: str, whatsapp_path: str, out_path: str) -> None:
+    base = pymupdf.open(base_path)
+    patch_original(base)
+    index, news, whatsapp = (with_background(p) for p in (index_path, news_path, whatsapp_path))
 
     out = pymupdf.open()
-    out.insert_pdf(base, from_page=0, to_page=OLD_SECTION_13_PAGE - 1)
-    out.insert_pdf(section)
-    out.insert_pdf(base, from_page=OLD_SECTION_13_PAGE + 1, to_page=base.page_count - 1)
+    new_pages = set()
 
-    first_new = OLD_SECTION_13_PAGE
-    for i in range(first_new, out.page_count):
-        is_new = i < first_new + section.page_count
-        stamp_header(out[i], i + 1, with_title=is_new)
+    def add(doc: pymupdf.Document, first: int = 0, last: int = -1, is_new: bool = False) -> None:
+        last = doc.page_count - 1 if last < 0 else last
+        start = out.page_count
+        out.insert_pdf(doc, from_page=first, to_page=last)
+        if is_new:
+            new_pages.update(range(start, out.page_count))
+
+    add(base, 0, 0)
+    add(index, is_new=True)
+    add(base, 2, LAST_PAGE_SECTION_11)
+    add(news, is_new=True)
+    add(base, TELEGRAM_PAGE, TELEGRAM_PAGE)
+    add(whatsapp, is_new=True)
+    add(base, OLD_WHATSAPP_PAGE + 1)
+
+    for i in range(1, out.page_count):
+        if i in new_pages or i >= LAST_PAGE_SECTION_11 + 1:
+            stamp_header(out[i], i + 1, with_title=i in new_pages)
 
     out.set_metadata({**base.metadata, "title": "ReservasIA: manual de usuario (v3)"})
     out.subset_fonts()
@@ -155,4 +219,4 @@ def main(base_path: str, section_path: str, out_path: str) -> None:
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:4])
+    main(*sys.argv[1:6])
