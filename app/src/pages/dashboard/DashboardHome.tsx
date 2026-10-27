@@ -128,11 +128,13 @@ export function DashboardHome() {
       return {
         telegram: { status: rows.find((r) => r.provider === "telegram")?.status ?? "disconnected" },
         twilio: { status: rows.find((r) => r.provider === "twilio")?.status ?? "disconnected" },
+        ycloud: { status: rows.find((r) => r.provider === "ycloud")?.status ?? "disconnected" },
         google_calendar: { status: rows.find((r) => r.provider === "google_calendar")?.status ?? "disconnected" }
       };
     },
     retry: false
   });
+  const whatsappConnected = integrations?.ycloud.status === "connected" || integrations?.twilio.status === "connected";
 
   const {
     data: reportRows,
@@ -218,11 +220,13 @@ export function DashboardHome() {
             <CardTitle className="flex items-center gap-2">
               <MessageCircle className="h-4 w-4" /> WhatsApp
             </CardTitle>
-            <Badge variant={integrations?.twilio.status === "connected" ? "success" : "muted"}>
-              {integrations ? (integrations.twilio.status === "connected" ? "Conectado" : "Desconectado") : "—"}
+            <Badge variant={whatsappConnected ? "success" : "muted"}>
+              {integrations ? (whatsappConnected ? "Conectado" : "Desconectado") : "—"}
             </Badge>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">Vía Twilio</CardContent>
+          <CardContent className="text-sm text-muted-foreground">
+            {integrations?.twilio.status === "connected" && integrations.ycloud.status !== "connected" ? "Vía Twilio" : "WhatsApp Business (YCloud)"}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
