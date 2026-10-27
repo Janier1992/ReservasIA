@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>13. WhatsApp Business con YCloud</title>
+<!--
+  Páginas de la sección 13 del manual de usuario (v3). Se imprimen a PDF y se
+  insertan en el manual original con scripts/manual/update-manual.py, que
+  además pone el fondo beige, el encabezado y los números de página.
+-->
+<style>
+  @page { size: 612pt 792pt; margin: 50pt 42pt 48pt 42pt; }
+  :root { --ink: #2a2522; --muted: #6b6355; --accent: #b4513a; --green: #6a7e3f; --orange: #c68a3b; --line: #eadfcb; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; }
+  body { font-family: "Inter", "Segoe UI", sans-serif; color: var(--ink); font-size: 12.5pt; line-height: 1.52; text-align: justify; }
+  .chip { display: inline-block; background: #f0ded3; color: var(--accent); font-weight: 700; font-size: 9.5pt; letter-spacing: 1.4pt; text-transform: uppercase; padding: 4pt 11pt; border-radius: 20pt; margin: 14pt 0 8pt; }
+  .title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12pt; }
+  h1 { font-size: 19pt; font-weight: 800; letter-spacing: -0.3pt; margin: 0 0 8pt; line-height: 1.15; text-align: left; }
+  .pill { flex-shrink: 0; font-size: 9.5pt; font-weight: 700; padding: 3pt 10pt; border-radius: 20pt; margin-top: 4pt; }
+  .pill.green { background: #e4e4cf; color: var(--green); }
+  h2 { font-size: 13.5pt; color: var(--accent); font-weight: 700; margin: 16pt 0 6pt; break-after: avoid; text-align: left; }
+  p { margin: 0 0 8pt; }
+  .muted { color: var(--muted); font-size: 10.5pt; }
+  ul.check { list-style: none; padding: 0; margin: 4pt 0 10pt; }
+  ul.check li { position: relative; padding-left: 20pt; margin: 0 0 6pt; break-inside: avoid; }
+  ul.check li::before { content: "✓"; position: absolute; left: 1pt; top: 0; color: #728448; font-weight: 700; }
+  ol.num { margin: 4pt 0 10pt; padding-left: 20pt; }
+  ol.num li { margin: 0 0 6pt; padding-left: 2pt; break-inside: avoid; }
+  .callout { border-left: 4pt solid var(--accent); background: #f1e6d9; border-radius: 0 8pt 8pt 0; padding: 11pt 16pt; margin: 10pt 0 12pt; break-inside: avoid; text-align: left; }
+  .callout.warn { border-color: var(--orange); background: #f2e6d0; }
+  .callout.green { border-color: var(--green); background: #ebe7d5; }
+  .cards { display: flex; gap: 10pt; margin: 8pt 0 12pt; break-inside: avoid; }
+  .card { flex: 1; background: #fffdf9; border: 1pt solid var(--line); border-radius: 10pt; padding: 11pt 12pt; text-align: left; }
+  .card h3 { color: var(--accent); font-size: 12.5pt; margin: 0 0 4pt; }
+  .card p { font-size: 10.5pt; line-height: 1.45; margin: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 12pt; font-size: 10.5pt; line-height: 1.45; break-inside: avoid; text-align: left; }
+  th { background: #efe6d5; color: var(--muted); font-size: 8.5pt; letter-spacing: 1pt; text-transform: uppercase; font-weight: 700; padding: 6pt 10pt; }
+  td { padding: 6pt 10pt; border-bottom: 1pt solid var(--line); vertical-align: top; }
+  td:first-child { font-weight: 600; }
+  .ui { font-weight: 700; }
+  code { font-family: Consolas, "DejaVu Sans Mono", monospace; font-size: 10.5pt; }
+  .page-break { break-before: page; }
+  /* Réplica de la tarjeta de Integraciones de la app */
+  .mock { background: #fff; border: 1pt solid #e7ddcc; border-radius: 10pt; padding: 12pt 14pt; margin: 8pt 0 4pt; font-size: 9.5pt; line-height: 1.4; text-align: left; box-shadow: 0 2pt 8pt rgba(60, 40, 20, 0.08); break-inside: avoid; }
+  .mock .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6pt; }
+  .mock .head b { font-size: 10.5pt; }
+  .mock .badge { font-size: 7.5pt; background: #f1ebdf; color: #6b6355; border-radius: 10pt; padding: 1pt 7pt; }
+  .mock .desc { color: #6b6355; margin-bottom: 6pt; }
+  .mock ol { margin: 0 0 8pt; padding-left: 14pt; color: #6b6355; }
+  .mock .fields { display: flex; gap: 8pt; margin-bottom: 8pt; }
+  .mock .field { flex: 1; }
+  .mock .field span { display: block; font-weight: 600; margin-bottom: 2pt; }
+  .mock .input { border: 1pt solid #e2d8c6; border-radius: 6pt; height: 18pt; padding: 3pt 6pt; color: #a8a29e; display: flex; justify-content: space-between; }
+  .mock .btn { display: inline-block; background: var(--accent); color: #fff; font-weight: 600; border-radius: 6pt; padding: 5pt 12pt; }
+  .caption { text-align: center; color: var(--muted); font-size: 10.5pt; margin: 4pt 0 12pt; }
+</style>
+</head>
+<body>
+
+<span class="chip">13. Canal WhatsApp</span>
+<div class="title-row">
+  <h1>WhatsApp Business con YCloud</h1>
+  <span class="pill green">Canal activo</span>
+</div>
+<p>
+  ReservasIA se conecta a WhatsApp a través de <strong>YCloud</strong>, socio oficial de Meta (la empresa dueña de WhatsApp). La gran
+  ventaja es la <strong>coexistencia</strong>: el agente atiende en <strong>el mismo número de WhatsApp Business del negocio</strong>, y el
+  dueño y su equipo <strong>siguen usando la app de WhatsApp Business en el celular</strong> como siempre. Los chats se ven en los dos lados.
+</p>
+<div class="cards">
+  <div class="card"><h3>Tu mismo número</h3><p>No hace falta sacar un número nuevo: los clientes siguen escribiendo al WhatsApp que ya conocen.</p></div>
+  <div class="card"><h3>La app sigue igual</h3><p>Podés responder desde el celular cuando quieras. El agente se hace a un lado para no pisarte.</p></div>
+  <div class="card"><h3>Oficial y seguro</h3><p>Usa la API oficial de Meta, sin herramientas "piratas" que ponen en riesgo el número.</p></div>
+</div>
+<div class="callout"><strong>Reemplaza a Twilio:</strong> la conexión anterior con Twilio obligaba a usar un número aparte y a configurar un
+  webhook a mano. Con YCloud todo se hace desde el panel en unos 15 minutos, y ReservasIA configura sola la parte técnica.</div>
+
+<h2>Antes de empezar</h2>
+<ul class="check">
+  <li>Un número en la <strong>app de WhatsApp Business</strong> (no sirve WhatsApp personal), actualizada a la versión 2.24.17 o más nueva.</li>
+  <li>El <strong>celular de ese número a mano</strong>: vas a escanear un código QR con la app.</li>
+  <li>Una <strong>cuenta de Facebook</strong> para autorizar la conexión con Meta.</li>
+  <li><strong>Saldo en YCloud</strong> para los mensajes que cobra Meta (ver costos más abajo). Para empezar alcanza con poco.</li>
+  <li>Unos <strong>15 a 20 minutos</strong> sin interrupciones, y poder sincronizar el historial dentro de las 24 horas siguientes.</li>
+</ul>
+
+<div class="page-break"></div>
+<h2>Paso 1. Crear la cuenta en YCloud</h2>
+<ol class="num">
+  <li>Entrá a <strong>www.ycloud.com</strong> y creá una cuenta con el correo del negocio.</li>
+  <li>Completá los datos de la empresa. El plan gratuito (<em>Free</em>) sirve para empezar.</li>
+  <li>Recargá saldo en la <strong>Billetera</strong> (botón <span class="ui">Completar</span>) para los mensajes que cobra Meta.</li>
+</ol>
+
+<h2>Paso 2. Conectar tu número en coexistencia</h2>
+<ol class="num">
+  <li>En el inicio de YCloud tocá <span class="ui">Comienza a crear un canal</span>.</li>
+  <li>Cuando pregunte cómo conectar el número, elegí <strong>usar tu app de WhatsApp Business existente</strong> (puede aparecer como
+    “Coexistence” o “Conectar la app de WhatsApp Business”).</li>
+  <li>Iniciá sesión con Facebook, elegí o creá el portafolio comercial del negocio y aceptá los permisos.</li>
+  <li>Cuando aparezca el código QR, escanealo desde la app de <strong>WhatsApp Business</strong> del celular.</li>
+  <li>Aceptá <strong>compartir el historial de chats</strong> en la app. Hacelo enseguida: si no se sincroniza en 24 horas, la conexión se cancela y hay que repetirla.</li>
+</ol>
+<div class="callout warn"><strong>Importante:</strong> no elijas “registrar un número nuevo”. Esa opción saca el número de la app del celular.
+  Tiene que ser la opción de coexistencia. Si un botón de YCloud tiene otro nombre, buscá el equivalente a “conectar la app de WhatsApp Business”.</div>
+
+<h2>Paso 3. Copiar la API key de YCloud</h2>
+<ol class="num">
+  <li>En YCloud abrí el menú de desarrolladores (ícono <code>&lt;/&gt;</code>) → <span class="ui">API Keys</span>.</li>
+  <li>Copiá la API key (o creá una si no hay ninguna).</li>
+</ol>
+<div class="callout"><strong>La API key es secreta:</strong> permite enviar mensajes en nombre del negocio. Pegala solo en ReservasIA y
+  nunca la mandes por chat, correo ni captura de pantalla.</div>
+
+<div class="page-break"></div>
+<h2>Paso 4. Conectar en ReservasIA</h2>
+<ol class="num">
+  <li>En el panel, entrá a <span class="ui">Integraciones</span> → tarjeta <span class="ui">WhatsApp Business (YCloud)</span>.</li>
+  <li>Pegá la clave en <span class="ui">API key de YCloud</span>. Con el ícono del ojo podés revisar que quedó completa.</li>
+  <li>El campo <span class="ui">Número</span> dejalo vacío si tu cuenta de YCloud tiene un solo número; si tiene varios, escribí cuál.</li>
+  <li>Tocá <span class="ui">Conectar WhatsApp</span>. ReservasIA valida la clave, toma el número y configura sola la recepción de
+    mensajes. La tarjeta pasa a <span class="ui">Connected</span> y muestra el número y el nombre del negocio.</li>
+</ol>
+<div class="mock">
+  <div class="head"><b>💬 WhatsApp Business (YCloud)</b><span class="badge">Disconnected</span></div>
+  <div class="desc">Tu agente atiende en tu mismo número de WhatsApp, y vos seguís usando la app de WhatsApp Business en el celular. Si respondés vos desde la app, el agente se pausa 30 minutos en ese chat para no pisarte.</div>
+  <ol>
+    <li>Creá tu cuenta en YCloud.</li>
+    <li>Conectá ahí tu número de WhatsApp Business eligiendo la opción de usarlo también en la app (coexistencia).</li>
+    <li>Copiá tu API key de YCloud (Desarrolladores → API Keys) y pegala acá.</li>
+  </ol>
+  <div class="fields">
+    <div class="field"><span>API key de YCloud</span><div class="input"><i>••••••••••••</i><i>👁</i></div></div>
+    <div class="field"><span>Número (solo si tenés varios en YCloud)</span><div class="input"><i>+57 300 123 4567</i></div></div>
+  </div>
+  <span class="btn">Conectar WhatsApp</span>
+</div>
+<div class="caption">Tarjeta de WhatsApp Business (YCloud) en Integraciones.</div>
+
+<h2>Paso 5. Probar</h2>
+<ol class="num">
+  <li>Desde <strong>otro celular</strong>, escribile “hola” al número del negocio.</li>
+  <li>El agente responde en segundos. La conversación aparece en el <span class="ui">Inbox</span> y también en la app del celular.</li>
+  <li>Respondé vos desde la app y volvé a escribir desde el otro teléfono: el agente no debería contestar durante 30 minutos.</li>
+</ol>
+<div class="callout green"><strong>Listo:</strong> desde ese momento el agente atiende por WhatsApp las 24 horas, igual que en Telegram, y el
+  negocio conserva su número y su app de siempre.</div>
+
+<div class="page-break"></div>
+<h2>Cómo funciona en el día a día</h2>
+<ul class="check">
+  <li><strong>El agente responde solo</strong> los mensajes de texto: consulta disponibilidad, reserva, reprograma y cancela según los permisos de <span class="ui">Agente IA</span>.</li>
+  <li><strong>Si respondés desde el celular</strong>, tu mensaje queda en el Inbox como mensaje del equipo y el agente se pausa 30 minutos en ese chat. Pasado ese tiempo, retoma solo.</li>
+  <li><strong>Lo que respondás desde el Inbox</strong> también sale por el número de WhatsApp del negocio.</li>
+  <li><strong>Fotos, audios y documentos</strong> no los lee el agente: se atienden desde la app del celular.</li>
+  <li>Los <strong>avisos de “pedido listo”</strong> de los pedidos por QR también llegan por WhatsApp.</li>
+  <li>WhatsApp solo deja escribir libremente dentro de las <strong>24 horas</strong> siguientes al último mensaje del cliente. Los <strong>recordatorios de citas por WhatsApp</strong> necesitan plantillas aprobadas por Meta y llegan en una próxima versión; mientras tanto, el cliente recibe la confirmación por correo.</li>
+</ul>
+
+<h2>Cuánto cuesta (referencia para Colombia)</h2>
+<table>
+  <tr><th>Tipo de mensaje</th><th>Costo aproximado</th></tr>
+  <tr><td>Mensajes que te escriben los clientes</td><td>Gratis</td></tr>
+  <tr><td>Respuestas del agente o del equipo a un cliente que escribió</td><td>Las primeras 1.000 al mes por número, gratis; después, unos USD 0,0008 cada una</td></tr>
+  <tr><td>Lo que escribís a mano desde la app del celular</td><td>Gratis</td></tr>
+  <tr><td>Recordatorios y avisos por plantilla</td><td>Unos USD 0,0008 cada uno</td></tr>
+  <tr><td>Promociones (marketing)</td><td>Entre USD 0,0125 y 0,0158 cada uno</td></tr>
+</table>
+<p class="muted">Tarifas de referencia de Meta, que pueden cambiar. YCloud las descuenta de su billetera; revisá también si tu plan de YCloud tiene costo propio.</p>
+
+<h2>Cuidar el número</h2>
+<ul class="check">
+  <li>Meta califica cada número según si los clientes lo <strong>bloquean o reportan</strong>; muchos reportes pueden limitarlo.</li>
+  <li>Escribí solo a quien te escribió, reservó o aceptó recibir mensajes. Nada de bases compradas ni envíos masivos.</li>
+  <li>No conectes el número a extensiones o “WhatsApp Web automatizado”: es la causa más común de bloqueos.</li>
+</ul>
+
+<h2>Si algo no funciona</h2>
+<table>
+  <tr><th>Situación</th><th>Qué revisar</th></tr>
+  <tr><td>El agente no responde por WhatsApp</td><td>Que la tarjeta diga <span class="ui">Connected</span>, que el <span class="ui">Agente activado</span> esté encendido, que haya saldo en YCloud, que el mensaje sea de texto y que nadie del equipo haya respondido ese chat en los últimos 30 minutos.</td></tr>
+  <tr><td>“La API key de YCloud no es válida”</td><td>Copiala de nuevo completa desde YCloud → API Keys.</td></tr>
+  <tr><td>“Tu cuenta de YCloud tiene varios números”</td><td>Escribí en <span class="ui">Número</span> cuál querés conectar.</td></tr>
+  <tr><td>“Ese número ya está conectado en otra cuenta de ReservasIA”</td><td>Un número solo lo puede atender un negocio: desconectalo primero de la otra cuenta.</td></tr>
+  <tr><td>El número dejó de aparecer en YCloud</td><td>Puede que no se haya sincronizado el historial a tiempo. Repetí el Paso 2.</td></tr>
+</table>
+
+<h2>Desconectar</h2>
+<p>En la tarjeta de YCloud tocá <span class="ui">Desconectar</span>. El agente deja de responder por WhatsApp y <strong>el número sigue funcionando
+  normal en la app del celular</strong>.</p>
+
+<span class="chip">14. Confianza</span>
+<h1>Seguridad y privacidad de los datos</h1>
+<p>Un punto habitual de duda para cualquier negocio que va a confiarle sus datos de clientes a una plataforma nueva:</p>
+
+</body>
+</html>
