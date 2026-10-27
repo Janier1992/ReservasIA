@@ -2,63 +2,17 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>13. WhatsApp Business con YCloud</title>
+<title>23. WhatsApp Business con YCloud</title>
 <!--
-  Páginas de la sección 13 del manual de usuario (v3). Se imprimen a PDF y se
+  Páginas de la sección 23 del manual de usuario (v3). Se imprimen a PDF y se
   insertan en el manual original con scripts/manual/update-manual.py, que
   además pone el fondo beige, el encabezado y los números de página.
 -->
-<style>
-  @page { size: 612pt 792pt; margin: 50pt 42pt 48pt 42pt; }
-  :root { --ink: #2a2522; --muted: #6b6355; --accent: #b4513a; --green: #6a7e3f; --orange: #c68a3b; --line: #eadfcb; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; background: transparent; }
-  body { font-family: "Inter", "Segoe UI", sans-serif; color: var(--ink); font-size: 12.5pt; line-height: 1.52; text-align: justify; }
-  .chip { display: inline-block; background: #f0ded3; color: var(--accent); font-weight: 700; font-size: 9.5pt; letter-spacing: 1.4pt; text-transform: uppercase; padding: 4pt 11pt; border-radius: 20pt; margin: 14pt 0 8pt; }
-  .title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12pt; }
-  h1 { font-size: 19pt; font-weight: 800; letter-spacing: -0.3pt; margin: 0 0 8pt; line-height: 1.15; text-align: left; }
-  .pill { flex-shrink: 0; font-size: 9.5pt; font-weight: 700; padding: 3pt 10pt; border-radius: 20pt; margin-top: 4pt; }
-  .pill.green { background: #e4e4cf; color: var(--green); }
-  h2 { font-size: 13.5pt; color: var(--accent); font-weight: 700; margin: 16pt 0 6pt; break-after: avoid; text-align: left; }
-  p { margin: 0 0 8pt; }
-  .muted { color: var(--muted); font-size: 10.5pt; }
-  ul.check { list-style: none; padding: 0; margin: 4pt 0 10pt; }
-  ul.check li { position: relative; padding-left: 20pt; margin: 0 0 6pt; break-inside: avoid; }
-  ul.check li::before { content: "✓"; position: absolute; left: 1pt; top: 0; color: #728448; font-weight: 700; }
-  ol.num { margin: 4pt 0 10pt; padding-left: 20pt; }
-  ol.num li { margin: 0 0 6pt; padding-left: 2pt; break-inside: avoid; }
-  .callout { border-left: 4pt solid var(--accent); background: #f1e6d9; border-radius: 0 8pt 8pt 0; padding: 11pt 16pt; margin: 10pt 0 12pt; break-inside: avoid; text-align: left; }
-  .callout.warn { border-color: var(--orange); background: #f2e6d0; }
-  .callout.green { border-color: var(--green); background: #ebe7d5; }
-  .cards { display: flex; gap: 10pt; margin: 8pt 0 12pt; break-inside: avoid; }
-  .card { flex: 1; background: #fffdf9; border: 1pt solid var(--line); border-radius: 10pt; padding: 11pt 12pt; text-align: left; }
-  .card h3 { color: var(--accent); font-size: 12.5pt; margin: 0 0 4pt; }
-  .card p { font-size: 10.5pt; line-height: 1.45; margin: 0; }
-  table { width: 100%; border-collapse: collapse; margin: 6pt 0 12pt; font-size: 10.5pt; line-height: 1.45; break-inside: avoid; text-align: left; }
-  th { background: #efe6d5; color: var(--muted); font-size: 8.5pt; letter-spacing: 1pt; text-transform: uppercase; font-weight: 700; padding: 6pt 10pt; }
-  td { padding: 6pt 10pt; border-bottom: 1pt solid var(--line); vertical-align: top; }
-  td:first-child { font-weight: 600; }
-  .ui { font-weight: 700; }
-  code { font-family: Consolas, "DejaVu Sans Mono", monospace; font-size: 10.5pt; }
-  .page-break { break-before: page; }
-  /* Réplica de la tarjeta de Integraciones de la app */
-  .mock { background: #fff; border: 1pt solid #e7ddcc; border-radius: 10pt; padding: 12pt 14pt; margin: 8pt 0 4pt; font-size: 9.5pt; line-height: 1.4; text-align: left; box-shadow: 0 2pt 8pt rgba(60, 40, 20, 0.08); break-inside: avoid; }
-  .mock .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6pt; }
-  .mock .head b { font-size: 10.5pt; }
-  .mock .badge { font-size: 7.5pt; background: #f1ebdf; color: #6b6355; border-radius: 10pt; padding: 1pt 7pt; }
-  .mock .desc { color: #6b6355; margin-bottom: 6pt; }
-  .mock ol { margin: 0 0 8pt; padding-left: 14pt; color: #6b6355; }
-  .mock .fields { display: flex; gap: 8pt; margin-bottom: 8pt; }
-  .mock .field { flex: 1; }
-  .mock .field span { display: block; font-weight: 600; margin-bottom: 2pt; }
-  .mock .input { border: 1pt solid #e2d8c6; border-radius: 6pt; height: 18pt; padding: 3pt 6pt; color: #a8a29e; display: flex; justify-content: space-between; }
-  .mock .btn { display: inline-block; background: var(--accent); color: #fff; font-weight: 600; border-radius: 6pt; padding: 5pt 12pt; }
-  .caption { text-align: center; color: var(--muted); font-size: 10.5pt; margin: 4pt 0 12pt; }
-</style>
+<link rel="stylesheet" href="manual.css" />
 </head>
 <body>
 
-<span class="chip">13. Canal WhatsApp</span>
+<span class="chip">23. Canal WhatsApp</span>
 <div class="title-row">
   <h1>WhatsApp Business con YCloud</h1>
   <span class="pill green">Canal activo</span>
@@ -190,7 +144,7 @@
 <p>En la tarjeta de YCloud tocá <span class="ui">Desconectar</span>. El agente deja de responder por WhatsApp y <strong>el número sigue funcionando
   normal en la app del celular</strong>.</p>
 
-<span class="chip">14. Confianza</span>
+<span class="chip">24. Confianza</span>
 <h1>Seguridad y privacidad de los datos</h1>
 <p>Un punto habitual de duda para cualquier negocio que va a confiarle sus datos de clientes a una plataforma nueva:</p>
 
