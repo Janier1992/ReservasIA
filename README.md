@@ -349,7 +349,8 @@ crm-clients-wpp/
 ├── migrations/                   # Esquema completo + RLS + RPCs, en orden (npx @insforge/cli db migrations up)
 ├── db-tests/                     # Test de aislamiento multi-tenant (SQL plano, correr con psql)
 ├── scripts/
-│   └── deploy-functions.mjs      # Deploya todas las Edge Functions de una sola vez
+│   ├── deploy-functions.mjs      # Deploya todas las Edge Functions de una sola vez
+│   └── function-bundle.mjs       # Empaqueta en un archivo las funciones que importan código del repo
 └── .env.example
 ```
 
@@ -414,6 +415,12 @@ o una por una:
 ```bash
 npx @insforge/cli functions deploy <slug> --file functions/<slug>.ts
 ```
+
+InsForge recibe un solo archivo por función. `agent-preview` importa las instrucciones del agente real
+(`server/src/services/agent/systemPrompt.ts`) para que la vista previa del panel muestre lo mismo que verán los
+clientes, así que los dos scripts de despliegue la empaquetan antes con esbuild (`scripts/function-bundle.mjs`);
+no la publiques con el comando de una por una. El workflow la vuelve a publicar también cuando cambian los archivos
+de `server/src/services/agent/`.
 
 Sin terminal: el workflow de GitHub Actions **Deploy Edge Functions** publica solo las funciones que cambian en cada
 push a `main`, y se puede correr a mano (Actions → Deploy Edge Functions → Run workflow, con los nombres separados

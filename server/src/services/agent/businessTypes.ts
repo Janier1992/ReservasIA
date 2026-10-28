@@ -2,8 +2,8 @@
 // la plataforma (no el negocio), va después de las reglas críticas y nunca
 // las contradice: solo agrega qué datos propios del rubro conviene anotar
 // y qué límites de seguridad respetar (ej. no diagnosticar).
-// functions/agent-preview.ts tiene una copia de esto (Deno no puede
-// importar código del server): si cambiás algo acá, replicalo allá.
+// La vista previa del panel (functions/agent-preview.ts) usa este mismo
+// archivo a través de systemPrompt.ts: no hace falta copiarlo a ningún lado.
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   restaurant: "Restaurante",

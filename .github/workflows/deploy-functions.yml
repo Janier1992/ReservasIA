@@ -2,13 +2,15 @@ name: Deploy Edge Functions
 
 # Publica las Edge Functions de functions/ en InsForge: solo las que cambiaron
 # en cada push a main, o las que se indiquen al correrlo a mano (Actions →
-# Deploy Edge Functions → Run workflow; vacío = todas). Necesita los secretos
+# Deploy Edge Functions → Run workflow; vacío = todas). agent-preview usa las
+# instrucciones del agente de server/src/services/agent, así que también se
+# vuelve a publicar cuando cambian esas. Necesita los secretos
 # del repositorio INSFORGE_URL e INSFORGE_API_KEY (los mismos valores que usa
 # el compute service en Railway).
 on:
   push:
     branches: [main]
-    paths: ["functions/**"]
+    paths: ["functions/**", "server/src/services/agent/**", "scripts/function-bundle.mjs"]
   workflow_dispatch:
     inputs:
       functions:
@@ -30,6 +32,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+      # esbuild, para empaquetar las funciones que importan código del repo.
+      - run: npm ci
       - name: Elegir funciones
         id: pick
         env:
@@ -39,6 +44,9 @@ jobs:
             echo "slugs=$MANUAL" >> "$GITHUB_OUTPUT"
           else
             changed=$(git diff --name-only --diff-filter=AM HEAD~1 HEAD -- 'functions/*.ts' | xargs -r -n1 basename | sed 's/\.ts$//' | tr '\n' ' ')
+            if ! git diff --quiet HEAD~1 HEAD -- server/src/services/agent scripts/function-bundle.mjs && [[ " $changed " != *" agent-preview "* ]]; then
+              changed="$changed agent-preview"
+            fi
             echo "slugs=$changed" >> "$GITHUB_OUTPUT"
           fi
       - name: Publicar en InsForge
