@@ -705,8 +705,8 @@ npm run build
   `app/vercel.json`); pasarla a `Content-Security-Policy` cuando no aparezcan avisos en la consola.
 - **Credenciales de integraciones**: se guardan en `integrations.credentials` protegidas por permisos de columna,
   pero sin cifrado propio de la aplicación.
-- **Costos de IA por conversación**: no hay un límite de mensajes por cliente; alguien que escriba sin parar genera
-  respuestas del agente (y llamadas a OpenAI) sin tope.
+- **Sin límite de mensajes por conversación (decisión del negocio)**: el agente responde todo lo que el cliente
+  escriba, sin tope por conversación. Es deliberado: no agregar un límite sin acordarlo con el negocio.
 - **Twilio**: código heredado que solo usan negocios que ya lo tenían conectado; retirarlo cuando no quede ninguno.
 - **Google Login / Magic Link**: activables desde la configuración de Auth de InsForge sin cambios de código más
   allá de agregar los botones de UI (`insforge.auth.signInWithOAuth`).

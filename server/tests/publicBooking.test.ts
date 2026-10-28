@@ -54,6 +54,13 @@ const validBooking = {
   dataConsent: true
 };
 
+/** Copia de un objeto sin una de sus claves. */
+function without<T extends object, K extends keyof T>(obj: T, key: K): Omit<T, K> {
+  const copy = { ...obj };
+  delete copy[key];
+  return copy;
+}
+
 // Cada test usa su propia IP para no chocar con el límite de reservas por IP.
 let ip = 0;
 const nextIp = () => `10.0.0.${++ip}`;
@@ -101,7 +108,7 @@ describe("public booking API", () => {
   });
 
   it("refuses to book without the data-processing authorization, before creating anything", async () => {
-    const { dataConsent: _omit, ...withoutConsent } = validBooking;
+    const withoutConsent = without(validBooking, "dataConsent");
     for (const body of [withoutConsent, { ...validBooking, dataConsent: false }]) {
       const res = await request(app).post("/api/public/businesses/lavadero-aguaclara/reservations").set("X-Forwarded-For", nextIp()).send(body);
       expect(res.status).toBe(400);
@@ -130,7 +137,7 @@ describe("public booking API", () => {
   });
 
   it("books a service that is not on the list, described by the customer, with the default duration", async () => {
-    const { serviceId: _omit, ...rest } = validBooking;
+    const rest = without(validBooking, "serviceId");
     const res = await request(app)
       .post("/api/public/businesses/lavadero-aguaclara/reservations")
       .set("X-Forwarded-For", nextIp())
@@ -147,7 +154,7 @@ describe("public booking API", () => {
   });
 
   it("asks for exactly one: a listed service or a description", async () => {
-    const { serviceId: _omit, ...rest } = validBooking;
+    const rest = without(validBooking, "serviceId");
     for (const body of [rest, { ...validBooking, customService: "Otra cosa" }]) {
       const res = await request(app).post("/api/public/businesses/lavadero-aguaclara/reservations").set("X-Forwarded-For", nextIp()).send(body);
       expect(res.status).toBe(400);
