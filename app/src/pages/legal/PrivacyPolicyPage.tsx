@@ -104,8 +104,10 @@ export function PrivacyPolicyPage() {
       <h2>6. Conservación y seguridad</h2>
       <p>
         Conservamos los datos mientras la cuenta del negocio esté activa o mientras sean necesarios para las finalidades descritas y
-        para cumplir obligaciones legales. Aplicamos medidas como cifrado en tránsito, control de acceso por negocio y credenciales
-        protegidas. Ningún sistema es completamente infalible, pero trabajamos para proteger la información.
+        para cumplir obligaciones legales. Los mensajes de las conversaciones con el agente se borran automáticamente al año. Cuando
+        un negocio elimina a un cliente, se borran también sus conversaciones y sus datos en las reservas, que quedan en la agenda
+        sin nombre ni notas. Aplicamos medidas como cifrado en tránsito, control de acceso por negocio y credenciales protegidas.
+        Ningún sistema es completamente infalible, pero trabajamos para proteger la información.
       </p>
 
       <h2>7. Tus derechos</h2>
