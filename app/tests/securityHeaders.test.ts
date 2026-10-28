@@ -18,7 +18,11 @@ describe("cabeceras de seguridad de la app (vercel.json)", () => {
   it("allows exactly the inline scripts of index.html, by hash", () => {
     // Si cambia el script de index.html (el que aplica el tema oscuro antes de
     // React), hay que actualizar su hash en vercel.json.
-    const inline = [...read("index.html").matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    // Los <script> sin atributos de index.html (los de Vite llevan src).
+    const inline = read("index.html")
+      .split("<script>")
+      .slice(1)
+      .map((part) => part.slice(0, part.indexOf("</script>")));
     expect(inline.length).toBeGreaterThan(0);
     for (const script of inline) {
       const hash = createHash("sha256").update(script).digest("base64");
