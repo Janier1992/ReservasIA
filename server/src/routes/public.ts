@@ -74,6 +74,8 @@ const bookingBodySchema = z
     email: z.string().trim().email().max(120).optional().or(z.literal("")),
     notes: z.string().trim().max(300).optional(),
     healthDataConsent: z.boolean().optional(),
+    // Casilla de autorización de tratamiento de datos (obligatoria; ver createPublicReservation).
+    dataConsent: z.boolean().optional(),
     // Campo trampa: invisible para personas, los bots lo llenan.
     website: z.string().max(0).optional()
   })
@@ -156,7 +158,8 @@ publicRouter.post(
       phone: body.phone,
       email: body.email || undefined,
       notes: body.notes,
-      healthDataConsent: body.healthDataConsent
+      healthDataConsent: body.healthDataConsent,
+      dataConsent: body.dataConsent
     });
     res.status(201).json(reservation);
   })

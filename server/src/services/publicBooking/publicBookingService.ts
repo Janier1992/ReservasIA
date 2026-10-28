@@ -153,9 +153,14 @@ export interface PublicBookingInput {
   notes?: string;
   /** Casilla de autorización de datos de salud (consultorios, clínicas, fisioterapia). */
   healthDataConsent?: boolean;
+  /** Casilla "Autorizo el tratamiento de mis datos" (Ley 1581): sin ella no se reserva. */
+  dataConsent?: boolean;
 }
 
 export async function createPublicReservation(slug: string, input: PublicBookingInput, now = new Date()) {
+  if (!input.dataConsent) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, "Para reservar tenés que autorizar el tratamiento de tus datos.", 400);
+  }
   const org = await resolveOrganization(slug);
   const custom = input.customService?.trim().replace(/\s+/g, " ");
   if (!input.serviceId && !custom) {
@@ -175,6 +180,14 @@ export async function createPublicReservation(slug: string, input: PublicBooking
 
   const customer = await findOrCreateCustomerByPhone(org.id, normalizePhone(input.phone), input.name.trim(), input.email?.trim() || undefined);
   const startAt = new Date(slot.start);
+
+  // Prueba de la autorización (Ley 1581, art. 9): la primera vez que la da.
+  if (!customer.data_consent_at) {
+    await insforgeAdmin.database
+      .from("customers")
+      .update({ data_consent_at: now.toISOString(), data_consent_source: "public_page" })
+      .eq("id", customer.id);
+  }
 
   // Datos de salud (Ley 1581): el motivo de consulta solo se guarda si el
   // paciente marcó la autorización (o ya la había dado antes).

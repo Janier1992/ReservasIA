@@ -50,7 +50,8 @@ const validBooking = {
   start: SLOT.start,
   name: "Carlos Ruiz",
   phone: "+57 300 111 2233",
-  notes: "Placa GHT331"
+  notes: "Placa GHT331",
+  dataConsent: true
 };
 
 // Cada test usa su propia IP para no chocar con el límite de reservas por IP.
@@ -92,9 +93,22 @@ describe("public booking API", () => {
     const res = await request(app).post("/api/public/businesses/lavadero-aguaclara/reservations").set("X-Forwarded-For", nextIp()).send(validBooking);
     expect(res.status).toBe(201);
     expect(findOrCreateCustomerByPhoneMock).toHaveBeenCalledWith("org-1", "+573001112233", "Carlos Ruiz", undefined);
+    // Queda la prueba de la autorización en el cliente (Ley 1581, art. 9).
+    expect(insforgeMockInstance.database.from).toHaveBeenCalledWith("customers");
     expect(createReservationMock).toHaveBeenCalledWith(
       expect.objectContaining({ organizationId: "org-1", resourceId: "bay-2", source: "web", specialRequests: "Placa GHT331" })
     );
+  });
+
+  it("refuses to book without the data-processing authorization, before creating anything", async () => {
+    const { dataConsent: _omit, ...withoutConsent } = validBooking;
+    for (const body of [withoutConsent, { ...validBooking, dataConsent: false }]) {
+      const res = await request(app).post("/api/public/businesses/lavadero-aguaclara/reservations").set("X-Forwarded-For", nextIp()).send(body);
+      expect(res.status).toBe(400);
+      expect(res.body.error.message).toMatch(/autorizar el tratamiento de tus datos/);
+    }
+    expect(findOrCreateCustomerByPhoneMock).not.toHaveBeenCalled();
+    expect(createReservationMock).not.toHaveBeenCalled();
   });
 
   it("at a dental office, drops the reason for the visit unless the patient ticks the health-data authorization", async () => {

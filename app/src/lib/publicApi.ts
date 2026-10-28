@@ -103,6 +103,8 @@ export const publicApi = {
       notes?: string;
       website?: string;
       healthDataConsent?: boolean;
+      /** Casilla de autorización de tratamiento de datos (obligatoria). */
+      dataConsent: boolean;
     }
   ) =>
     call<PublicBooking>(`/businesses/${encodeURIComponent(slug)}/reservations`, {
