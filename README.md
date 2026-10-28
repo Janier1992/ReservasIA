@@ -627,11 +627,12 @@ npm run build
   Vercel** para esta parte (tareas programadas y, en modo `polling`, el poller de Telegram). Alternativas con nivel
   gratuito: Railway, Render, Fly.io; o `npx @insforge/cli compute deploy`; o un VPS con PM2.
 - **Escalar a varias instancias**: las tareas programadas (recordatorios, encuestas, avisos de "listo",
-  vencimientos, limpieza, registro de webhooks) toman un turno en la base (`acquire_scheduler_lease`) y cada vuelta
+  vencimientos, limpieza, registro de webhooks, avisos de lo hecho en el panel) toman un turno en la base (`acquire_scheduler_lease`) y cada vuelta
   corre en una sola instancia. Con `TELEGRAM_MODE=webhook` el server se puede replicar sin duplicar nada.
 - **Edge Functions**: `npx @insforge/cli functions deploy <slug> --file functions/<slug>.ts` por cada una, o
   `node scripts/deploy-functions.mjs` para todas.
-- **Base de datos**: aplicar migraciones nuevas con `npx @insforge/cli db migrations up --all`.
+- **Base de datos**: aplicar migraciones nuevas con `npx @insforge/cli db migrations up --all`, o sin terminal desde
+  GitHub: Actions → **Deploy database migrations** → Run workflow (sin marcar "aplicar" solo muestra las pendientes).
 - Activar HTTPS en el dominio del compute service (requerido por Twilio y por el redirect URI de Google OAuth).
 - Configurar todas las variables de `.env.example` como variables de entorno del proveedor elegido.
 

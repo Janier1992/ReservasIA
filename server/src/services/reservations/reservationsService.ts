@@ -12,6 +12,70 @@ function translateRpcError(error: { message: string }): never {
   throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudo completar la operación de reserva.", 500);
 }
 
+export type ReservationSyncMark = "created_sync_at" | "cancelled_sync_at";
+
+/**
+ * Marca que la reserva ya pasó por el aviso al cliente (correo + Google
+ * Calendar). Es un update condicional: si el server y la tarea que revisa lo
+ * hecho desde el panel la toman a la vez, solo uno avisa. Si la marca no se
+ * puede guardar, `onError` decide: el chat y la página pública avisan igual
+ * (mejor un correo que ninguno); la tarea periódica no, porque reintentaría
+ * en cada vuelta.
+ */
+export async function claimReservationSync(
+  reservationId: string,
+  mark: ReservationSyncMark,
+  { onError, now = new Date() }: { onError: "announce" | "skip"; now?: Date }
+): Promise<boolean> {
+  const { data, error } = await insforgeAdmin.database
+    .from("reservations")
+    .update({ [mark]: now.toISOString() })
+    .eq("id", reservationId)
+    .is(mark, null)
+    .select("id");
+  if (error) {
+    logger.warn({ reservationId, mark, err: error }, "reservation_sync_mark_failed");
+    return onError === "announce";
+  }
+  return Array.isArray(data) && data.length > 0;
+}
+
+/** Correo de confirmación al cliente y evento en el Google Calendar del negocio. */
+export async function announceCreatedReservation(reservation: Reservation): Promise<void> {
+  // Primero el correo con la marca del negocio: si sale, Google no manda
+  // además su invitación genérica (el cliente recibe un solo correo).
+  const emailed = await sendReservationEmail(reservation, "confirmed");
+
+  // Google Calendar es best-effort: si falla, la reserva permanece creada
+  // (punto 23 del prompt). El error queda registrado pero no se propaga.
+  try {
+    const googleEventId = await createCalendarEvent(reservation, { notifyCustomer: !emailed });
+    if (googleEventId) {
+      await insforgeAdmin.database.from("reservations").update({ google_event_id: googleEventId }).eq("id", reservation.id);
+      reservation.google_event_id = googleEventId;
+    }
+  } catch (googleError) {
+    logger.warn(
+      { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },
+      "google_calendar_sync_failed_on_create"
+    );
+  }
+}
+
+/** Correo de cancelación al cliente y baja del evento en Google Calendar. */
+export async function announceCancelledReservation(reservation: Reservation): Promise<void> {
+  const emailed = await sendReservationEmail(reservation, "cancelled");
+  if (!reservation.google_event_id) return;
+  try {
+    await deleteCalendarEvent(reservation.organization_id, reservation.google_event_id, { notifyCustomer: !emailed });
+  } catch (googleError) {
+    logger.warn(
+      { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },
+      "google_calendar_sync_failed_on_cancel"
+    );
+  }
+}
+
 export interface CreateReservationInput {
   organizationId: string;
   customerId: string | null;
@@ -46,26 +110,8 @@ export async function createReservation(input: CreateReservationInput): Promise<
   if (error) translateRpcError(error);
   const reservation = data as Reservation;
 
-  // Primero el correo con la marca del negocio: si sale, Google no manda
-  // además su invitación genérica (el cliente recibe un solo correo).
-  const emailed = await sendReservationEmail(reservation, "confirmed");
-
-  // Google Calendar es best-effort: si falla, la reserva permanece creada
-  // (punto 23 del prompt). El error queda registrado pero no se propaga.
-  try {
-    const googleEventId = await createCalendarEvent(reservation, { notifyCustomer: !emailed });
-    if (googleEventId) {
-      await insforgeAdmin.database
-        .from("reservations")
-        .update({ google_event_id: googleEventId })
-        .eq("id", reservation.id);
-      reservation.google_event_id = googleEventId;
-    }
-  } catch (googleError) {
-    logger.warn(
-      { organizationId: input.organizationId, reservationId: reservation.id, err: googleError },
-      "google_calendar_sync_failed_on_create"
-    );
+  if (await claimReservationSync(reservation.id, "created_sync_at", { onError: "announce" })) {
+    await announceCreatedReservation(reservation);
   }
 
   // Push al negocio: igual que Google Calendar, best-effort — el dueño se
@@ -84,19 +130,10 @@ export async function cancelReservation(reservationId: string): Promise<Reservat
   const { data, error } = await insforgeAdmin.database.rpc("cancel_reservation", { p_reservation_id: reservationId });
   if (error) translateRpcError(error);
   const reservation = data as Reservation;
-  const emailed = await sendReservationEmail(reservation, "cancelled");
-
-  if (reservation.google_event_id) {
-    try {
-      await deleteCalendarEvent(reservation.organization_id, reservation.google_event_id, { notifyCustomer: !emailed });
-    } catch (googleError) {
-      logger.warn(
-        { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },
-        "google_calendar_sync_failed_on_cancel"
-      );
-    }
+  // Si ya estaba cancelada (y avisada), no se le escribe de nuevo al cliente.
+  if (await claimReservationSync(reservation.id, "cancelled_sync_at", { onError: "announce" })) {
+    await announceCancelledReservation(reservation);
   }
-
   return reservation;
 }
 
