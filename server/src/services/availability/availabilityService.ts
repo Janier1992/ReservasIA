@@ -1,5 +1,5 @@
 import { addMinutes, isBefore } from "date-fns";
-import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { fromZonedTime } from "date-fns-tz";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
@@ -150,16 +150,6 @@ const WEEKDAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, 
 function dayOfWeekInTimeZone(atUtc: Date, timeZone: string): number {
   const weekday = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(atUtc);
   return WEEKDAY_INDEX[weekday];
-}
-
-export async function isBusinessOpen(organizationId: string, atUtc: Date): Promise<boolean> {
-  const businessProfile = await loadBusinessProfile(organizationId);
-  const periods = await loadPeriodsForDay(organizationId, dayOfWeekInTimeZone(atUtc, businessProfile.timezone));
-
-  const timeOfDay = formatInTimeZone(atUtc, businessProfile.timezone, "HH:mm:ss");
-  return periods.some(
-    (p) => !p.is_closed && p.opening_time && p.closing_time && timeOfDay >= p.opening_time && timeOfDay < p.closing_time
-  );
 }
 
 export function validateReservationWindow(businessProfile: BusinessProfile, startAtUtc: Date, nowUtc: Date): void {
@@ -329,54 +319,6 @@ export async function getAvailableSlots(params: {
   }
 
   return { slots, timezone: businessProfile.timezone };
-}
-
-export async function checkResourceAvailability(
-  organizationId: string,
-  resourceId: string,
-  startAtUtc: Date,
-  endAtUtc: Date,
-  excludeReservationId?: string
-): Promise<boolean> {
-  const { data, error } = await insforgeAdmin.database
-    .from("reservations")
-    .select("id, start_at, end_at, resource_id")
-    .eq("organization_id", organizationId)
-    .eq("resource_id", resourceId)
-    .in("status", ["pending", "confirmed"])
-    .lt("start_at", endAtUtc.toISOString())
-    .gt("end_at", startAtUtc.toISOString());
-
-  if (error) throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudo validar la disponibilidad del recurso.", 500);
-  const conflicts = (data ?? []).filter((r) => r.id !== excludeReservationId);
-  return conflicts.length === 0;
-}
-
-export async function checkCapacity(
-  organizationId: string,
-  startAtUtc: Date,
-  endAtUtc: Date,
-  partySize: number,
-  excludeReservationId?: string
-): Promise<boolean> {
-  const businessProfile = await loadBusinessProfile(organizationId);
-  if (businessProfile.capacity_total === null) return true;
-
-  const { data, error } = await insforgeAdmin.database
-    .from("reservations")
-    .select("id, start_at, end_at, party_size, resource_id")
-    .eq("organization_id", organizationId)
-    .is("resource_id", null)
-    .in("status", ["pending", "confirmed"])
-    .lt("start_at", endAtUtc.toISOString())
-    .gt("end_at", startAtUtc.toISOString());
-
-  if (error) throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudo validar la capacidad del negocio.", 500);
-  const used = (data ?? [])
-    .filter((r) => r.id !== excludeReservationId)
-    .reduce((sum, r) => sum + (r.party_size ?? 1), 0);
-
-  return used + partySize <= businessProfile.capacity_total;
 }
 
 export { loadBusinessProfile };

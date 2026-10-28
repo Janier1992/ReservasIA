@@ -692,7 +692,8 @@ npm run build
 - [x] Moneda configurable por negocio (COP por defecto).
 - [x] PWA instalable, responsiva en mobile y desktop.
 - [x] Notificaciones push (Web Push + VAPID) al negocio cuando el agente confirma una reserva nueva.
-- [x] Logging estructurado sin secretos, rate limiting, protección de costos de IA, validaciones con Zod.
+- [x] Logging estructurado sin secretos, rate limiting en la API pública, validaciones con Zod. Costos de IA acotados
+      por respuesta (rondas de herramientas, historial y largo del mensaje limitados, con timeout).
 
 ## Simplificaciones conocidas / próximos pasos
 
@@ -704,6 +705,8 @@ npm run build
   `app/vercel.json`); pasarla a `Content-Security-Policy` cuando no aparezcan avisos en la consola.
 - **Credenciales de integraciones**: se guardan en `integrations.credentials` protegidas por permisos de columna,
   pero sin cifrado propio de la aplicación.
+- **Costos de IA por conversación**: no hay un límite de mensajes por cliente; alguien que escriba sin parar genera
+  respuestas del agente (y llamadas a OpenAI) sin tope.
 - **Twilio**: código heredado que solo usan negocios que ya lo tenían conectado; retirarlo cuando no quede ninguno.
 - **Google Login / Magic Link**: activables desde la configuración de Auth de InsForge sin cambios de código más
   allá de agregar los botones de UI (`insforge.auth.signInWithOAuth`).
