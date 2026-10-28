@@ -5,10 +5,12 @@
 // función si no existe o actualiza su código.
 //
 // Uso: INSFORGE_URL=... INSFORGE_API_KEY=... node scripts/deploy-functions-api.mjs [slug ...]
-// Sin slugs despliega todas.
-import { readFileSync, readdirSync } from "node:fs";
+// Sin slugs despliega todas. Las que importan código del repo se publican
+// empaquetadas (ver function-bundle.mjs).
+import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { functionCode } from "./function-bundle.mjs";
 
 const baseUrl = (process.env.INSFORGE_URL ?? "").replace(/\/+$/, "");
 const apiKey = process.env.INSFORGE_API_KEY ?? "";
@@ -38,7 +40,7 @@ async function api(pathname, init = {}) {
 
 let failed = false;
 for (const slug of slugs) {
-  const code = readFileSync(path.join(functionsDir, `${slug}.ts`), "utf-8");
+  const code = await functionCode(functionsDir, slug);
   const exists = (await api(`/api/functions/${encodeURIComponent(slug)}`)).ok;
   const res = exists
     ? await api(`/api/functions/${encodeURIComponent(slug)}`, { method: "PUT", body: JSON.stringify({ name: slug, description: "", code }) })
