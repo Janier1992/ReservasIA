@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { addMinutes, addWeeks, differenceInMinutes } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
 import { insforgeAdmin } from "../../lib/insforge.js";
+import { logger } from "../../lib/logger.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 import { getAvailableSlots } from "../availability/availabilityService.js";
 import {
@@ -269,15 +270,18 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
 
     if (depositApplies && profile) {
       const depositAmount = servicePrice !== null ? Math.round((servicePrice * profile.deposit_percentage!) / 100) : null;
+      // Best-effort: si esto falla, la reserva ya quedó creada; el negocio
+      // puede resolver el cobro manualmente. No queremos que un anticipo
+      // fallido tumbe la reserva completa, pero sí que quede registrado: el
+      // panel no mostrará "Confirmar pago" en esa reserva.
       try {
-        await insforgeAdmin.database
+        const { error } = await insforgeAdmin.database
           .from("reservations")
           .update({ payment_status: "awaiting_payment", deposit_amount: depositAmount })
           .eq("id", reservation.id);
-      } catch {
-        // Best-effort: si esto falla, la reserva ya quedó creada; el negocio
-        // puede resolver el cobro manualmente. No queremos que un anticipo
-        // fallido tumbe la reserva completa.
+        if (error) throw error;
+      } catch (err) {
+        logger.warn({ organizationId: ctx.organizationId, reservationId: reservation.id, err }, "deposit_mark_failed");
       }
       return {
         id: reservation.id,

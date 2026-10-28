@@ -22,7 +22,7 @@ interfaz es responsiva.
 - [Configurar InsForge (base de datos + auth)](#configurar-insforge-base-de-datos--auth)
 - [Configurar OpenAI (agente de IA)](#configurar-openai-agente-de-ia)
 - [Configurar Telegram (canal recomendado, gratis)](#configurar-telegram-canal-recomendado-gratis)
-- [Configurar WhatsApp / Twilio (opcional, con costo)](#configurar-whatsapp--twilio-opcional-con-costo)
+- [Configurar WhatsApp Business (YCloud)](#configurar-whatsapp-business-ycloud)
 - [Configurar Google Calendar](#configurar-google-calendar)
 - [Moneda y localización](#moneda-y-localización)
 - [PWA — instalación en celular/escritorio](#pwa--instalación-en-celularescritorio)
@@ -65,7 +65,9 @@ conexión de canales — todo antes de llegar al dashboard.
 ### Canales de mensajería
 - **Telegram** (recomendado): cada negocio conecta su propio bot (gratis, vía [@BotFather](https://t.me/BotFather)).
   El compute service lo atiende con *long-polling*, sin necesitar dominio ni URL pública.
-- **WhatsApp vía Twilio** (opcional, tiene costo de Twilio/Meta): webhook entrante validado por firma.
+- **WhatsApp Business vía YCloud** (socio oficial de Meta, en coexistencia): el agente atiende en el mismo número
+  del negocio, que sigue usando la app de WhatsApp Business; si alguien del equipo responde, el agente se pausa
+  30 minutos en ese chat. Webhook entrante validado por firma.
 
 ### Reservas
 - Vista de lista con filtro por estado, creación manual desde el dashboard (con selección de servicio/recurso,
@@ -93,7 +95,7 @@ conexión de canales — todo antes de llegar al dashboard.
   diálogo).
 
 ### Integraciones
-- Telegram, WhatsApp (Twilio) y Google Calendar, cada una conectada/desconectada por organización desde
+- Telegram, WhatsApp Business (YCloud) y Google Calendar, cada una conectada/desconectada por organización desde
   `/dashboard/integrations`, con credenciales aisladas por tenant.
 
 ### Equipo
@@ -286,8 +288,8 @@ arquitectura:
 | Dónde | Qué vive ahí | Por qué |
 |---|---|---|
 | **Postgres (migraciones)** | Tablas, RLS, triggers, RPCs (`book_reservation`, `create_organization_with_owner`, `accept_organization_invite`, etc.) | El frontend llama estas RPCs directamente vía `insforge.database.rpc()` — el SDK adjunta el token automáticamente porque es una llamada al propio backend de InsForge. |
-| **`functions/` (Edge Functions, Deno, desplegadas con `@insforge/cli functions deploy`)** | `agent-preview`, `check-availability`, `twilio-connect`, `twilio-disconnect`, `telegram-connect`, `telegram-disconnect`, `ycloud-connect`, `ycloud-disconnect`, `google-oauth-start`, `google-disconnect`, `conversations-reply` | Lógica privilegiada que el **frontend** dispara (necesita el token del usuario + una API key admin para tocar `integrations.credentials`, bloqueada por columna para `authenticated`). |
-| **`server/` (compute service, Node/Express persistente)** | Webhook de Twilio, callback de Google OAuth, el long-polling de cada bot de Telegram conectado, el loop de tool-calling del agente | Twilio y Google llaman directo (no el frontend vía SDK); Telegram no llama a nadie (long-polling saliente), pero igual necesita un proceso persistente corriendo. El agente necesita poder seguir procesando en background — algo que una función serverless de vida corta no garantiza. |
+| **`functions/` (Edge Functions, Deno, desplegadas con `@insforge/cli functions deploy`)** | Las 16 de `functions/`: conectar/desconectar canales (`telegram-*`, `ycloud-*`) y Google, `agent-preview`, `check-availability`, `conversations-reply`, `voice-intake`, recibos y pagos de suscripción | Lógica privilegiada que el **frontend** dispara (necesita el token del usuario + una API key admin para tocar `integrations.credentials`, bloqueada por columna para `authenticated`). |
+| **`server/` (compute service, Node/Express persistente)** | Webhooks de WhatsApp (YCloud), callback de Google OAuth, el long-polling de cada bot de Telegram conectado, el loop de tool-calling del agente | YCloud y Google llaman directo (no el frontend vía SDK); Telegram no llama a nadie (long-polling saliente), pero igual necesita un proceso persistente corriendo. El agente necesita poder seguir procesando en background — algo que una función serverless de vida corta no garantiza. |
 
 **Importante para el despliegue**: por esto mismo, `app/` (el frontend) sí se puede desplegar en una plataforma
 serverless/estática como Vercel, pero `server/` (el compute service) necesita un host que mantenga un proceso Node
@@ -298,7 +300,7 @@ necesita estar escuchando todo el tiempo, no solo responder a requests puntuales
 
 - **Frontend** (`app/`): React 18 + TypeScript + Vite + Tailwind CSS + TanStack Query + React Hook Form + Zod +
   Radix UI + `vite-plugin-pwa`.
-- **Compute service** (`server/`): Node + Express + TypeScript, OpenAI SDK (tool-calling), Twilio SDK, `googleapis`.
+- **Compute service** (`server/`): Node + Express + TypeScript, OpenAI SDK (tool-calling), `googleapis`; WhatsApp por la API de YCloud (Twilio SDK solo para la integración anterior).
 - **Edge Functions** (`functions/`): Deno, desplegadas a InsForge.
 - **Base de datos**: PostgreSQL vía InsForge, con RLS, triggers y RPCs en `migrations/`.
 
@@ -327,7 +329,7 @@ crm-clients-wpp/
 │       └── lib/                  # insforgeClient, functionsClient, queryClient, currency
 ├── server/                       # Compute service: Node + Express + TS
 │   ├── src/
-│   │   ├── routes/               # webhooks (Twilio), integrations (Google callback), health
+│   │   ├── routes/               # webhooks (YCloud, Telegram), integrations (Google callback), public, health
 │   │   ├── services/
 │   │   │   ├── agent/            # promptBuilder, tools, toolExecutors, agentRuntime, coreRules
 │   │   │   ├── availability/     # motor de disponibilidad (horarios, recursos, capacidad)
@@ -335,12 +337,14 @@ crm-clients-wpp/
 │   │   │   ├── customers/        # findOrCreateCustomerByPhone, updateCustomer
 │   │   │   ├── conversations/    # handleInboundMessage: lógica compartida entre canales
 │   │   │   ├── google/           # OAuth callback + Google Calendar (crear/actualizar/borrar eventos)
-│   │   │   ├── twilio/           # WhatsApp
+│   │   │   ├── ycloud/           # WhatsApp Business (coexistencia)
+│   │   │   ├── whatsapp/         # envío de WhatsApp (YCloud; Twilio solo para negocios ya conectados)
+│   │   │   ├── twilio/           # WhatsApp con Twilio (integración anterior)
 │   │   │   └── telegram/         # long-polling multi-tenant (telegramPollingManager)
 │   │   ├── middleware/           # rateLimit, errorHandler
 │   │   ├── config/env.ts         # Validación de variables de entorno
 │   │   └── lib/                  # insforge (admin client), openai, logger
-│   └── tests/                    # vitest: disponibilidad, tools del agente, prompt, webhook, telegram
+│   └── tests/                    # vitest: servicios del server y permisos de las Edge Functions (tests/functions)
 ├── functions/                    # Edge Functions (Deno), invocadas por el frontend vía insforge.functions.invoke()
 ├── migrations/                   # Esquema completo + RLS + RPCs, en orden (npx @insforge/cli db migrations up)
 ├── db-tests/                     # Test de aislamiento multi-tenant (SQL plano, correr con psql)
@@ -357,7 +361,7 @@ crm-clients-wpp/
 - Una cuenta de [InsForge](https://insforge.dev)
 - Una API key de [OpenAI](https://platform.openai.com) (o cualquier endpoint compatible, ej. OpenRouter, para desarrollo)
 - Un bot de Telegram gratis vía [@BotFather](https://t.me/BotFather) (canal recomendado)
-- Opcional: una cuenta de [Twilio](https://www.twilio.com) con WhatsApp habilitado
+- Opcional: una cuenta de [YCloud](https://www.ycloud.com) con el número de WhatsApp Business del negocio
 - Opcional: un proyecto de [Google Cloud](https://console.cloud.google.com) con la API de Calendar habilitada
 
 ## Instalación
@@ -457,14 +461,24 @@ atiende de dos formas (`TELEGRAM_MODE`):
 
 ---
 
-## Configurar WhatsApp / Twilio (opcional, con costo)
+## Configurar WhatsApp Business (YCloud)
 
-1. Creá una cuenta en [twilio.com](https://www.twilio.com) y activá el WhatsApp Sandbox (o un número aprobado).
-2. Configurá el webhook entrante en **Messaging → WhatsApp Sender → "When a message comes in"** apuntando al
-   **compute service**: `https://<tu-dominio-del-compute-service>/api/webhooks/twilio/whatsapp`.
-3. Desde `/dashboard/integrations`, conectá WhatsApp con el Account SID, el Auth Token y el número
-   (`whatsapp:+1415...`).
-4. En producción, dejá `TWILIO_VALIDATE_SIGNATURE=true` para validar la cabecera `X-Twilio-Signature`.
+Cada negocio conecta su propio número de WhatsApp Business en **coexistencia**: sigue usando la app en el
+celular y el agente atiende por la API oficial de Meta, a través de YCloud. El paso a paso para el negocio está en
+la sección 23 del manual de usuario (`docs/manual/`).
+
+1. El negocio crea su cuenta en [ycloud.com](https://www.ycloud.com), conecta ahí su número eligiendo la opción de
+   seguir usando la app (coexistencia) y copia su API key (Desarrolladores → API Keys).
+2. En `/dashboard/integrations` → **WhatsApp Business (YCloud)** pega la API key. La Edge Function
+   `ycloud-connect` valida la clave, toma el número y registra en YCloud el webhook
+   `https://<compute-service>/api/webhooks/ycloud/<organization_id>` con su propio secreto.
+3. El compute service verifica la firma `YCloud-Signature` de cada evento (HMAC-SHA256, 5 minutos de tolerancia),
+   responde al cliente con el agente y pausa al agente 30 minutos cuando el negocio escribe desde la app.
+4. La dirección pública del compute service sale de `SERVER_PUBLIC_URL` (secreto de las Edge Functions en InsForge)
+   o, si no está, de `VITE_API_URL` del frontend.
+
+> La integración anterior con Twilio sigue en el código solo para negocios que ya la tenían conectada (pueden
+> desconectarla); ya no se puede conectar desde la app.
 
 ---
 
@@ -578,7 +592,7 @@ npm run dev
 ```
 
 Levanta en paralelo:
-- Compute service en `http://localhost:3011` (webhook de Twilio, callback de Google, poller de Telegram)
+- Compute service en `http://localhost:3011` (webhooks de WhatsApp, callback de Google, poller de Telegram)
 - Frontend en `http://localhost:5173`
 
 Las Edge Functions no tienen modo "dev local": se prueban desplegándolas a InsForge e invocándolas desde la app.
@@ -589,8 +603,21 @@ Las Edge Functions no tienen modo "dev local": se prueban desplegándolas a InsF
 npm test
 ```
 
-Corre la suite de `server` (vitest: motor de disponibilidad, reglas y herramientas del agente, prompt builder,
-webhook de Twilio, procesamiento de Telegram — con InsForge mockeado, no requiere proyecto real) y de `app`.
+- **`server`** (vitest, con InsForge simulado, sin proyecto real): motor de disponibilidad, agente y sus
+  herramientas, canales (Telegram, YCloud), reservas y avisos, página pública, y en `server/tests/functions` los
+  **permisos de las 16 Edge Functions** (sin sesión, de otro negocio, staff donde solo puede dueño/admin).
+- **`app`** (vitest): lógica del frontend y cabeceras de seguridad de `vercel.json`.
+
+### Prueba de punta a punta (navegador real)
+
+```bash
+VITE_API_URL=https://api.e2e.test VITE_INSFORGE_URL=https://insforge.e2e.test VITE_INSFORGE_ANON_KEY=e2e \
+  npm run build -w app && npm run e2e -w app
+```
+
+Playwright corre la app compilada en Chromium con el servidor y InsForge simulados (`app/e2e/fixtures.ts`):
+reserva en la página pública (con la casilla de autorización), pedido por QR e inicio de sesión. La primera vez:
+`npx playwright install chromium` dentro de `app/`.
 
 ### Tests de base de datos (migraciones + RLS)
 
@@ -613,7 +640,9 @@ Sobre un Postgres **vacío** (nunca un proyecto InsForge real: crea roles, esque
 ### CI
 
 `.github/workflows/ci.yml` corre en cada push a `main` y en cada pull request: lint, typecheck, tests, build,
-`npm audit` (falla con vulnerabilidades altas) y los tests de base de datos de arriba contra un Postgres 16.
+`npm audit` (falla con vulnerabilidades altas, salvo las aceptadas en `scripts/audit-check.mjs`), la prueba de punta
+a punta y los tests de base de datos de arriba contra un Postgres 16. Además corren CodeQL (`codeql.yml`) y la
+búsqueda de claves (`secret-scan.yml`, gitleaks).
 
 ## Build y producción
 
@@ -633,7 +662,7 @@ npm run build
   `node scripts/deploy-functions.mjs` para todas.
 - **Base de datos**: aplicar migraciones nuevas con `npx @insforge/cli db migrations up --all`, o sin terminal desde
   GitHub: Actions → **Deploy database migrations** → Run workflow (sin marcar "aplicar" solo muestra las pendientes).
-- Activar HTTPS en el dominio del compute service (requerido por Twilio y por el redirect URI de Google OAuth).
+- Activar HTTPS en el dominio del compute service (requerido por los webhooks de YCloud y por el redirect URI de Google OAuth).
 - Configurar todas las variables de `.env.example` como variables de entorno del proveedor elegido.
 
 ---
@@ -651,7 +680,10 @@ npm run build
 - [x] Agente con tool-calling multi-ronda, confirmación explícita antes de reservar, IDs de servicio/recurso
       siempre resueltos contra el catálogo real (nunca inventados).
 - [x] Telegram por organización vía long-polling (sin URL pública) — canal recomendado por costo cero.
-- [x] WhatsApp/Twilio con routing multi-organización por número y validación de firma configurable.
+- [x] WhatsApp Business por YCloud (coexistencia) con webhook por organización, firma verificada y pausa del
+      agente cuando responde el equipo.
+- [x] Datos personales (Ley 1581): autorización en la página pública, borrado completo de clientes y retención de
+      chats de un año.
 - [x] Google Calendar por organización (OAuth propio del negocio) + invitación al cliente como asistente del
       evento cuando da su email.
 - [x] Onboarding de 10 pasos, aceptación de invitaciones de equipo.
@@ -668,8 +700,11 @@ npm run build
   mismo algoritmo por separado (Deno y Node) en vez de compartir una única fuente de verdad en SQL.
 - **Invitaciones de equipo sin email automático**: "invitar" crea un registro en `organization_invites` que la
   persona debe aceptar manualmente iniciando sesión con ese email — no se envía un email de invitación automático.
-- **Tests de RLS**: escritos en `db-tests/tenant-isolation.sql` pero deben ejecutarse manualmente contra un
-  proyecto InsForge real antes de un primer despliegue a producción.
+- **Política de seguridad de contenido**: está en modo solo-reporte (`Content-Security-Policy-Report-Only` en
+  `app/vercel.json`); pasarla a `Content-Security-Policy` cuando no aparezcan avisos en la consola.
+- **Credenciales de integraciones**: se guardan en `integrations.credentials` protegidas por permisos de columna,
+  pero sin cifrado propio de la aplicación.
+- **Twilio**: código heredado que solo usan negocios que ya lo tenían conectado; retirarlo cuando no quede ninguno.
 - **Google Login / Magic Link**: activables desde la configuración de Auth de InsForge sin cambios de código más
   allá de agregar los botones de UI (`insforge.auth.signInWithOAuth`).
 - **Bundle del frontend**: el chunk principal supera los 500kB tras minificar; dividirlo con `manualChunks` o
