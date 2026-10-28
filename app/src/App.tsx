@@ -20,6 +20,7 @@ import { SupportLayout } from "@/components/layout/SupportLayout";
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage").then((m) => ({ default: m.LoginPage })));
 const RegisterPage = lazy(() => import("@/pages/auth/RegisterPage").then((m) => ({ default: m.RegisterPage })));
 const ForgotPasswordPage = lazy(() => import("@/pages/auth/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("@/pages/auth/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })));
 const OnboardingWizard = lazy(() => import("@/pages/onboarding/OnboardingWizard").then((m) => ({ default: m.OnboardingWizard })));
 const DashboardHome = lazy(() => import("@/pages/dashboard/DashboardHome").then((m) => ({ default: m.DashboardHome })));
 const InboxPage = lazy(() => import("@/pages/dashboard/InboxPage").then((m) => ({ default: m.InboxPage })));
@@ -64,6 +65,7 @@ export default function App() {
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/register" element={<RegisterPage />} />
                       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                      <Route path="/reset-password" element={<ResetPasswordPage />} />
                       <Route path="/r/:slug" element={<PublicBookingPage />} />
                       <Route path="/o/:token" element={<SurveyPage />} />
                       <Route path="/privacidad" element={<PrivacyPolicyPage />} />

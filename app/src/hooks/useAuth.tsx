@@ -15,6 +15,8 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
+  /** Cómo manda InsForge la recuperación: un código para escribir o un enlace para abrir. */
+  getResetPasswordMethod: () => Promise<"code" | "link">;
   exchangeResetCode: (email: string, code: string) => Promise<string>;
   resetPassword: (newPassword: string, otp: string) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -87,6 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unwrap(
         await insforge.auth.sendResetPasswordEmail({ email, redirectTo: `${window.location.origin}/reset-password` })
       );
+    },
+    getResetPasswordMethod: async () => {
+      // Si no se puede leer la configuración, se asume código: es lo que
+      // InsForge usa por defecto y la pantalla de código sigue sirviendo.
+      const { data } = await insforge.auth.getPublicAuthConfig();
+      return data?.resetPasswordMethod === "link" ? "link" : "code";
     },
     exchangeResetCode: async (email, code) => {
       const result = unwrap(await insforge.auth.exchangeResetPasswordToken({ email, code }));

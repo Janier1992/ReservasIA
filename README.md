@@ -397,6 +397,14 @@ Completá en `.env`:
 - `VITE_INSFORGE_ANON_KEY`: la `ANON_KEY` obtenida arriba.
 - `INSFORGE_API_KEY`: una API key admin (Project Settings → API Keys en el dashboard de InsForge).
 
+### Recuperar contraseña
+
+La pantalla `/forgot-password` funciona con los dos métodos de recuperación de InsForge (Authentication en el
+dashboard): con **código**, la persona lo escribe en la misma pantalla; con **enlace**, el correo lleva a
+`/reset-password`, donde elige la contraseña nueva. Para el enlace, agregá `https://<tu-dominio>/reset-password` a
+las URLs de redirección permitidas de InsForge. El correo lo manda InsForge: si no llega, revisá ahí los envíos y el
+límite de correos del plan (los correos de reservas usan el mismo servicio). Se puede reenviar cada 60 segundos.
+
 ### Datos demo
 
 `migrations/20260830121700_seed-demo-data.sql` crea 3 organizaciones demo completas (restaurante, barbería, salón
