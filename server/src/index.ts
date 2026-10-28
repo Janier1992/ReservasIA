@@ -15,6 +15,7 @@ import {
   startInboundClaimsCleanupScheduler,
   stopInboundClaimsCleanupScheduler
 } from "./services/conversations/inboundClaimsCleanupScheduler.js";
+import { startChatRetentionScheduler, stopChatRetentionScheduler } from "./services/conversations/chatRetentionScheduler.js";
 import { startReservationSyncScheduler, stopReservationSyncScheduler } from "./services/reservations/reservationSyncScheduler.js";
 
 const app = createApp();
@@ -45,6 +46,7 @@ const server = app.listen(env.PORT, () => {
   startSubscriptionScheduler();
   startInboundClaimsCleanupScheduler();
   startReservationSyncScheduler();
+  startChatRetentionScheduler();
 });
 
 function shutdown() {
@@ -57,6 +59,7 @@ function shutdown() {
     stopSubscriptionScheduler();
     stopInboundClaimsCleanupScheduler();
     stopReservationSyncScheduler();
+    stopChatRetentionScheduler();
   }
   server.close(() => process.exit(0));
 }
