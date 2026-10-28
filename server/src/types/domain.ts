@@ -132,6 +132,9 @@ export interface Reservation {
   deposit_amount: number | null;
   reminder_sent_at: string | null;
   recurrence_group_id: string | null;
+  /** Cuándo se avisó al cliente de la reserva / de la cancelación (null = pendiente). */
+  created_sync_at?: string | null;
+  cancelled_sync_at?: string | null;
 }
 
 export interface AgentConfig {

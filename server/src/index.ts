@@ -15,6 +15,7 @@ import {
   startInboundClaimsCleanupScheduler,
   stopInboundClaimsCleanupScheduler
 } from "./services/conversations/inboundClaimsCleanupScheduler.js";
+import { startReservationSyncScheduler, stopReservationSyncScheduler } from "./services/reservations/reservationSyncScheduler.js";
 
 const app = createApp();
 
@@ -43,6 +44,7 @@ const server = app.listen(env.PORT, () => {
   startOrderReadyNotifier();
   startSubscriptionScheduler();
   startInboundClaimsCleanupScheduler();
+  startReservationSyncScheduler();
 });
 
 function shutdown() {
@@ -54,6 +56,7 @@ function shutdown() {
     stopOrderReadyNotifier();
     stopSubscriptionScheduler();
     stopInboundClaimsCleanupScheduler();
+    stopReservationSyncScheduler();
   }
   server.close(() => process.exit(0));
 }
