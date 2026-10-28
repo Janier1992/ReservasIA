@@ -29,10 +29,6 @@ export const consultarDisponibilidadSchema = z.object({
   resource_id: z.string().uuid().optional()
 });
 
-export const obtenerInfoNegocioSchema = z.object({});
-
-export const consultarServiciosSchema = z.object({});
-
 // Sin argumentos a propósito: siempre son las reservas del cliente de la
 // conversación, nunca las de un teléfono que alguien escriba en el chat.
 export const consultarReservasClienteSchema = z.object({});
