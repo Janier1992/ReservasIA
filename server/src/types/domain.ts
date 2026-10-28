@@ -79,6 +79,9 @@ export interface Customer {
   notes: string | null;
   health_data_consent_at?: string | null;
   health_data_consent_source?: string | null;
+  /** Cuándo autorizó el tratamiento de sus datos (casilla de la página de reservas). */
+  data_consent_at?: string | null;
+  data_consent_source?: string | null;
 }
 
 export type ConversationChannel = "whatsapp" | "instagram" | "web" | "telegram" | "facebook";

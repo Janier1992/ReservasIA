@@ -13,6 +13,7 @@ import { cartCount, cartLines, cartTotal, MAX_ITEM_QUANTITY, setCartQuantity, ty
 import { PublicApiError, publicApi, type PublicBusiness, type PublicOrder } from "@/lib/publicApi";
 import { PublicBusinessHeader } from "./PublicBusinessHeader";
 import { NotifyChannelsCard } from "./NotifyChannelsCard";
+import { PrivacyPolicyLink } from "./PrivacyPolicyLink";
 
 /** Plato que no está en la carta: nombre, qué lleva y precio. */
 const EMPTY_CUSTOM = { name: "", includes: "", price: "" };
@@ -428,6 +429,10 @@ export function PublicOrderView({ slug, business, icon }: Props) {
             <Button type="submit" size="lg" className="w-full" disabled={submitting}>
               {submitting ? "Enviando..." : `Hacer pedido · ${productsLabel(count + (draftInOrder ? 1 : 0))}`}
             </Button>
+            <p className="text-xs text-muted-foreground">
+              Al hacer el pedido, {business.name} recibe tu nombre (y tu celular, si lo das) solo para preparar tu pedido y avisarte
+              cuando esté listo. Más en la <PrivacyPolicyLink />.
+            </p>
           </form>
         )}
       </div>
