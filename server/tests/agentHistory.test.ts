@@ -21,7 +21,7 @@ function toolCall(id: string) {
 }
 
 describe("mapHistoryToOpenAiMessages", () => {
-  it("keeps a well-formed tool call sequence intact", () => {
+  it("deja intacta una secuencia bien formada de llamadas a herramientas", () => {
     const result = mapHistoryToOpenAiMessages([
       msg("user", "hola"),
       msg("assistant", "", { tool_calls: [toolCall("a")] }),
@@ -32,7 +32,7 @@ describe("mapHistoryToOpenAiMessages", () => {
     expect(result.map((m) => m.role)).toEqual(["user", "assistant", "tool", "assistant"]);
   });
 
-  it("repairs the interleaved history left by two concurrent turns (incidente 2026-09-25)", () => {
+  it("repara el historial intercalado que dejan dos turnos simultáneos (incidente 2026-09-25)", () => {
     // tool_calls A, tool_calls B, resultado A, resultado B: la API rechaza
     // esto con 400 y la conversación quedaba muda hasta salir de la ventana.
     const result = mapHistoryToOpenAiMessages([
@@ -60,7 +60,7 @@ describe("mapHistoryToOpenAiMessages", () => {
     expect(result[result.length - 1]).toEqual({ role: "user", content: "Puedes cancelar" });
   });
 
-  it("drops orphan tool results cut off by the history window", () => {
+  it("descarta los resultados de herramientas huérfanos que corta la ventana del historial", () => {
     const result = mapHistoryToOpenAiMessages([
       msg("tool", "{\"ok\":true}", { tool_call_id: "fuera-de-ventana" }),
       msg("assistant", "Listo, reservado"),
@@ -70,7 +70,7 @@ describe("mapHistoryToOpenAiMessages", () => {
     expect(result.map((m) => m.role)).toEqual(["assistant", "user"]);
   });
 
-  it("degrades a tool call without its results to plain text, or drops it if empty", () => {
+  it("convierte en texto una llamada a herramienta sin resultados, o la descarta si está vacía", () => {
     const result = mapHistoryToOpenAiMessages([
       msg("assistant", "Déjame revisar", { tool_calls: [toolCall("x")] }),
       msg("assistant", "", { tool_calls: [toolCall("y")] }),

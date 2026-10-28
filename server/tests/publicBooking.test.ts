@@ -74,14 +74,14 @@ describe("public booking API", () => {
     createReservationMock.mockResolvedValue({ id: "res-1", start_at: SLOT.start, end_at: SLOT.end });
   });
 
-  it("shows the business and its active services without internal ids", async () => {
+  it("muestra el negocio y sus servicios activos sin identificadores internos", async () => {
     const res = await request(app).get("/api/public/businesses/lavadero-aguaclara");
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ name: "Lavadero Aguaclara", businessType: "car_wash", services: [{ id: SERVICE_ID, price: 35000 }] });
     expect(res.body.organizationId).toBeUndefined();
   });
 
-  it("answers the same 404 for a missing, suspended or opted-out business", async () => {
+  it("responde el mismo 404 para un negocio inexistente, suspendido o sin página pública", async () => {
     for (const org of [null, { ...ACTIVE_ORG, status: "suspended" }, { ...ACTIVE_ORG, disabled_modules: ["public_booking"] }]) {
       insforgeMockInstance = mockFor(org);
       const res = await request(app).get("/api/public/businesses/lavadero-aguaclara");
@@ -90,13 +90,13 @@ describe("public booking API", () => {
     }
   });
 
-  it("returns slot times without revealing which resource is free", async () => {
+  it("devuelve los horarios sin revelar qué recurso está libre", async () => {
     const res = await request(app).get(`/api/public/businesses/lavadero-aguaclara/availability?serviceId=${SERVICE_ID}&date=2026-10-01`);
     expect(res.status).toBe(200);
     expect(res.body.slots).toEqual([{ start: SLOT.start, end: SLOT.end }]);
   });
 
-  it("books a still-free slot on the first free resource with a normalized phone", async () => {
+  it("reserva un horario todavía libre en el primer recurso libre, con el teléfono normalizado", async () => {
     const res = await request(app).post("/api/public/businesses/lavadero-aguaclara/reservations").set("X-Forwarded-For", nextIp()).send(validBooking);
     expect(res.status).toBe(201);
     expect(findOrCreateCustomerByPhoneMock).toHaveBeenCalledWith("org-1", "+573001112233", "Carlos Ruiz", undefined);
@@ -107,7 +107,7 @@ describe("public booking API", () => {
     );
   });
 
-  it("refuses to book without the data-processing authorization, before creating anything", async () => {
+  it("no reserva sin la autorización de tratamiento de datos, antes de crear nada", async () => {
     const withoutConsent = without(validBooking, "dataConsent");
     for (const body of [withoutConsent, { ...validBooking, dataConsent: false }]) {
       const res = await request(app).post("/api/public/businesses/lavadero-aguaclara/reservations").set("X-Forwarded-For", nextIp()).send(body);
@@ -118,7 +118,7 @@ describe("public booking API", () => {
     expect(createReservationMock).not.toHaveBeenCalled();
   });
 
-  it("at a dental office, drops the reason for the visit unless the patient ticks the health-data authorization", async () => {
+  it("en un consultorio odontológico descarta el motivo de la consulta salvo que el paciente marque la autorización de datos de salud", async () => {
     const dental = { ...ACTIVE_ORG, slug: "consultorio", business_type: "dental" };
     insforgeMockInstance = mockFor(dental);
     const body = { ...validBooking, notes: "Dolor de muela" };
@@ -136,7 +136,7 @@ describe("public booking API", () => {
     expect(createReservationMock).toHaveBeenLastCalledWith(expect.objectContaining({ specialRequests: "Dolor de muela" }));
   });
 
-  it("books a service that is not on the list, described by the customer, with the default duration", async () => {
+  it("reserva un servicio que no está en la lista, descrito por el cliente, con la duración por defecto", async () => {
     const rest = without(validBooking, "serviceId");
     const res = await request(app)
       .post("/api/public/businesses/lavadero-aguaclara/reservations")
@@ -153,7 +153,7 @@ describe("public booking API", () => {
     );
   });
 
-  it("asks for exactly one: a listed service or a description", async () => {
+  it("pide exactamente uno: un servicio de la lista o una descripción", async () => {
     const rest = without(validBooking, "serviceId");
     for (const body of [rest, { ...validBooking, customService: "Otra cosa" }]) {
       const res = await request(app).post("/api/public/businesses/lavadero-aguaclara/reservations").set("X-Forwarded-For", nextIp()).send(body);
@@ -162,20 +162,20 @@ describe("public booking API", () => {
     expect(createReservationMock).not.toHaveBeenCalled();
   });
 
-  it("offers times for a service that is not on the list", async () => {
+  it("ofrece horarios para un servicio que no está en la lista", async () => {
     const res = await request(app).get("/api/public/businesses/lavadero-aguaclara/availability?date=2026-10-01");
     expect(res.status).toBe(200);
     expect(res.body.slots).toEqual([{ start: SLOT.start, end: SLOT.end }]);
   });
 
-  it("refuses a slot that was taken while the visitor filled the form", async () => {
+  it("rechaza un horario que se ocupó mientras el visitante llenaba el formulario", async () => {
     getAvailableSlotsMock.mockResolvedValue({ slots: [], timezone: "America/Bogota" });
     const res = await request(app).post("/api/public/businesses/lavadero-aguaclara/reservations").set("X-Forwarded-For", nextIp()).send(validBooking);
     expect(res.status).toBe(409);
     expect(createReservationMock).not.toHaveBeenCalled();
   });
 
-  it("rejects bots that fill the hidden field and invalid phones", async () => {
+  it("rechaza los bots que llenan el campo oculto y los teléfonos inválidos", async () => {
     for (const body of [{ ...validBooking, website: "http://spam" }, { ...validBooking, phone: "123" }]) {
       const res = await request(app).post("/api/public/businesses/lavadero-aguaclara/reservations").set("X-Forwarded-For", nextIp()).send(body);
       expect(res.status).toBe(400);

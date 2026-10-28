@@ -152,7 +152,7 @@ describe("runAgentTurn organization status", () => {
     vi.clearAllMocks();
   });
 
-  it("never calls the model and replies null when the organization isn't active (suspended/cancelled)", async () => {
+  it("nunca llama al modelo y responde null cuando el negocio no está activo (suspendido o cancelado)", async () => {
     loadAgentPromptDataMock.mockResolvedValueOnce({
       organization: { id: "org-1", businessType: "generic", timezone: "America/Bogota", status: "suspended" },
       agentConfig: {
@@ -194,7 +194,7 @@ describe("runAgentTurn output sanitization", () => {
     vi.clearAllMocks();
   });
 
-  it("strips a leaked provider control token from the final reply before persisting/returning it", async () => {
+  it("quita de la respuesta final un token de control del proveedor que se haya filtrado, antes de guardarla o devolverla", async () => {
     createMock.mockResolvedValueOnce({
       choices: [{ message: { content: "Podés llamar al negocio. <CPA_DONE>", tool_calls: undefined } }]
     });

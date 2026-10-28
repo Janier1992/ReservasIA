@@ -26,7 +26,7 @@ const base = {
 };
 
 describe("reservation email template", () => {
-  it("shows the business brand, the details in the business timezone and a Google Calendar button", () => {
+  it("muestra la marca del negocio, los datos en su zona horaria y un botón de Google Calendar", () => {
     const { subject, html } = buildReservationEmail(base);
     expect(subject).toBe("Tu reserva está confirmada · Antojitos Fast Food · lun 28 de sep, 2:00 p. m.");
     expect(html).toContain('src="https://cdn.test/logo.png"');
@@ -37,7 +37,7 @@ describe("reservation email template", () => {
     expect(html).toContain("Agregar a Google Calendar");
   });
 
-  it("builds a Google Calendar link with UTC dates, place and timezone", () => {
+  it("arma un enlace de Google Calendar con fechas en UTC, lugar y zona horaria", () => {
     const url = new URL(googleCalendarLink(base));
     expect(url.searchParams.get("dates")).toBe("20260928T190000Z/20260928T200000Z");
     expect(url.searchParams.get("text")).toBe("Bandeja paisa · Antojitos Fast Food");
@@ -45,18 +45,18 @@ describe("reservation email template", () => {
     expect(url.searchParams.get("ctz")).toBe("America/Bogota");
   });
 
-  it("includes the cancellation policy when the business has one", () => {
+  it("incluye la política de cancelación cuando el negocio tiene una", () => {
     expect(buildReservationEmail({ ...base, cancellationPolicy: "Avisar con 2 horas" }).html).toContain("Avisar con 2 horas");
     expect(buildReservationEmail(base).html).not.toContain("Política de cancelación");
   });
 
-  it("has no calendar button when the reservation was cancelled", () => {
+  it("no tiene botón de calendario cuando la reserva se canceló", () => {
     const { html, subject } = buildReservationEmail({ ...base, kind: "cancelled" });
     expect(subject).toMatch(/^Tu reserva fue cancelada/);
     expect(html).not.toContain("Agregar a Google Calendar");
   });
 
-  it("escapes business and customer data", () => {
+  it("escapa los datos del negocio y del cliente", () => {
     const { html } = buildReservationEmail({ ...base, customerName: "<script>x</script>", notes: 'sin "cebolla" & ají', business: { ...base.business, logoUrl: null } });
     expect(html).not.toContain("<script>x");
     expect(html).toContain("&lt;script&gt;x&lt;/script&gt;");
@@ -88,7 +88,7 @@ describe("sendReservationEmail", () => {
     });
   }
 
-  it("sends the branded email to the customer", async () => {
+  it("envía al cliente el correo con la marca del negocio", async () => {
     useDb({ email: "cliente@test.com", name: "Jhanier" });
     expect(await sendReservationEmail(reservation, "confirmed")).toBe(true);
     const sent = db.emails.send.mock.calls[0][0];
@@ -103,7 +103,7 @@ describe("sendReservationEmail", () => {
     expect(db.emails.send).not.toHaveBeenCalled();
   });
 
-  it("reports a failed send without throwing", async () => {
+  it("informa un envío fallido sin lanzar excepción", async () => {
     useDb({ email: "cliente@test.com", name: "Jhanier" });
     db.emails.send.mockResolvedValueOnce({ data: null as unknown as object, error: { message: "quota" } });
     expect(await sendReservationEmail(reservation, "rescheduled")).toBe(false);

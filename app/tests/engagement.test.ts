@@ -11,7 +11,7 @@ import {
 } from "@/lib/engagement";
 
 describe("whatsapp links", () => {
-  it("adds the Colombian code to 10-digit mobiles and skips Telegram customers", () => {
+  it("agrega el indicativo de Colombia a los celulares de 10 dígitos y omite a los clientes de Telegram", () => {
     expect(whatsappNumber("300 123 4567")).toBe("573001234567");
     expect(whatsappNumber("+57 300 123 4567")).toBe("573001234567");
     expect(whatsappNumber("+52 55 1234 5678")).toBe("525512345678");
@@ -22,21 +22,21 @@ describe("whatsapp links", () => {
 });
 
 describe("messages", () => {
-  it("builds the survey message with the first name and the link", () => {
+  it("arma el mensaje de la encuesta con el primer nombre y el enlace", () => {
     const url = surveyUrl("a".repeat(64), "https://app.test");
     expect(url).toBe(`https://app.test/o/${"a".repeat(64)}`);
     expect(surveyMessage("Marta Ruiz", "Barbería Z", url)).toBe(`Hola Marta, gracias por visitarnos en Barbería Z. ¿Nos contás cómo te fue? Son 10 segundos: ${url}`);
     expect(surveyMessage(null, "Barbería Z", url)).toMatch(/^Hola, gracias/);
   });
 
-  it("fills the reactivation template", () => {
+  it("completa la plantilla de recuperación de clientes", () => {
     expect(fillReactivationTemplate(DEFAULT_REACTIVATION_TEMPLATE, "Ana Gómez", "Spa Luz")).toMatch(/^Hola Ana, te extrañamos en Spa Luz\./);
     expect(fillReactivationTemplate(DEFAULT_REACTIVATION_TEMPLATE, "", "Spa Luz")).toMatch(/^Hola, te extrañamos/);
   });
 });
 
 describe("ratingStats", () => {
-  it("computes average, response rate and promoters", () => {
+  it("calcula el promedio, la tasa de respuesta y los promotores", () => {
     const s = ratingStats([{ rating: 5 }, { rating: 4 }, { rating: 2 }, { rating: null }]);
     expect(s).toMatchObject({ sent: 4, answered: 3, responseRate: 75, average: 3.7, promoters: 2, detractors: 1 });
     expect(ratingStats([]).average).toBeNull();
@@ -53,7 +53,7 @@ describe("sinceLabel", () => {
 });
 
 describe("requiresHealthDataConsent", () => {
-  it("asks for health-data authorization only in human health niches", async () => {
+  it("pide autorización de datos de salud solo en los rubros de salud humana", async () => {
     const { requiresHealthDataConsent } = await import("@/lib/healthData");
     for (const t of ["dental", "clinic", "physiotherapy"]) expect(requiresHealthDataConsent(t)).toBe(true);
     for (const t of ["veterinary", "restaurant", null, undefined]) expect(requiresHealthDataConsent(t)).toBe(false);

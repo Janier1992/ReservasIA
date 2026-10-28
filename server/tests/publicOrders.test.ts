@@ -35,7 +35,7 @@ describe("order codes", () => {
     for (let i = 0; i < 50; i++) expect(generateOrderCode()).toMatch(/^[A-HJ-NP-Z2-9]{10}$/);
   });
 
-  it("reads the code from Telegram /start and WhatsApp 'Pedido #'", () => {
+  it("lee el código desde /start de Telegram y 'Pedido #' de WhatsApp", () => {
     expect(extractOrderCode("/start ABCDE23456")).toBe("ABCDE23456");
     expect(extractOrderCode("Pedido #abcde23456")).toBe("ABCDE23456");
     expect(extractOrderCode("/start")).toBeNull();
@@ -45,7 +45,7 @@ describe("order codes", () => {
 });
 
 describe("publicPageMode", () => {
-  it("uses immediate orders only for restaurants with on-site service on", () => {
+  it("usa pedidos inmediatos solo en restaurantes con atención en sitio activa", () => {
     expect(publicPageMode("restaurant", [])).toBe("order");
     expect(publicPageMode("restaurant", ["walk_ins"])).toBe("booking");
     expect(publicPageMode("spa", [])).toBe("booking");
@@ -66,7 +66,7 @@ function insertedInto(table: string): Record<string, unknown> | undefined {
 const burger = { id: "svc-1", name: "Hamburguesa", price: 18000, currency: "COP" };
 const lemonade = { id: "svc-2", name: "Limonada", price: 6000, currency: "COP" };
 
-describe("public menu of the day", () => {
+describe("carta pública del día", () => {
   const profile = { name: "Antojitos", description: null, address: null, phone: null, logo_url: null, max_booking_days: 30 };
   const menu = [
     { id: "svc-1", name: "Hamburguesa", description: null, duration_minutes: 15, price: 18000, currency: "COP", available_days: null },
@@ -75,14 +75,14 @@ describe("public menu of the day", () => {
   const saturday = new Date("2026-10-10T17:00:00Z");
   const monday = new Date("2026-10-12T17:00:00Z");
 
-  it("shows only today's products on the QR order page", async () => {
+  it("muestra solo los productos de hoy en la página de pedidos por QR", async () => {
     useDb({ organizations: ok(restaurant), business_profiles: ok(profile), services: ok(menu) });
     expect((await getPublicBusiness("antojitos", saturday)).services.map((s) => s.name)).toEqual(["Hamburguesa"]);
     useDb({ organizations: ok(restaurant), business_profiles: ok(profile), services: ok(menu) });
     expect((await getPublicBusiness("antojitos", monday)).services.map((s) => s.name)).toEqual(["Hamburguesa", "Sopa de mondongo"]);
   });
 
-  it("keeps today's sold-out products visible but marked, and forgets it the next day", async () => {
+  it("deja visibles pero marcados los productos agotados hoy, y lo olvida al día siguiente", async () => {
     const soldOut = [{ ...menu[0], sold_out_on: "2026-10-10" }];
     useDb({ organizations: ok(restaurant), business_profiles: ok(profile), services: ok(soldOut) });
     expect((await getPublicBusiness("antojitos", saturday)).services[0].soldOut).toBe(true);
@@ -90,14 +90,14 @@ describe("public menu of the day", () => {
     expect((await getPublicBusiness("antojitos", monday)).services[0].soldOut).toBeUndefined();
   });
 
-  it("leaves booking pages of other businesses untouched", async () => {
+  it("no toca las páginas de reservas de otros negocios", async () => {
     useDb({ organizations: ok({ ...restaurant, business_type: "spa" }), business_profiles: ok(profile), services: ok(menu) });
     expect((await getPublicBusiness("spa", saturday)).services).toHaveLength(2);
   });
 });
 
 describe("createPublicOrder", () => {
-  it("queues the order and offers only the connected channels", async () => {
+  it("pone el pedido en la fila y ofrece solo los canales conectados", async () => {
     useDb({
       organizations: ok(restaurant),
       services: ok([burger]),
@@ -110,7 +110,7 @@ describe("createPublicOrder", () => {
     expect(insertedInto("walk_ins")).toMatchObject({ service_id: "svc-1", source: "qr" });
   });
 
-  it("takes several products with quantities and stores them as a snapshot", async () => {
+  it("recibe varios productos con cantidades y los guarda tal como se pidieron", async () => {
     useDb({
       organizations: ok(restaurant),
       services: ok([burger, lemonade]),
@@ -145,7 +145,7 @@ describe("createPublicOrder", () => {
     });
   });
 
-  it("keeps what each dish includes and who each portion is for", async () => {
+  it("guarda lo que incluye cada plato y para quién es cada porción", async () => {
     const lunch = { id: "svc-3", name: "Almuerzo ejecutivo", description: "Sopa de mondongo, arroz, carne asada y jugo", price: 20000, currency: "COP" };
     useDb({
       organizations: ok(restaurant),
@@ -165,7 +165,7 @@ describe("createPublicOrder", () => {
     expect(order.items).toEqual([{ name: "Almuerzo ejecutivo", quantity: 3, forNames: ["Ana", "Luis", "Pedro"] }]);
   });
 
-  it("takes something that is not on the menu, written by the customer, with the price to confirm", async () => {
+  it("recibe algo que no está en la carta, escrito por el cliente, con el precio por confirmar", async () => {
     useDb({
       organizations: ok(restaurant),
       services: ok([burger]),
@@ -188,7 +188,7 @@ describe("createPublicOrder", () => {
     expect(order).toMatchObject({ serviceName: "Hamburguesa y 2× Arepa con queso", total: null });
   });
 
-  it("adds a written-in dish with its price to the menu and links the order to it", async () => {
+  it("agrega a la carta un plato escrito a mano con su precio y le vincula el pedido", async () => {
     useDb({
       organizations: ok(restaurant),
       // 1) productos del pedido, 2) carta para buscar el nombre, 3) producto nuevo creado
@@ -219,7 +219,7 @@ describe("createPublicOrder", () => {
     expect(order).toMatchObject({ total: 68000, currency: "COP" });
   });
 
-  it("reuses the menu product when the written-in name already exists, with the business price", async () => {
+  it("reutiliza el producto de la carta cuando el nombre escrito ya existe, con el precio del negocio", async () => {
     useDb({
       organizations: ok(restaurant),
       services: ok([{ ...burger, name: "Hamburguesa", description: null }]),
@@ -234,7 +234,7 @@ describe("createPublicOrder", () => {
     expect(stored.custom).toBeUndefined();
   });
 
-  it("keeps a priced written-in dish off the menu when saving was not checked", async () => {
+  it("no agrega a la carta un plato escrito con precio si no se marcó guardarlo", async () => {
     useDb({
       organizations: ok(restaurant),
       business_profiles: ok({ currency: "COP" }),
@@ -249,7 +249,7 @@ describe("createPublicOrder", () => {
     expect(order).toMatchObject({ total: 25000, currency: "COP" });
   });
 
-  it("accepts an order made only of things written by the customer", async () => {
+  it("acepta un pedido hecho solo de cosas escritas por el cliente", async () => {
     useDb({
       organizations: ok(restaurant),
       walk_ins: [ok({ id: "w-1", arrived_at: "2026-09-27T12:00:00Z" }), ok([{ id: "w-1" }])],
@@ -262,14 +262,14 @@ describe("createPublicOrder", () => {
     });
   });
 
-  it("rejects an empty order", async () => {
+  it("rechaza un pedido vacío", async () => {
     useDb({ organizations: ok(restaurant) });
     await expect(createPublicOrder("antojitos", { items: [], customItems: [{ name: "   ", quantity: 1 }], name: "Ana" })).rejects.toMatchObject({
       statusCode: 400
     });
   });
 
-  it("rejects the order when a product is no longer on the menu", async () => {
+  it("rechaza el pedido cuando un producto ya no está en la carta", async () => {
     useDb({ organizations: ok(restaurant), services: ok([burger]) });
     await expect(
       createPublicOrder("antojitos", {
@@ -282,7 +282,7 @@ describe("createPublicOrder", () => {
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 
-  it("rejects quantities above the limit once merged", async () => {
+  it("rechaza cantidades por encima del límite una vez sumadas", async () => {
     useDb({ organizations: ok(restaurant), services: ok([burger]) });
     await expect(
       createPublicOrder("antojitos", {
@@ -295,7 +295,7 @@ describe("createPublicOrder", () => {
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  it("rejects a product that is not on today's menu", async () => {
+  it("rechaza un producto que no está en la carta de hoy", async () => {
     // Sábado 10 de octubre de 2026 en Bogotá; la sopa solo se ofrece lunes y jueves.
     useDb({ organizations: ok(restaurant), services: ok([burger, { ...lemonade, name: "Sopa", available_days: [1, 4] }]) });
     await expect(
@@ -313,7 +313,7 @@ describe("createPublicOrder", () => {
     ).rejects.toMatchObject({ statusCode: 404, message: expect.stringContaining("no está disponible hoy") });
   });
 
-  it("rejects a product sold out today, naming it", async () => {
+  it("rechaza un producto agotado hoy, diciendo cuál es", async () => {
     useDb({ organizations: ok(restaurant), services: ok([burger, { ...lemonade, sold_out_on: "2026-10-10" }]) });
     await expect(
       createPublicOrder(
@@ -330,20 +330,20 @@ describe("createPublicOrder", () => {
     ).rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining(`Se agotó por hoy: ${lemonade.name}`) });
   });
 
-  it("rejects businesses whose public page is for bookings", async () => {
+  it("rechaza los negocios cuya página pública es de reservas", async () => {
     useDb({ organizations: ok({ ...restaurant, business_type: "spa" }) });
     await expect(createPublicOrder("spa", { items: [{ serviceId: "svc-1", quantity: 1 }], name: "Ana" })).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 
 describe("order helpers", () => {
-  it("keeps one name per portion, trimmed and without blanks", () => {
+  it("guarda un nombre por porción, sin espacios sobrantes ni vacíos", () => {
     expect(cleanForNames(undefined, 2)).toEqual([]);
     expect(cleanForNames(["  Ana ", " ", "Luis", "Pedro"], 2)).toEqual(["Ana", "Luis"]);
     expect(cleanForNames(["x".repeat(60)], 1)[0]).toHaveLength(40);
   });
 
-  it("joins the names of repeated lines of the same product", () => {
+  it("une los nombres de las líneas repetidas de un mismo producto", () => {
     expect(
       mergeOrderItems([
         { serviceId: "a", quantity: 1, forNames: ["Ana"] },
@@ -365,7 +365,7 @@ describe("order helpers", () => {
     ]);
   });
 
-  it("summarizes orders in plain Spanish", () => {
+  it("resume los pedidos en español sencillo", () => {
     expect(summarizeOrderItems(null)).toBe("");
     expect(summarizeOrderItems([{ name: "Limonada", quantity: 1 }])).toBe("Limonada");
     expect(
@@ -388,7 +388,7 @@ describe("order helpers", () => {
 describe("handleOrderCodeMessage", () => {
   const msg = { organizationId: "org-1", code: "ABCDE23456", channel: "telegram" as const, identity: "telegram:77", customerId: "c-1", conversationId: "conv-1" };
 
-  it("links the chat to an active order and confirms", async () => {
+  it("vincula el chat a un pedido activo y lo confirma", async () => {
     useDb({
       walk_ins: [ok({ id: "w-1", customer_id: null, customer_name: "Ana Ruiz", status: "waiting", ticket_number: 3, services: { name: "Hamburguesa" } }), ok(null)],
       messages: ok(null)
@@ -398,7 +398,7 @@ describe("handleOrderCodeMessage", () => {
     );
   });
 
-  it("confirms every product of a multi-product order", async () => {
+  it("confirma cada producto de un pedido con varios productos", async () => {
     useDb({
       walk_ins: [
         ok({
@@ -421,7 +421,7 @@ describe("handleOrderCodeMessage", () => {
     );
   });
 
-  it("explains when the order is not active", async () => {
+  it("explica cuando el pedido no está activo", async () => {
     useDb({ walk_ins: ok({ id: "w-1", customer_id: null, customer_name: "Ana", status: "done", services: null }), messages: ok(null) });
     expect(await handleOrderCodeMessage(msg)).toMatch(/No encontramos un pedido activo/);
   });
@@ -430,7 +430,7 @@ describe("handleOrderCodeMessage", () => {
 describe("sendReadyOrderNotifications", () => {
   const ready = { id: "w-1", organization_id: "org-1", customer_name: "Ana Ruiz", notify_channel: "telegram", notify_identity: "telegram:77", services: { name: "Hamburguesa" } };
 
-  it("claims each ready order once and messages the customer's chat", async () => {
+  it("toma cada pedido listo una sola vez y le escribe al chat del cliente", async () => {
     useDb({
       walk_ins: [ok([ready]), ok([{ id: "w-1" }])],
       business_profiles: ok({ name: "Antojitos" }),
@@ -441,7 +441,7 @@ describe("sendReadyOrderNotifications", () => {
     expect(sendTelegramMessageMock).toHaveBeenCalledWith("bot-token", "77", "¡Ana, tu pedido de Hamburguesa está listo! Acercate a reclamarlo en Antojitos.");
   });
 
-  it("lists every product in the ready message", async () => {
+  it("lista cada producto en el mensaje de listo", async () => {
     useDb({
       walk_ins: [
         ok([{ ...ready, services: null, order_items: [{ service_id: "svc-1", name: "Hamburguesa", quantity: 2, unit_price: 18000, currency: "COP" }, { service_id: "svc-2", name: "Limonada", quantity: 1, unit_price: 6000, currency: "COP" }] }]),
@@ -461,17 +461,17 @@ describe("sendReadyOrderNotifications", () => {
     expect(sendTelegramMessageMock).not.toHaveBeenCalled();
   });
 
-  it("records a failed delivery instead of retrying forever", async () => {
+  it("registra un aviso fallido en vez de reintentar para siempre", async () => {
     sendTelegramMessageMock.mockRejectedValueOnce(new Error("Forbidden: bot was blocked by the user"));
     useDb({ walk_ins: [ok([ready]), ok([{ id: "w-1" }]), ok(null)], business_profiles: ok({ name: "Antojitos" }) });
     expect(await sendReadyOrderNotifications()).toEqual({ sent: 0, failed: 1 });
   });
 
-  it("writes a friendly ready message even without names", () => {
+  it("escribe un mensaje de listo amable aun sin nombres", () => {
     expect(buildOrderReadyText(null, null, "")).toBe("¡Tu pedido está listo! Acercate a reclamarlo.");
   });
 
-  it("names the ticket so the customer can claim it", () => {
+  it("menciona el ticket para que el cliente pueda reclamar el pedido", () => {
     expect(formatTicket(7)).toBe("#007");
     expect(formatTicket(null)).toBe("");
     expect(buildOrderReadyText("Ana Ruiz", "Hamburguesa", "Antojitos", 14)).toBe(

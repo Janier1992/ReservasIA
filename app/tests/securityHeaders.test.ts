@@ -9,13 +9,13 @@ const headers = Object.fromEntries(vercel.headers[0].headers.map((h) => [h.key, 
 const csp = headers["Content-Security-Policy"] ?? headers["Content-Security-Policy-Report-Only"];
 
 describe("cabeceras de seguridad de la app (vercel.json)", () => {
-  it("has a content security policy", () => {
+  it("tiene una política de seguridad de contenido", () => {
     expect(csp).toBeTruthy();
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
   });
 
-  it("allows exactly the inline scripts of index.html, by hash", () => {
+  it("permite exactamente los scripts en línea de index.html, por su hash", () => {
     // Si cambia el script de index.html (el que aplica el tema oscuro antes de
     // React), hay que actualizar su hash en vercel.json.
     // Los <script> sin atributos de index.html (los de Vite llevan src).

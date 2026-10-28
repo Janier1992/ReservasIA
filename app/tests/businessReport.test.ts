@@ -17,7 +17,7 @@ function row(overrides: Partial<ReportReservationRow>): ReportReservationRow {
 }
 
 describe("computeRevenueByCurrency", () => {
-  it("sums the price of completed reservations, grouped by currency", () => {
+  it("suma el precio de las reservas completadas, agrupado por moneda", () => {
     const rows = [
       row({ services: { name: "Corte", price: 30000, currency: "COP" } }),
       row({ services: { name: "Manicura", price: 40000, currency: "COP" } }),
@@ -26,7 +26,7 @@ describe("computeRevenueByCurrency", () => {
     expect(computeRevenueByCurrency(rows)).toEqual({ COP: 70000, USD: 50 });
   });
 
-  it("ignores reservations that are not completed, or have no price/service", () => {
+  it("ignora las reservas no completadas o sin precio o servicio", () => {
     const rows = [
       row({ status: "pending" }),
       row({ status: "cancelled" }),
@@ -38,7 +38,7 @@ describe("computeRevenueByCurrency", () => {
 });
 
 describe("computeTopService", () => {
-  it("returns the completed service with the most reservations", () => {
+  it("devuelve el servicio completado con más reservas", () => {
     const rows = [
       row({ services: { name: "Corte", price: 30000, currency: "COP" } }),
       row({ services: { name: "Corte", price: 30000, currency: "COP" } }),
@@ -47,7 +47,7 @@ describe("computeTopService", () => {
     expect(computeTopService(rows)).toEqual({ name: "Corte", count: 2 });
   });
 
-  it("returns null when there are no completed reservations", () => {
+  it("devuelve null cuando no hay reservas completadas", () => {
     expect(computeTopService([row({ status: "pending" })])).toBeNull();
   });
 });
@@ -58,7 +58,7 @@ describe("computeNoShowRate", () => {
     expect(computeNoShowRate(rows)).toBeCloseTo(33.33, 1);
   });
 
-  it("returns 0 instead of NaN when there is no completed/no_show data", () => {
+  it("devuelve 0 en vez de NaN cuando no hay datos de completadas ni de no_show", () => {
     expect(computeNoShowRate([row({ status: "pending" }), row({ status: "cancelled" })])).toBe(0);
   });
 });
@@ -75,7 +75,7 @@ describe("computeOccupancyByHour", () => {
   const busyHour = new Date(busyIso).getHours();
   const quietHour = new Date(quietIso).getHours();
 
-  it("counts reservations per hour, excluding cancelled, sorted by busiest first", () => {
+  it("cuenta reservas por hora, sin las canceladas, de la hora más ocupada a la menos", () => {
     const rows = [
       row({ start_at: busyIso }),
       row({ start_at: busyIso2 }),
@@ -87,7 +87,7 @@ describe("computeOccupancyByHour", () => {
     expect(result.find((r) => r.hour === quietHour)).toMatchObject({ hour: quietHour, count: 1 });
   });
 
-  it("respects the limit parameter", () => {
+  it("respeta el parámetro de límite", () => {
     const rows = Array.from({ length: 10 }, (_, i) => row({ start_at: `2026-09-15T${String(i).padStart(2, "0")}:00:00.000Z` }));
     expect(computeOccupancyByHour(rows, 3)).toHaveLength(3);
   });

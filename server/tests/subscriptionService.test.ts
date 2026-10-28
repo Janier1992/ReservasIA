@@ -21,7 +21,7 @@ describe("suspendExpiredSubscriptions", () => {
     expect(result).toEqual({ suspended: 2 });
   });
 
-  it("reports zero when nothing is due (no rows matched the filters)", async () => {
+  it("informa cero cuando no hay nada vencido (ninguna fila cumple los filtros)", async () => {
     insforgeMockInstance = createInsforgeMock({
       organizations: { data: [], error: null }
     });
@@ -30,7 +30,7 @@ describe("suspendExpiredSubscriptions", () => {
     expect(result).toEqual({ suspended: 0 });
   });
 
-  it("never throws when the update fails, just reports zero", async () => {
+  it("nunca lanza excepción si falla la actualización, solo informa cero", async () => {
     insforgeMockInstance = createInsforgeMock({
       organizations: { data: null, error: { message: "db down" } }
     });

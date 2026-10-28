@@ -20,7 +20,7 @@ describe("telegramPollingManager loop", () => {
     vi.useRealTimers();
   });
 
-  it("keeps polling after a getUpdates timeout (network outage) instead of stopping the bot", async () => {
+  it("sigue consultando después de un timeout de getUpdates (corte de red) en vez de detener el bot", async () => {
     vi.useFakeTimers();
     let calls = 0;
     getTelegramUpdates.mockImplementation(async () => {

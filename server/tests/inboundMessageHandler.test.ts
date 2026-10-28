@@ -42,7 +42,7 @@ describe("handleInboundMessage claim handling", () => {
     vi.clearAllMocks();
   });
 
-  it("skips a message another process already claimed", async () => {
+  it("omite un mensaje que otro proceso ya tomó", async () => {
     insforgeMockInstance = createInsforgeMock({
       inbound_message_claims: { data: null, error: { code: "23505", message: "duplicate key" } }
     });
@@ -53,7 +53,7 @@ describe("handleInboundMessage claim handling", () => {
     expect(findOrCreateCustomerByPhoneMock).not.toHaveBeenCalled();
   });
 
-  it("releases the claim when saving the message fails, so a redelivery is not dropped as a duplicate", async () => {
+  it("libera el mensaje si falla al guardarlo, para que un reenvío no se descarte como duplicado", async () => {
     insforgeMockInstance = createInsforgeMock({ inbound_message_claims: { data: null, error: null } });
     findOrCreateCustomerByPhoneMock.mockRejectedValue(new Error("db down"));
 
@@ -66,7 +66,7 @@ describe("handleInboundMessage claim handling", () => {
     expect(claimQueries[1].eq).toHaveBeenCalledWith("external_message_id", "SM123");
   });
 
-  it("releases the claim when the message insert itself returns an error (the SDK does not throw)", async () => {
+  it("libera el mensaje cuando la inserción devuelve un error (el SDK no lanza excepción)", async () => {
     insforgeMockInstance = createInsforgeMock({
       inbound_message_claims: { data: null, error: null },
       conversations: { data: { id: "conv-1", customer_id: "cust-1", status: "active" }, error: null },
@@ -81,7 +81,7 @@ describe("handleInboundMessage claim handling", () => {
     expect(claimQueries[1].delete).toHaveBeenCalled();
   });
 
-  it("keeps the claim when the message is saved", async () => {
+  it("conserva la toma del mensaje cuando se guarda", async () => {
     insforgeMockInstance = createInsforgeMock({
       inbound_message_claims: { data: null, error: null },
       conversations: { data: { id: "conv-1", customer_id: "cust-1", status: "active" }, error: null },
@@ -99,7 +99,7 @@ describe("handleInboundMessage claim handling", () => {
 });
 
 describe("purgeOldInboundMessageClaims", () => {
-  it("deletes claims older than the retention window", async () => {
+  it("borra las tomas de mensajes más viejas que el plazo de retención", async () => {
     insforgeMockInstance = createInsforgeMock({ inbound_message_claims: { data: null, error: null } });
     const now = new Date("2026-09-26T12:00:00Z");
 
@@ -110,7 +110,7 @@ describe("purgeOldInboundMessageClaims", () => {
     expect(query.lt).toHaveBeenCalledWith("claimed_at", new Date(now.getTime() - INBOUND_CLAIM_RETENTION_MS).toISOString());
   });
 
-  it("surfaces a database error so the scheduler logs it", async () => {
+  it("deja ver el error de la base para que la tarea programada lo registre", async () => {
     insforgeMockInstance = createInsforgeMock({ inbound_message_claims: { data: null, error: { message: "boom" } } });
     await expect(purgeOldInboundMessageClaims()).rejects.toBeTruthy();
   });

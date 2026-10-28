@@ -29,7 +29,7 @@ describe("telegramPollingManager.processUpdate", () => {
     runAgentTurnMock.mockResolvedValue({ reply: "¡Hola! ¿En qué te puedo ayudar?", roundsUsed: 1 });
   });
 
-  it("normalizes the chat id into telegram:<chat_id>, persists it, runs the agent and replies", async () => {
+  it("normaliza el id del chat como telegram:<chat_id>, lo guarda, corre el agente y responde", async () => {
     await processUpdate("org-1", "bot-token-abc", {
       update_id: 42,
       message: {
@@ -67,7 +67,7 @@ describe("telegramPollingManager.processUpdate", () => {
     expect(sendTelegramTypingActionMock).toHaveBeenCalledWith("bot-token-abc", 999);
   });
 
-  it("skips the agent entirely when another process already claimed the update", async () => {
+  it("no corre el agente cuando otro proceso ya tomó la actualización", async () => {
     handleInboundMessageMock.mockResolvedValue({ duplicate: true });
 
     await processUpdate("org-1", "bot-token-abc", {
@@ -79,7 +79,7 @@ describe("telegramPollingManager.processUpdate", () => {
     expect(sendTelegramMessageMock).not.toHaveBeenCalled();
   });
 
-  it("joins first_name and last_name into a single customerName", async () => {
+  it("une first_name y last_name en un solo customerName", async () => {
     await processUpdate("org-1", "bot-token-abc", {
       update_id: 45,
       message: {
@@ -94,7 +94,7 @@ describe("telegramPollingManager.processUpdate", () => {
     expect(handleInboundMessageMock).toHaveBeenCalledWith(expect.objectContaining({ customerName: "Ferley Gómez" }));
   });
 
-  it("leaves customerName undefined when Telegram doesn't send sender info", async () => {
+  it("deja customerName sin definir cuando Telegram no envía datos del remitente", async () => {
     await processUpdate("org-1", "bot-token-abc", {
       update_id: 46,
       message: {
@@ -108,7 +108,7 @@ describe("telegramPollingManager.processUpdate", () => {
     expect(handleInboundMessageMock).toHaveBeenCalledWith(expect.objectContaining({ customerName: undefined }));
   });
 
-  it("skips updates without a text message (e.g. photos, stickers) without touching the agent", async () => {
+  it("omite las actualizaciones sin texto (por ejemplo fotos o stickers) sin tocar el agente", async () => {
     await processUpdate("org-1", "bot-token-abc", {
       update_id: 43,
       message: {
@@ -123,7 +123,7 @@ describe("telegramPollingManager.processUpdate", () => {
     expect(sendTelegramMessageMock).not.toHaveBeenCalled();
   });
 
-  it("does not send a reply when the agent is disabled (reply is null)", async () => {
+  it("no envía respuesta cuando el agente está desactivado (la respuesta es null)", async () => {
     runAgentTurnMock.mockResolvedValue({ reply: null, roundsUsed: 0 });
 
     await processUpdate("org-1", "bot-token-abc", {

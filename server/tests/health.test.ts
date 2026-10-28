@@ -14,7 +14,7 @@ describe("GET /api/health", () => {
     vi.clearAllMocks();
   });
 
-  it("reports ok when there are no Telegram bots connected yet", async () => {
+  it("informa ok cuando todavía no hay bots de Telegram conectados", async () => {
     getTelegramPollerHealthMock.mockReturnValue({ activeOrgCount: 0, lastPollSuccessAt: null });
 
     const res = await request(createApp()).get("/api/health");
@@ -23,7 +23,7 @@ describe("GET /api/health", () => {
     expect(res.body.status).toBe("ok");
   });
 
-  it("reports ok when a connected bot polled recently", async () => {
+  it("informa ok cuando un bot conectado consultó hace poco", async () => {
     getTelegramPollerHealthMock.mockReturnValue({ activeOrgCount: 1, lastPollSuccessAt: new Date().toISOString() });
 
     const res = await request(createApp()).get("/api/health");
@@ -32,7 +32,7 @@ describe("GET /api/health", () => {
     expect(res.body.status).toBe("ok");
   });
 
-  it("reports degraded (503) when a connected bot hasn't polled successfully in over 2 minutes", async () => {
+  it("informa degradado (503) cuando un bot conectado lleva más de 2 minutos sin consultar con éxito", async () => {
     const staleTimestamp = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     getTelegramPollerHealthMock.mockReturnValue({ activeOrgCount: 1, lastPollSuccessAt: staleTimestamp });
 
@@ -42,7 +42,7 @@ describe("GET /api/health", () => {
     expect(res.body.status).toBe("degraded");
   });
 
-  it("reports degraded (503) with an explicit reason when another instance is polling the same bot", async () => {
+  it("informa degradado (503) con el motivo cuando otra instancia consulta el mismo bot", async () => {
     getTelegramPollerHealthMock.mockReturnValue({
       activeOrgCount: 3,
       lastPollSuccessAt: new Date().toISOString(),
@@ -55,7 +55,7 @@ describe("GET /api/health", () => {
     expect(res.body.reason).toBe("telegram_poll_conflict_another_instance_running");
   });
 
-  it("reports degraded (503) when a bot is connected but never successfully polled", async () => {
+  it("informa degradado (503) cuando un bot está conectado pero nunca consultó con éxito", async () => {
     getTelegramPollerHealthMock.mockReturnValue({ activeOrgCount: 1, lastPollSuccessAt: null });
 
     const res = await request(createApp()).get("/api/health");

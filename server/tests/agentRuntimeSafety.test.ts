@@ -129,7 +129,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     customerConsentAt = null;
   });
 
-  it("redirects to emergency services WITHOUT calling the model when the customer describes an emergency at a health-niche business", async () => {
+  it("deriva a servicios de emergencia SIN llamar al modelo cuando el cliente describe una emergencia en un negocio de salud", async () => {
     businessType = "veterinary";
     lastUserMessageContent = "mi perro no puede respirar, ayuda";
 
@@ -140,7 +140,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(log).toContain(`persist:assistant:${VETERINARY_EMERGENCY_FALLBACK_REPLY}`);
   });
 
-  it("uses the human emergency message for clinics", async () => {
+  it("usa el mensaje de emergencia para personas en las clínicas", async () => {
     businessType = "clinic";
     lastUserMessageContent = "tengo un dolor muy fuerte en el pecho";
 
@@ -150,7 +150,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
-  it("does NOT trigger the emergency guardrail for a non-health niche (scoped on purpose)", async () => {
+  it("NO activa la protección de emergencias en un rubro que no es de salud (limitado a propósito)", async () => {
     businessType = "barbershop";
     lastUserMessageContent = "no puedo respirar de la risa con este corte, jaja";
     createMock.mockResolvedValueOnce({ choices: [{ message: { content: "¡Qué bueno! ¿Reservamos?", tool_calls: undefined } }] });
@@ -161,7 +161,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(result.reply).toBe("¡Qué bueno! ¿Reservamos?");
   });
 
-  it("blocks a reply that contains dosage/medication instructions and replaces it with a safe fallback", async () => {
+  it("bloquea una respuesta con indicaciones de dosis o medicamentos y la reemplaza por una respuesta segura", async () => {
     businessType = "clinic";
     lastUserMessageContent = "me duele la cabeza, ¿qué me tomo?";
     createMock.mockResolvedValueOnce({
@@ -174,7 +174,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(result.reply).not.toContain("ibuprofeno");
   });
 
-  it("prepends the privacy notice once per conversation for health-niche businesses, and never again after that", async () => {
+  it("antepone el aviso de privacidad una vez por conversación en los negocios de salud, y nunca más después", async () => {
     businessType = "dental";
     lastUserMessageContent = "quiero una cita";
     createMock.mockResolvedValue({ choices: [{ message: { content: "¡Claro! ¿Qué día te viene bien?", tool_calls: undefined } }] });
@@ -189,7 +189,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(log).not.toContain("privacy_notice_marked_sent");
   });
 
-  it("veterinaries get the plain privacy notice (pet data is not personal health data)", async () => {
+  it("las veterinarias reciben el aviso de privacidad simple (los datos de la mascota no son datos de salud de una persona)", async () => {
     businessType = "veterinary";
     lastUserMessageContent = "quiero vacunar a mi gato";
     createMock.mockResolvedValueOnce({ choices: [{ message: { content: "¡Claro!", tool_calls: undefined } }] });
@@ -198,7 +198,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(result.reply).toBe(`${HEALTH_PRIVACY_NOTICE}¡Claro!`);
   });
 
-  it("records the patient's consent when they answer yes after being asked, and lifts the privacy restriction", async () => {
+  it("registra la autorización del paciente cuando responde que sí después de que se le pregunta, y levanta la restricción de privacidad", async () => {
     businessType = "dental";
     conversationPrivacyNoticeSentAt = new Date(Date.now() - 60_000).toISOString();
     lastUserMessageContent = "Sí, autorizo";
@@ -211,7 +211,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(systemPrompt).not.toContain("NO autorizó");
   });
 
-  it("without consent, tells the model not to ask for or record the reason for the visit", async () => {
+  it("sin autorización, le indica al modelo que no pregunte ni anote el motivo de la consulta", async () => {
     businessType = "physiotherapy";
     conversationPrivacyNoticeSentAt = new Date(Date.now() - 60_000).toISOString();
     lastUserMessageContent = "quiero una cita el martes";

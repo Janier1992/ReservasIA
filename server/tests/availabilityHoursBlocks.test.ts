@@ -45,8 +45,8 @@ vi.mock("../src/lib/insforge.js", () => ({
 
 const { getAvailableSlots } = await import("../src/services/availability/availabilityService.js");
 
-describe("availability with resource hours and schedule blocks", () => {
-  it("respects each resource's own hours, resource blocks and business-wide blocks", async () => {
+describe("disponibilidad con horario por recurso y bloqueos de agenda", () => {
+  it("respeta el horario propio de cada recurso, sus bloqueos y los bloqueos de todo el negocio", async () => {
     const { slots } = await getAvailableSlots({ organizationId: "org-1", date: "2026-09-07", now: new Date("2026-09-06T00:00:00Z") });
     expect(slots.map((s) => [s.start.slice(11, 16), s.availableResourceIds])).toEqual([["14:00", ["juan", "pedro"]]]);
   });

@@ -6,14 +6,14 @@ function item(id: string, start_at: string, end_at: string) {
 }
 
 describe("layoutOverlapping", () => {
-  it("puts non-overlapping items all in lane 0", () => {
+  it("pone todos los elementos que no se solapan en el carril 0", () => {
     const items = [item("a", "2026-09-15T09:00:00Z", "2026-09-15T09:30:00Z"), item("b", "2026-09-15T10:00:00Z", "2026-09-15T10:30:00Z")];
     const result = layoutOverlapping(items);
     expect(result.every((r) => r.lane === 0)).toBe(true);
     expect(result[0].lanes).toBe(1);
   });
 
-  it("moves an overlapping item to a second lane", () => {
+  it("pasa un elemento que se solapa a un segundo carril", () => {
     const items = [item("a", "2026-09-15T09:00:00Z", "2026-09-15T10:00:00Z"), item("b", "2026-09-15T09:30:00Z", "2026-09-15T10:30:00Z")];
     const result = layoutOverlapping(items);
     const a = result.find((r) => r.item.id === "a")!;
@@ -23,7 +23,7 @@ describe("layoutOverlapping", () => {
     expect(b.lanes).toBe(2);
   });
 
-  it("reuses a lane once its previous item has ended", () => {
+  it("reutiliza un carril cuando su elemento anterior ya terminó", () => {
     const items = [
       item("a", "2026-09-15T09:00:00Z", "2026-09-15T09:30:00Z"),
       item("b", "2026-09-15T09:00:00Z", "2026-09-15T09:30:00Z"), // overlaps a -> lane 1
@@ -36,11 +36,11 @@ describe("layoutOverlapping", () => {
     expect(result.every((r) => r.lanes === 2)).toBe(true);
   });
 
-  it("returns lanes: 1 for an empty list without dividing by zero", () => {
+  it("devuelve lanes: 1 para una lista vacía sin dividir por cero", () => {
     expect(layoutOverlapping([])).toEqual([]);
   });
 
-  it("does not mutate the input array order", () => {
+  it("no altera el orden del arreglo de entrada", () => {
     const items = [item("b", "2026-09-15T10:00:00Z", "2026-09-15T10:30:00Z"), item("a", "2026-09-15T09:00:00Z", "2026-09-15T09:30:00Z")];
     layoutOverlapping(items);
     expect(items[0].id).toBe("b");

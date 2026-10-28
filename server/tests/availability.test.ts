@@ -36,7 +36,7 @@ describe("availabilityService.getAvailableSlots", () => {
     reservationsResponse = { data: [], error: null };
   });
 
-  it("returns available slots inside business hours when there is capacity", async () => {
+  it("devuelve horarios libres dentro del horario de atención cuando hay cupo", async () => {
     const result = await getAvailableSlots({
       organizationId: "org-1",
       date: "2026-09-07", // Monday
@@ -73,27 +73,27 @@ describe("availabilityService.getAvailableSlots", () => {
 });
 
 describe("availabilityService.validateReservationWindow", () => {
-  it("rejects reservations in the past", () => {
+  it("rechaza reservas en el pasado", () => {
     expect(() =>
       validateReservationWindow(businessProfile as never, new Date("2020-01-01T00:00:00Z"), new Date("2026-01-01T00:00:00Z"))
     ).toThrow(/pasado/i);
   });
 
-  it("rejects reservations before the minimum advance window", () => {
+  it("rechaza reservas con menos anticipación que la mínima", () => {
     const now = new Date("2026-01-01T10:00:00Z");
     expect(() => validateReservationWindow(businessProfile as never, new Date("2026-01-01T10:30:00Z"), now)).toThrow(
       /anticipación/i
     );
   });
 
-  it("rejects reservations beyond the maximum booking window", () => {
+  it("rechaza reservas más allá del plazo máximo para reservar", () => {
     const now = new Date("2026-01-01T10:00:00Z");
     expect(() => validateReservationWindow(businessProfile as never, new Date("2027-01-01T10:00:00Z"), now)).toThrow(
       /hacia adelante/i
     );
   });
 
-  it("accepts a valid reservation window", () => {
+  it("acepta una reserva dentro de los plazos permitidos", () => {
     const now = new Date("2026-01-01T10:00:00Z");
     expect(() => validateReservationWindow(businessProfile as never, new Date("2026-01-02T10:00:00Z"), now)).not.toThrow();
   });

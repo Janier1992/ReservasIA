@@ -20,7 +20,7 @@ describe("agent tool argument validation", () => {
     expect(() => consultarDisponibilidadSchema.parse({})).toThrow();
   });
 
-  it("accepts consultar_disponibilidad with only fecha", () => {
+  it("acepta consultar_disponibilidad solo con fecha", () => {
     expect(() => consultarDisponibilidadSchema.parse({ fecha: "2026-09-07" })).not.toThrow();
   });
 
@@ -28,7 +28,7 @@ describe("agent tool argument validation", () => {
     expect(() => crearReservaSchema.parse({ fecha: "2026-09-07", hora: "10:00" })).toThrow();
   });
 
-  it("accepts a complete crear_reserva payload", () => {
+  it("acepta un crear_reserva completo", () => {
     expect(() =>
       crearReservaSchema.parse({
         fecha: "2026-09-07",
@@ -39,7 +39,7 @@ describe("agent tool argument validation", () => {
     ).not.toThrow();
   });
 
-  it("accepts crear_reserva with a valid metodo_pago", () => {
+  it("acepta crear_reserva con un metodo_pago válido", () => {
     expect(() =>
       crearReservaSchema.parse({
         fecha: "2026-09-07",
@@ -51,7 +51,7 @@ describe("agent tool argument validation", () => {
     ).not.toThrow();
   });
 
-  it("rejects crear_reserva with an invalid metodo_pago", () => {
+  it("rechaza crear_reserva con un metodo_pago inválido", () => {
     expect(() =>
       crearReservaSchema.parse({
         fecha: "2026-09-07",
@@ -63,7 +63,7 @@ describe("agent tool argument validation", () => {
     ).toThrow();
   });
 
-  it("accepts crear_reserva with repetir_semanas", () => {
+  it("acepta crear_reserva con repetir_semanas", () => {
     expect(() =>
       crearReservaSchema.parse({
         fecha: "2026-09-07",
@@ -83,19 +83,19 @@ describe("agent tool argument validation", () => {
 });
 
 describe("getToolDefinitionsForAgent", () => {
-  it("includes all tools when every capability is enabled", () => {
+  it("incluye todas las herramientas cuando todas las capacidades están activas", () => {
     const names = getToolDefinitionsForAgent(baseAgentConfig).map((t) => t.function.name);
     expect(names).toContain("crear_reserva");
     expect(names).toContain("cancelar_reserva");
     expect(names).toContain("reprogramar_reserva");
   });
 
-  it("omits crear_reserva when booking is disabled", () => {
+  it("omite crear_reserva cuando las reservas están desactivadas", () => {
     const names = getToolDefinitionsForAgent({ ...baseAgentConfig, booking_enabled: false }).map((t) => t.function.name);
     expect(names).not.toContain("crear_reserva");
   });
 
-  it("never exposes mutating tools in preview mode, even if enabled", () => {
+  it("nunca expone herramientas que modifican datos en la vista previa, aunque estén activas", () => {
     const names = getToolDefinitionsForAgent(baseAgentConfig, { previewMode: true }).map((t) => t.function.name);
     expect(names).not.toContain("crear_reserva");
     expect(names).not.toContain("cancelar_reserva");

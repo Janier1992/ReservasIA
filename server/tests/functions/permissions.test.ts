@@ -113,26 +113,26 @@ afterEach(() => {
 });
 
 describe.each(CASES)("Edge Function $name", (c) => {
-  it("answers the browser's CORS preflight", async () => {
+  it("responde la verificación previa de CORS del navegador", async () => {
     const mod = (await import(`../../../functions/${c.name}.ts`)) as { default: (req: Request) => Promise<Response> };
     const res = await mod.default(new Request(`https://insforge.test/functions/${c.name}`, { method: "OPTIONS" }));
     expect([200, 204]).toContain(res.status);
   });
 
-  it("refuses a call without a session", async () => {
+  it("rechaza una llamada sin sesión", async () => {
     expect((await call(c)).status).toBe(401);
   });
 
-  it("refuses a call with an invalid session", async () => {
+  it("rechaza una llamada con una sesión inválida", async () => {
     expect((await call(c, "token-that-does-not-exist")).status).toBe(401);
   });
 
-  it("refuses someone from another business", async () => {
+  it("rechaza a alguien de otro negocio", async () => {
     expect((await call(c, "token-outsider")).status).toBe(403);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("lets the right person past the permission checks", async () => {
+  it("deja pasar los controles de permisos a la persona correcta", async () => {
     const token = c.allowed === "support" ? "token-support" : "token-owner";
     // Más allá de los permisos la función puede fallar por otra cosa (acá no hay
     // servicios externos); lo que importa es que no la frene la autorización.
@@ -144,7 +144,7 @@ describe.each(CASES)("Edge Function $name", (c) => {
   });
 
   if (c.allowed === "admins" || c.allowed === "support") {
-    it(`refuses the business's staff (${c.allowed === "admins" ? "only owner or admin" : "only ReservasIA support"})`, async () => {
+    it(`rechaza al staff del negocio (${c.allowed === "admins" ? "solo dueño o admin" : "solo soporte de ReservasIA"})`, async () => {
       expect((await call(c, "token-staff")).status).toBe(403);
       expect(fetchMock).not.toHaveBeenCalled();
     });

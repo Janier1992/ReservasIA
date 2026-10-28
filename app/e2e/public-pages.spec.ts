@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { BARBERSHOP, mockBackend, RESTAURANT } from "./fixtures";
 
-test("a customer books on the public page, and only after authorizing the use of their data", async ({ page }) => {
+test("un cliente reserva en la página pública, y solo después de autorizar el uso de sus datos", async ({ page }) => {
   const sent = await mockBackend(page);
   await page.goto(`/r/${BARBERSHOP.slug}`);
 
@@ -25,7 +25,7 @@ test("a customer books on the public page, and only after authorizing the use of
   ]);
 });
 
-test("a customer orders from the QR menu and gets a ticket", async ({ page }) => {
+test("un cliente pide desde la carta por QR y recibe su ticket", async ({ page }) => {
   const sent = await mockBackend(page);
   await page.goto(`/r/${RESTAURANT.slug}`);
 
@@ -41,7 +41,7 @@ test("a customer orders from the QR menu and gets a ticket", async ({ page }) =>
   expect(sent.orders).toEqual([expect.objectContaining({ name: "Mesa 4", items: [{ serviceId: "svc-bandeja", quantity: 2 }] })]);
 });
 
-test("the login page loads with the privacy and terms links", async ({ page }) => {
+test("la página de inicio de sesión carga con los enlaces de privacidad y condiciones", async ({ page }) => {
   await mockBackend(page);
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Iniciar sesión" })).toBeVisible();
