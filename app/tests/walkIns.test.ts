@@ -28,19 +28,19 @@ function walkIn(partial: Partial<WalkIn>): WalkIn {
   };
 }
 
-describe("walk-in helpers", () => {
-  it("formats waiting time for the queue", () => {
+describe("utilidades de atención en sitio", () => {
+  it("da formato al tiempo de espera de la fila", () => {
     expect(formatWait(0)).toBe("recién llegó");
     expect(formatWait(25)).toBe("25 min");
     expect(formatWait(60)).toBe("1 h");
     expect(formatWait(95)).toBe("1 h 35 min");
   });
 
-  it("never reports a negative wait when clocks disagree", () => {
+  it("nunca informa una espera negativa cuando los relojes no coinciden", () => {
     expect(minutesBetween("2026-09-26T10:05:00Z", "2026-09-26T10:00:00Z")).toBe(0);
   });
 
-  it("summarizes the day and averages the wait of served arrivals only", () => {
+  it("resume el día y promedia la espera solo de las llegadas atendidas", () => {
     const stats = walkInStats([
       walkIn({ status: "waiting" }),
       walkIn({ status: "in_service", served_at: "2026-09-26T10:10:00Z" }),
@@ -54,14 +54,14 @@ describe("walk-in helpers", () => {
     expect(walkInStats([walkIn({})]).averageWaitMinutes).toBeNull();
   });
 
-  it("translates database error codes for the team", () => {
+  it("traduce los códigos de error de la base para el equipo", () => {
     expect(walkInErrorMessage({ message: "RESERVATION_NOT_AVAILABLE" })).toContain("ocupado");
     expect(walkInErrorMessage(new Error("WALK_IN_NOT_WAITING"))).toContain("ya fue atendida");
     expect(walkInErrorMessage({ message: "network down" })).toBe("network down");
     expect(walkInErrorMessage({ message: "FORBIDDEN" })).toContain("administrador");
   });
 
-  it("describes the ready notification at each step", () => {
+  it("describe el aviso de listo en cada paso", () => {
     expect(notifyStatus(walkIn({}))).toBeNull();
     expect(notifyStatus(walkIn({ source: "qr" }))?.label).toBe("Sin aviso");
     expect(notifyStatus(walkIn({ notify_channel: "telegram" }))?.label).toBe("Aviso por Telegram");
@@ -76,17 +76,17 @@ describe("walk-in helpers", () => {
 describe("serviceProgress", () => {
   const now = new Date("2026-09-26T10:30:00Z");
 
-  it("compares the time in service with the service duration", () => {
+  it("compara el tiempo en atención con la duración del servicio", () => {
     const p = serviceProgress(walkIn({ served_at: "2026-09-26T10:16:00Z", services: { name: "Lavado", duration_minutes: 20, price: null, currency: "COP" } }), now);
     expect(p).toEqual({ elapsed: 14, expected: 20, remaining: 6, ratio: 0.7, overdue: false });
   });
 
-  it("flags attentions that ran over", () => {
+  it("marca las atenciones que se pasaron de tiempo", () => {
     const p = serviceProgress(walkIn({ served_at: "2026-09-26T10:05:00Z", services: { name: "Lavado", duration_minutes: 20, price: null, currency: "COP" } }), now);
     expect(p).toMatchObject({ elapsed: 25, remaining: -5, ratio: 1, overdue: true });
   });
 
-  it("uses the reservation length when there is no service", () => {
+  it("usa la duración de la reserva cuando no hay servicio", () => {
     const p = serviceProgress(
       walkIn({
         served_at: "2026-09-26T10:20:00Z",
@@ -97,11 +97,11 @@ describe("serviceProgress", () => {
     expect(p).toMatchObject({ elapsed: 10, expected: 45, remaining: 35 });
   });
 
-  it("only reports elapsed time when the duration is unknown", () => {
+  it("solo informa el tiempo transcurrido cuando no se conoce la duración", () => {
     expect(serviceProgress(walkIn({ served_at: "2026-09-26T10:20:00Z" }), now)).toEqual({ elapsed: 10, expected: null, remaining: null, ratio: null, overdue: false });
   });
 
-  it("titles the card with the plate or pet of the reservation", () => {
+  it("titula la tarjeta con la placa o la mascota de la reserva", () => {
     const reservations = { resource_id: null, start_at: "2026-09-26T10:00:00Z", source: "chat", resources: null };
     expect(walkInAssetLabel(walkIn({ reservations: { ...reservations, customer_assets: { label: "GHT331", asset_type: "vehicle" } } }))).toBe("GHT331");
     expect(walkInAssetLabel(walkIn({ reservations }))).toBeNull();
@@ -109,7 +109,7 @@ describe("serviceProgress", () => {
 });
 
 describe("formatTicket", () => {
-  it("pads the daily ticket number", () => {
+  it("completa con ceros el número de ticket del día", () => {
     expect(formatTicket(7)).toBe("#007");
     expect(formatTicket(1234)).toBe("#1234");
     expect(formatTicket(null)).toBe("");
@@ -117,7 +117,7 @@ describe("formatTicket", () => {
 });
 
 describe("board density", () => {
-  it("shrinks the cards as more attentions arrive", () => {
+  it("achica las tarjetas a medida que llegan más atenciones", () => {
     expect(boardDensity(0)).toBe("comfortable");
     expect(boardDensity(6)).toBe("comfortable");
     expect(boardDensity(7)).toBe("compact");
@@ -125,7 +125,7 @@ describe("board density", () => {
     expect(boardDensity(13)).toBe("dense");
   });
 
-  it("starts one size bigger on the display screen", () => {
+  it("empieza un tamaño más grande en el modo pantalla", () => {
     expect(cardSizeFor("comfortable", true)).toBe("lg");
     expect(cardSizeFor("comfortable", false)).toBe("md");
     expect(cardSizeFor("dense", true)).toBe("sm");

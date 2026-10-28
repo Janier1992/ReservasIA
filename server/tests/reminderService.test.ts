@@ -35,14 +35,14 @@ function makeRow(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 describe("buildReminderText", () => {
-  it("includes the customer name, service, business name and formatted time", () => {
+  it("incluye el nombre del cliente, el servicio, el negocio y la hora con formato", () => {
     const text = buildReminderText(makeRow());
     expect(text).toContain("Camila");
     expect(text).toContain("Corte");
     expect(text).toContain("Barbería El Corte");
   });
 
-  it("falls back to a generic greeting when there is no customer name", () => {
+  it("usa un saludo genérico cuando no hay nombre del cliente", () => {
     const text = buildReminderText(makeRow({ customer_name: null }));
     expect(text).toContain("¡Hola!");
   });
@@ -53,7 +53,7 @@ describe("sendDueReservationReminders", () => {
     vi.clearAllMocks();
   });
 
-  it("does nothing when there are no due reservations", async () => {
+  it("no hace nada cuando no hay reservas por recordar", async () => {
     insforgeMockInstance = createInsforgeMock({}, { get_due_reservation_reminders: { data: [], error: null } });
     const result = await sendDueReservationReminders();
     expect(result).toEqual({ total: 0, sent: 0 });
@@ -61,7 +61,7 @@ describe("sendDueReservationReminders", () => {
     expect(sendWhatsAppReminderTemplateMock).not.toHaveBeenCalled();
   });
 
-  it("sends via Telegram when the customer phone has the telegram: prefix, and marks it sent", async () => {
+  it("envía por Telegram cuando el teléfono del cliente tiene el prefijo telegram:, y lo marca como enviado", async () => {
     insforgeMockInstance = createInsforgeMock(
       {
         integrations: { data: { credentials: { bot_token: "bot-token-1" } }, error: null },
@@ -77,7 +77,7 @@ describe("sendDueReservationReminders", () => {
     expect(result).toEqual({ total: 1, sent: 1 });
   });
 
-  it("uses the chat the customer linked from the booking page instead of the form phone", async () => {
+  it("usa el chat que el cliente vinculó desde la página de reservas en vez del teléfono del formulario", async () => {
     insforgeMockInstance = createInsforgeMock(
       {
         integrations: { data: { credentials: { bot_token: "bot-token-1" } }, error: null },
@@ -93,11 +93,11 @@ describe("sendDueReservationReminders", () => {
     expect(result).toEqual({ total: 1, sent: 1 });
   });
 
-  it("writes the reminder date in Spanish", () => {
+  it("escribe la fecha del recordatorio en español", () => {
     expect(buildReminderText(makeRow())).toContain("miércoles 23 de septiembre");
   });
 
-  it("sends via the WhatsApp reminder template (never free text) when the customer phone is a plain number", async () => {
+  it("envía con la plantilla de recordatorio de WhatsApp (nunca texto libre) cuando el teléfono del cliente es un número común", async () => {
     insforgeMockInstance = createInsforgeMock(
       { reservations: { data: null, error: null } },
       { get_due_reservation_reminders: { data: [makeRow({ customer_phone: "+573001112233" })], error: null } }
@@ -114,7 +114,7 @@ describe("sendDueReservationReminders", () => {
     expect(result).toEqual({ total: 1, sent: 1 });
   });
 
-  it("skips a WhatsApp reminder without marking it sent when the org has no approved template yet", async () => {
+  it("omite un recordatorio de WhatsApp sin marcarlo como enviado cuando el negocio todavía no tiene plantilla aprobada", async () => {
     sendWhatsAppReminderTemplateMock.mockResolvedValueOnce("no_template_configured");
     insforgeMockInstance = createInsforgeMock(
       { reservations: { data: null, error: null } },
@@ -126,7 +126,7 @@ describe("sendDueReservationReminders", () => {
     expect(result).toEqual({ total: 1, sent: 0 });
   });
 
-  it("skips a Telegram reminder without marking it sent when no bot is connected", async () => {
+  it("omite un recordatorio de Telegram sin marcarlo como enviado cuando no hay bot conectado", async () => {
     insforgeMockInstance = createInsforgeMock(
       { integrations: { data: null, error: null } },
       { get_due_reservation_reminders: { data: [makeRow()], error: null } }
@@ -138,7 +138,7 @@ describe("sendDueReservationReminders", () => {
     expect(result).toEqual({ total: 1, sent: 0 });
   });
 
-  it("keeps processing the rest of the batch when one reservation fails to send", async () => {
+  it("sigue con el resto del lote cuando falla el envío de una reserva", async () => {
     sendTelegramMessageMock.mockRejectedValueOnce(new Error("Telegram down"));
     insforgeMockInstance = createInsforgeMock(
       {

@@ -22,20 +22,20 @@ function contrast(a: string, b: string): number {
 }
 
 describe("business themes", () => {
-  it("has a theme for every business type in the onboarding catalog", () => {
+  it("tiene un tema para cada tipo de negocio del catálogo de alta", () => {
     for (const type of BUSINESS_TYPES) {
       expect(getBusinessTheme(type.value).businessType, type.value).toBe(type.value);
     }
   });
 
-  it("falls back to the base look for an unknown business type", () => {
+  it("usa el aspecto base para un tipo de negocio desconocido", () => {
     const theme = getBusinessTheme("floristeria");
     expect(theme.light).toBeNull();
     expect(theme.vocabulary.reservations).toBe("Reservas");
     expect(buildBusinessThemeCss(theme)).toBe("");
   });
 
-  it("keeps readable text contrast (WCAG AA 4.5:1) in every light palette", () => {
+  it("mantiene un contraste de texto legible (WCAG AA 4.5:1) en cada paleta clara", () => {
     for (const { businessType, light } of BUSINESS_THEMES) {
       if (!light) continue;
       const surfaces = lightSurfaces(light);
@@ -56,7 +56,7 @@ describe("business themes", () => {
     }
   });
 
-  it("keeps readable text contrast in every dark palette", () => {
+  it("mantiene un contraste de texto legible en cada paleta oscura", () => {
     for (const { businessType, dark } of BUSINESS_THEMES) {
       if (!dark) continue;
       const surfaces = darkSurfaces(dark);
@@ -74,18 +74,18 @@ describe("business themes", () => {
     }
   });
 
-  it("mixes colors for the soft accent tint", () => {
+  it("mezcla colores para el tono suave de acento", () => {
     expect(mixRgb("0 0 0", "255 255 255", 0.1)).toBe("230 230 230");
   });
 
-  it("scopes the light palette away from dark mode so it never overrides it", () => {
+  it("limita la paleta clara para que nunca pise el modo oscuro", () => {
     const css = buildBusinessThemeCss(getBusinessTheme("car_wash"));
     expect(css).toContain(':root[data-business-theme="car_wash"]:not(.dark) {');
     expect(css).toContain(':root[data-business-theme="car_wash"].dark {');
     expect(css).toContain('--font-display: "Sora"');
   });
 
-  it("names sections in the business's own words", () => {
+  it("nombra las secciones con las palabras del propio negocio", () => {
     expect(getBusinessTheme("restaurant").vocabulary.resources).toBe("Mesas");
     expect(getBusinessTheme("dental").vocabulary.customers).toBe("Pacientes");
     expect(getBusinessTheme("car_wash").vocabulary.resources).toBe("Bahías de lavado");

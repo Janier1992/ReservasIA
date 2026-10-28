@@ -6,7 +6,7 @@ const lemonade = { id: "b", name: "Limonada", price: 6000, currency: "COP" };
 const water = { id: "c", name: "Agua", price: null, currency: "COP" };
 
 describe("setCartQuantity", () => {
-  it("adds, changes and removes products", () => {
+  it("agrega, cambia y quita productos", () => {
     let cart = setCartQuantity({}, "a", 1);
     cart = setCartQuantity(cart, "b", 2);
     cart = setCartQuantity(cart, "a", 3);
@@ -14,7 +14,7 @@ describe("setCartQuantity", () => {
     expect(setCartQuantity(cart, "a", 0)).toEqual({ b: 2 });
   });
 
-  it("caps the quantity and the number of different products", () => {
+  it("limita la cantidad y el número de productos distintos", () => {
     expect(setCartQuantity({}, "a", 99)).toEqual({ a: MAX_ITEM_QUANTITY });
     const full = Object.fromEntries(Array.from({ length: MAX_ORDER_LINES }, (_, i) => [`p${i}`, 1]));
     expect(setCartQuantity(full, "extra", 1)).toBe(full);
@@ -22,8 +22,8 @@ describe("setCartQuantity", () => {
   });
 });
 
-describe("cart lines and total", () => {
-  it("lists products in menu order with subtotals", () => {
+describe("líneas del carrito y total", () => {
+  it("lista los productos en el orden de la carta con subtotales", () => {
     const lines = cartLines({ b: 1, a: 2, gone: 4 }, [burger, lemonade]);
     expect(lines.map((l) => [l.product.name, l.quantity, l.subtotal])).toEqual([
       ["Hamburguesa", 2, 36000],
@@ -41,7 +41,7 @@ describe("cart lines and total", () => {
 });
 
 describe("order summaries", () => {
-  it("reads like a sentence", () => {
+  it("se lee como una frase", () => {
     expect(summarizeOrderItems(null)).toBe("");
     expect(summarizeOrderItems([{ name: "Limonada", quantity: 1 }])).toBe("Limonada");
     expect(
@@ -53,7 +53,7 @@ describe("order summaries", () => {
     ).toBe("2× Hamburguesa, Papas y 3× Limonada");
   });
 
-  it("offers per-product sales only when every product has a price", () => {
+  it("ofrece ventas por producto solo cuando todos los productos tienen precio", () => {
     const item = { service_id: "a", name: "Hamburguesa", quantity: 2, unit_price: 18000, currency: "COP" };
     expect(orderItemsForSale([item])).toEqual([item]);
     expect(orderItemsForSale([item, { ...item, service_id: "c", unit_price: null }])).toBeNull();

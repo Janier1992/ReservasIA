@@ -33,7 +33,7 @@ const NOW = new Date("2026-10-04T12:00:00Z");
 
 beforeEach(() => useDb({}));
 
-describe("reservation codes from WhatsApp", () => {
+describe("códigos de reserva desde WhatsApp", () => {
   it("reads 'Reserva #<código>' as well as 'Pedido #<código>'", () => {
     expect(extractOrderCode("Reserva #abcde23456")).toBe("ABCDE23456");
     expect(extractOrderCode("Hola, Reserva # ABCDE23456 gracias")).toBe("ABCDE23456");
@@ -42,7 +42,7 @@ describe("reservation codes from WhatsApp", () => {
 });
 
 describe("createReservationChatLink", () => {
-  it("gives the reservation a code and links only to the connected channels", async () => {
+  it("le da un código a la reserva y solo enlaza los canales conectados", async () => {
     useDb({ integrations: ok([{ provider: "telegram", metadata: { bot_username: "BarberiaBot" } }]), reservations: ok(null) });
     const links = await createReservationChatLink("org-1", "res-1");
     const code = (updatedIn("reservations") as { notify_code: string }).notify_code;
@@ -50,13 +50,13 @@ describe("createReservationChatLink", () => {
     expect(links).toEqual({ telegramUrl: `https://t.me/BarberiaBot?start=${code}`, whatsappUrl: null });
   });
 
-  it("offers WhatsApp with a 'Reserva #' message", async () => {
+  it("ofrece WhatsApp con un mensaje 'Reserva #'", async () => {
     useDb({ integrations: ok([{ provider: "twilio", metadata: { whatsapp_number: "whatsapp:+57 300 555 1234" } }]), reservations: ok(null) });
     const links = await createReservationChatLink("org-1", "res-1");
     expect(links.whatsappUrl).toMatch(/^https:\/\/wa\.me\/573005551234\?text=Reserva%20%23[A-Z2-9]{10}$/);
   });
 
-  it("skips the code when the business has no chat channel connected", async () => {
+  it("omite el código cuando el negocio no tiene ningún canal de chat conectado", async () => {
     useDb({ integrations: ok([]) });
     expect(await createReservationChatLink("org-1", "res-1")).toEqual({ telegramUrl: null, whatsappUrl: null });
     expect(updatedIn("reservations")).toBeUndefined();
@@ -73,7 +73,7 @@ describe("linkReservationByCode", () => {
     customers: null
   };
 
-  it("links the chat and confirms the appointment in Spanish", async () => {
+  it("vincula el chat y confirma la cita en español", async () => {
     useDb({
       reservations: [ok(reservation), ok(null)],
       organizations: ok({ timezone: "America/Bogota" }),
@@ -86,18 +86,18 @@ describe("linkReservationByCode", () => {
     expect(updatedIn("reservations")).toEqual({ notify_channel: "telegram", notify_identity: "telegram:77" });
   });
 
-  it("does not link a reservation that already happened or was cancelled", async () => {
+  it("no vincula una reserva que ya pasó o fue cancelada", async () => {
     useDb({ reservations: ok({ ...reservation, status: "cancelled" }), messages: ok(null) });
     expect(await linkReservationByCode(msg, NOW)).toMatch(/ya no está activa/);
     expect(updatedIn("reservations")).toBeUndefined();
   });
 
-  it("returns null when the code is not a reservation", async () => {
+  it("devuelve null cuando el código no es de una reserva", async () => {
     useDb({ reservations: ok(null) });
     expect(await linkReservationByCode(msg, NOW)).toBeNull();
   });
 
-  it("is what an order code falls back to when there is no order with that code", async () => {
+  it("si no hay un pedido con ese código, lo busca como código de reserva", async () => {
     useDb({
       walk_ins: ok(null),
       reservations: [ok({ ...reservation, start_at: "2099-01-01T15:00:00Z" }), ok(null)],

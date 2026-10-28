@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { containsMedicalAdvice, detectEmergency, isHealthNiche, parseConsentAnswer, requiresHealthDataConsent } from "../src/services/agent/safetyGuardrails.js";
 
 describe("isHealthNiche", () => {
-  it("flags dental, clinic, physiotherapy and veterinary", () => {
+  it("marca odontología, clínica, fisioterapia y veterinaria", () => {
     for (const type of ["dental", "clinic", "physiotherapy", "veterinary"]) {
       expect(isHealthNiche(type)).toBe(true);
     }
   });
 
-  it("does not flag other niches", () => {
+  it("no marca otros rubros", () => {
     for (const type of ["barbershop", "restaurant", "academy", "auto_repair", "gym"]) {
       expect(isHealthNiche(type)).toBe(false);
     }
@@ -31,7 +31,7 @@ describe("detectEmergency", () => {
     "no reacciona"
   ];
 
-  it.each(emergencies)("flags %s as an emergency", (message) => {
+  it.each(emergencies)("marca %s como emergencia", (message) => {
     expect(detectEmergency(message)).toBe(true);
   });
 
@@ -43,40 +43,40 @@ describe("detectEmergency", () => {
     "mi perro necesita una vacuna"
   ];
 
-  it.each(normalMessages)("does not flag a normal message: %s", (message) => {
+  it.each(normalMessages)("no marca un mensaje normal: %s", (message) => {
     expect(detectEmergency(message)).toBe(false);
   });
 });
 
 describe("containsMedicalAdvice", () => {
-  it("flags a reply naming a common medication", () => {
+  it("marca una respuesta que nombra un medicamento común", () => {
     expect(containsMedicalAdvice("Podés tomar ibuprofeno para el dolor.")).toBe(true);
   });
 
-  it("flags a reply with a dosage pattern even without naming a drug", () => {
+  it("marca una respuesta con un patrón de dosis aunque no nombre un medicamento", () => {
     expect(containsMedicalAdvice("Tomá 400mg cada 8 horas.")).toBe(true);
   });
 
-  it("flags a reply with a frequency pattern", () => {
+  it("marca una respuesta con un patrón de frecuencia", () => {
     expect(containsMedicalAdvice("Aplicalo 3 veces al día.")).toBe(true);
   });
 
-  it("does not flag a normal booking reply", () => {
+  it("no marca una respuesta normal de reserva", () => {
     expect(containsMedicalAdvice("¡Listo! Tu turno quedó confirmado para mañana a las 10am.")).toBe(false);
   });
 
-  it("does not flag a reply that just mentions the price of a consultation", () => {
+  it("no marca una respuesta que solo menciona el precio de una consulta", () => {
     expect(containsMedicalAdvice("La consulta general tiene un valor de 50000 pesos.")).toBe(false);
   });
 });
 
 describe("health data consent", () => {
-  it("applies only to human health niches", () => {
+  it("aplica solo a los rubros de salud humana", () => {
     for (const t of ["dental", "clinic", "physiotherapy"]) expect(requiresHealthDataConsent(t)).toBe(true);
     for (const t of ["veterinary", "barbershop", "restaurant"]) expect(requiresHealthDataConsent(t)).toBe(false);
   });
 
-  it("reads a clear yes or no at the start of the message", () => {
+  it("lee un sí o un no claro al principio del mensaje", () => {
     for (const m of ["Sí", "si", "Sí, autorizo", "acepto", "Autorizo", "de acuerdo", "claro que sí", "ok, el martes"]) {
       expect(parseConsentAnswer(m)).toBe("yes");
     }

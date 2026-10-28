@@ -69,14 +69,14 @@ const inboundEvent = {
 describe("verifyYCloudSignature", () => {
   const body = JSON.stringify({ hello: "world" });
 
-  it("accepts a fresh hex or base64 HMAC of '<t>.<body>'", () => {
+  it("acepta un HMAC reciente de '<t>.<body>' en hex o base64", () => {
     const t = Math.floor(Date.now() / 1000);
     const digest = crypto.createHmac("sha256", SECRET).update(`${t}.${body}`).digest();
     expect(verifyYCloudSignature(SECRET, `t=${t},s=${digest.toString("hex")}`, body)).toBe(true);
     expect(verifyYCloudSignature(SECRET, `t=${t},s=${digest.toString("base64")}`, body)).toBe(true);
   });
 
-  it("rejects another secret, a changed body, a stale timestamp or a missing header", () => {
+  it("rechaza otro secreto, un cuerpo alterado, una hora vieja o una cabecera faltante", () => {
     expect(verifyYCloudSignature(SECRET, sign(body, "otro"), body)).toBe(false);
     expect(verifyYCloudSignature(SECRET, sign(body), `${body} `)).toBe(false);
     expect(verifyYCloudSignature(SECRET, sign(body, SECRET, Math.floor(Date.now() / 1000) - 600), body)).toBe(false);
@@ -93,7 +93,7 @@ describe("normalizeWhatsAppPhone", () => {
 
 describe("humanTakeoverActive", () => {
   const now = Date.parse("2026-10-23T15:00:00Z");
-  it("pauses the agent while a staff reply is recent, and only then", () => {
+  it("pausa al agente mientras la respuesta del equipo es reciente, y solo entonces", () => {
     const recent = new Date(now - 5 * 60 * 1000).toISOString();
     const old = new Date(now - HUMAN_TAKEOVER_MS - 1000).toISOString();
     expect(humanTakeoverActive([{ role: "staff", created_at: recent }], now)).toBe(true);
@@ -114,7 +114,7 @@ describe("POST /api/webhooks/ycloud/:organizationId", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("rejects a delivery without a valid signature", async () => {
+  it("rechaza un envío sin firma válida", async () => {
     const body = JSON.stringify(inboundEvent);
     const res = await request(createApp())
       .post(`/api/webhooks/ycloud/${ORG}`)
@@ -125,7 +125,7 @@ describe("POST /api/webhooks/ycloud/:organizationId", () => {
     expect(runAgentTurnMock).not.toHaveBeenCalled();
   });
 
-  it("stores the customer's message, runs the agent and replies from the business number", async () => {
+  it("guarda el mensaje del cliente, corre el agente y responde desde el número del negocio", async () => {
     const body = JSON.stringify(inboundEvent);
     const res = await request(createApp())
       .post(`/api/webhooks/ycloud/${ORG}`)
@@ -147,7 +147,7 @@ describe("POST /api/webhooks/ycloud/:organizationId", () => {
     );
   });
 
-  it("records what the business typed in its WhatsApp Business app as a staff message, without running the agent", async () => {
+  it("registra lo que el negocio escribió en su app de WhatsApp Business como mensaje del equipo, sin correr el agente", async () => {
     const body = JSON.stringify({
       id: "evt-2",
       type: "whatsapp.smb.message.echoes",

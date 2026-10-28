@@ -46,7 +46,7 @@ vi.mock("../src/lib/insforge.js", () => ({
 const { buildSurveyText, findSurveyCandidates } = await import("../src/services/surveys/surveyService.js");
 
 describe("surveyService", () => {
-  it("picks Telegram customers and WhatsApp customers inside the 24h window, once per customer, only where the module is on", async () => {
+  it("elige clientes de Telegram y de WhatsApp dentro de la ventana de 24 h, una vez por cliente, solo donde el módulo está activo", async () => {
     recent.surveys = [{ organization_id: "org-1", customer_id: "c5", reservation_id: "r5" }];
     const candidates = await findSurveyCandidates(new Date("2026-09-27T12:00:00Z"));
     expect(candidates.map((c) => [c.reservationId, c.channel])).toEqual([
@@ -56,13 +56,13 @@ describe("surveyService", () => {
     expect(candidates[0]).toMatchObject({ customerName: "Ana Ruiz", businessName: "Barbería Z" });
   });
 
-  it("skips a customer already surveyed for another visit in an earlier run", async () => {
+  it("omite a un cliente ya encuestado por otra visita en una vuelta anterior", async () => {
     recent.surveys = [{ organization_id: "org-1", customer_id: "c1", reservation_id: "r0" }];
     const candidates = await findSurveyCandidates(new Date("2026-09-27T12:00:00Z"));
     expect(candidates.map((c) => c.reservationId)).toEqual(["r2", "r5"]);
   });
 
-  it("writes a short message with the first name and link", () => {
+  it("escribe un mensaje corto con el primer nombre y el enlace", () => {
     expect(buildSurveyText("Ana Ruiz", "Barbería Z", "https://app/o/x")).toBe(
       "Hola Ana, gracias por visitarnos en Barbería Z. ¿Nos contás cómo te fue? Son 10 segundos: https://app/o/x"
     );

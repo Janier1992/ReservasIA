@@ -17,7 +17,7 @@ function row(partial: Partial<ReportRow>): ReportRow {
 }
 
 describe("summarize", () => {
-  it("counts by status and only adds revenue from completed reservations", () => {
+  it("cuenta por estado y solo suma ingresos de las reservas completadas", () => {
     const summary = summarize([
       row({}),
       row({ services: { name: "Polichado", price: 90000, currency: "COP" } }),
@@ -30,7 +30,7 @@ describe("summarize", () => {
     expect(summary.averageTicketByCurrency).toEqual({ COP: 60000 });
   });
 
-  it("ignores services without a price for revenue and average ticket", () => {
+  it("ignora los servicios sin precio para los ingresos y el ticket promedio", () => {
     const summary = summarize([row({ services: { name: "Cortesía", price: null, currency: "COP" } })]);
     expect(summary.completed).toBe(1);
     expect(summary.revenueByCurrency).toEqual({});
@@ -38,7 +38,7 @@ describe("summarize", () => {
 });
 
 describe("breakdownBy", () => {
-  it("groups non-cancelled reservations, sorted by count", () => {
+  it("agrupa las reservas no canceladas, ordenadas por cantidad", () => {
     const result = breakdownBy(
       [row({}), row({}), row({ services: { name: "Polichado", price: 90000, currency: "COP" } }), row({ status: "cancelled" })],
       (r) => r.services?.name ?? null
@@ -56,7 +56,7 @@ describe("breakdownBy", () => {
 });
 
 describe("countByDay", () => {
-  it("buckets by the business's local day and fills empty days", () => {
+  it("agrupa por día local del negocio y completa los días vacíos", () => {
     const days = countByDay(
       [
         // 23:30 del 19 en Bogotá (UTC-5) = 04:30 UTC del 20: cuenta para el 19.
@@ -77,21 +77,21 @@ describe("countByDay", () => {
 });
 
 describe("reportToCsv", () => {
-  it("writes one line per reservation in local time with a header", () => {
+  it("escribe una línea por reserva en hora local, con encabezado", () => {
     const csv = reportToCsv([row({ customer_name: "Pérez, Ana" })], "America/Bogota", (s) => (s === "completed" ? "Completada" : s));
     const [header, line] = csv.split("\r\n");
     expect(header).toBe("Fecha,Hora,Cliente,Servicio,Recurso,Canal,Estado,Precio,Moneda");
     expect(line).toBe('2026-09-20,10:00,"Pérez, Ana",Lavado general,Bahía 1,Agente IA (chat),Completada,30000,COP');
   });
 
-  it("neutralizes values that a spreadsheet would run as a formula", () => {
+  it("neutraliza los valores que una hoja de cálculo ejecutaría como fórmula", () => {
     const csv = reportToCsv([row({ customer_name: "=HYPERLINK(\"x\")" })], "UTC", (s) => s);
     expect(csv.split("\r\n")[1]).toContain(`"'=HYPERLINK(""x"")"`);
   });
 });
 
 describe("sourceLabel", () => {
-  it("names the channels in Spanish and keeps unknown ones as-is", () => {
+  it("nombra los canales en español y deja los desconocidos tal cual", () => {
     expect(sourceLabel("walk_in")).toBe("Atención en sitio");
     expect(sourceLabel("instagram")).toBe("instagram");
   });

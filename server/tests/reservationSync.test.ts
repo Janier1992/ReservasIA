@@ -65,14 +65,14 @@ describe("aviso al cliente de reservas creadas o canceladas", () => {
     createCalendarEventMock.mockResolvedValue(null);
   });
 
-  it("the chat path emails and syncs Calendar once it marks the reservation", async () => {
+  it("por el chat, envía el correo y sincroniza Calendar una vez marcada la reserva", async () => {
     useDatabase([claimed("res-1")], { book_reservation: { data: reservation("res-1", { source: "telegram" }), error: null } });
     await createReservation(input);
     expect(sendReservationEmailMock).toHaveBeenCalledWith(expect.objectContaining({ id: "res-1" }), "confirmed");
     expect(createCalendarEventMock).toHaveBeenCalledWith(expect.objectContaining({ id: "res-1" }), { notifyCustomer: false });
   });
 
-  it("the chat path still emails when the mark cannot be saved", async () => {
+  it("por el chat, envía el correo aunque no se pueda guardar la marca", async () => {
     useDatabase([{ data: null, error: { message: "column created_sync_at does not exist" } }], {
       book_reservation: { data: reservation("res-1", { source: "telegram" }), error: null }
     });
@@ -80,14 +80,14 @@ describe("aviso al cliente de reservas creadas o canceladas", () => {
     expect(sendReservationEmailMock).toHaveBeenCalledTimes(1);
   });
 
-  it("does not email again when cancelling a reservation that was already cancelled and announced", async () => {
+  it("no vuelve a escribir al cancelar una reserva que ya estaba cancelada y avisada", async () => {
     useDatabase([notClaimed], { cancel_reservation: { data: reservation("res-1", { status: "cancelled" }), error: null } });
     await cancelReservation("res-1");
     expect(sendReservationEmailMock).not.toHaveBeenCalled();
     expect(deleteCalendarEventMock).not.toHaveBeenCalled();
   });
 
-  it("announces a reservation created from the panel", async () => {
+  it("avisa una reserva creada desde el panel", async () => {
     useDatabase([{ data: [reservation("res-1")], error: null }, claimed("res-1"), { data: [], error: null }]);
     const result = await syncPanelReservations();
     expect(result).toEqual({ created: 1, cancelled: 0 });
@@ -95,25 +95,25 @@ describe("aviso al cliente de reservas creadas o canceladas", () => {
     expect(createCalendarEventMock).toHaveBeenCalledTimes(1);
   });
 
-  it("skips a panel reservation another instance already announced", async () => {
+  it("omite una reserva del panel que otra instancia ya avisó", async () => {
     useDatabase([{ data: [reservation("res-1")], error: null }, notClaimed, { data: [], error: null }]);
     expect(await syncPanelReservations()).toEqual({ created: 0, cancelled: 0 });
     expect(sendReservationEmailMock).not.toHaveBeenCalled();
   });
 
-  it("never retries in a loop when the mark fails", async () => {
+  it("nunca reintenta en bucle cuando falla la marca", async () => {
     useDatabase([{ data: [reservation("res-1")], error: null }, { data: null, error: { message: "boom" } }, { data: [], error: null }]);
     expect(await syncPanelReservations()).toEqual({ created: 0, cancelled: 0 });
     expect(sendReservationEmailMock).not.toHaveBeenCalled();
   });
 
-  it("says nothing about a panel reservation that was created and cancelled before the check", async () => {
+  it("no avisa nada de una reserva del panel creada y cancelada antes de la revisión", async () => {
     useDatabase([{ data: [reservation("res-1", { status: "cancelled" })], error: null }, claimed("res-1"), claimed("res-1"), { data: [], error: null }]);
     expect(await syncPanelReservations()).toEqual({ created: 0, cancelled: 0 });
     expect(sendReservationEmailMock).not.toHaveBeenCalled();
   });
 
-  it("announces a cancellation made from the panel and removes the Calendar event", async () => {
+  it("avisa una cancelación hecha desde el panel y borra el evento de Calendar", async () => {
     useDatabase([
       { data: [], error: null },
       { data: [reservation("res-2", { status: "cancelled", source: "telegram", google_event_id: "evt-1" })], error: null },
@@ -124,7 +124,7 @@ describe("aviso al cliente de reservas creadas o canceladas", () => {
     expect(deleteCalendarEventMock).toHaveBeenCalledWith("org-1", "evt-1", { notifyCustomer: false });
   });
 
-  it("does nothing when the database cannot be read", async () => {
+  it("no hace nada cuando no se puede leer la base", async () => {
     useDatabase({ data: null, error: { message: "column created_sync_at does not exist" } });
     expect(await syncPanelReservations()).toEqual({ created: 0, cancelled: 0 });
     expect(sendReservationEmailMock).not.toHaveBeenCalled();

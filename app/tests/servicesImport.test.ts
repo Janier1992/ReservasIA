@@ -4,7 +4,7 @@ import { readSheet } from "read-excel-file/node";
 import { TEMPLATE_HEADERS, parseServiceRows } from "@/lib/servicesImport";
 
 describe("parseServiceRows", () => {
-  it("parses valid rows and falls back to the business currency", () => {
+  it("lee las filas válidas y usa la moneda del negocio si falta", () => {
     const result = parseServiceRows(
       [
         ["Nombre", "Duración (min)", "Precio", "Moneda"],
@@ -20,12 +20,12 @@ describe("parseServiceRows", () => {
     ]);
   });
 
-  it("accepts headers without accents or in English", () => {
+  it("acepta encabezados sin tildes o en inglés", () => {
     const result = parseServiceRows([["SERVICIO", "duracion", "price"], ["Corte", 30, 20000]], "USD");
     expect(result.rows[0]).toMatchObject({ name: "Corte", duration_minutes: 30, price: 20000, currency: "USD" });
   });
 
-  it("reports invalid rows with the row number the user sees, skipping blank rows", () => {
+  it("informa las filas inválidas con el número de fila que ve el usuario, saltando las vacías", () => {
     const result = parseServiceRows(
       [["Nombre", "Duración (min)", "Precio"], [null, null, null], ["Corte", 0, 1000], ["Tinte", 90, -5]],
       "COP"
@@ -34,13 +34,13 @@ describe("parseServiceRows", () => {
     expect(result.errors.map((e) => e.rowNumber)).toEqual([3, 4]);
   });
 
-  it("requires the name and duration columns", () => {
+  it("exige las columnas de nombre y duración", () => {
     expect(parseServiceRows([["Precio"], [1000]], "COP").errors[0].message).toContain('"Nombre"');
   });
 });
 
 describe("Excel round trip", () => {
-  it("reads back the downloadable template with the new Excel libraries", async () => {
+  it("vuelve a leer la plantilla descargable con las librerías nuevas de Excel", async () => {
     const buffer = await writeXlsxFile(
       [TEMPLATE_HEADERS, ["Corte de cabello", 30, 35000, "COP"], ["Manicura", 45, 40000, "COP"]],
       { sheet: "Servicios" }

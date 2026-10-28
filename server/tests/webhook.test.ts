@@ -50,7 +50,7 @@ describe("POST /api/webhooks/twilio/whatsapp", () => {
     runAgentTurnMock.mockResolvedValue({ reply: "¡Hola! ¿En qué te puedo ayudar?", roundsUsed: 1 });
   });
 
-  it("rejects a payload missing the sender (From)", async () => {
+  it("rechaza un mensaje sin remitente (From)", async () => {
     const app = createApp();
     const res = await request(app)
       .post("/api/webhooks/twilio/whatsapp")
@@ -61,7 +61,7 @@ describe("POST /api/webhooks/twilio/whatsapp", () => {
     expect(res.body.error.code).toBe("WEBHOOK_INVALID_PAYLOAD");
   });
 
-  it("rejects a payload missing the body", async () => {
+  it("rechaza un mensaje sin cuerpo", async () => {
     const app = createApp();
     const res = await request(app)
       .post("/api/webhooks/twilio/whatsapp")
@@ -72,7 +72,7 @@ describe("POST /api/webhooks/twilio/whatsapp", () => {
     expect(res.body.error.code).toBe("WEBHOOK_INVALID_PAYLOAD");
   });
 
-  it("returns 404 when the destination number does not match any organization", async () => {
+  it("devuelve 404 cuando el número de destino no es de ningún negocio", async () => {
     routingMock.mockResolvedValueOnce(null);
     const app = createApp();
     const res = await request(app)
@@ -84,7 +84,7 @@ describe("POST /api/webhooks/twilio/whatsapp", () => {
     expect(res.body.error.code).toBe("ORGANIZATION_NOT_FOUND");
   });
 
-  it("rejects an invalid Twilio signature", async () => {
+  it("rechaza una firma de Twilio inválida", async () => {
     validateSignatureMock.mockReturnValue(false);
     const app = createApp();
     const res = await request(app)
@@ -96,7 +96,7 @@ describe("POST /api/webhooks/twilio/whatsapp", () => {
     expect(res.body.error.code).toBe("WEBHOOK_INVALID_SIGNATURE");
   });
 
-  it("accepts a valid message and replies immediately with empty TwiML", async () => {
+  it("acepta un mensaje válido y responde enseguida con un TwiML vacío", async () => {
     const app = createApp();
     const res = await request(app)
       .post("/api/webhooks/twilio/whatsapp")
