@@ -15,15 +15,6 @@ const envSchema = z.object({
   OPENAI_MODEL: z.string().min(1).default("gpt-4o"),
   OPENAI_BASE_URL: z.string().optional().default(""),
 
-  TWILIO_ACCOUNT_SID: z.string().optional().default(""),
-  TWILIO_AUTH_TOKEN: z.string().optional().default(""),
-  TWILIO_WHATSAPP_NUMBER: z.string().optional().default(""),
-  TWILIO_VALIDATE_SIGNATURE: z
-    .string()
-    .optional()
-    .default("true")
-    .transform((v) => v !== "false"),
-
   GOOGLE_CLIENT_ID: z.string().optional().default(""),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
   GOOGLE_REDIRECT_URI: z.string().optional().default(""),

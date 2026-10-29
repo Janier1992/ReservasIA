@@ -13,7 +13,6 @@ vi.mock("../src/services/telegram/telegramService.js", () => ({
   sendTelegramMessage: (...args: unknown[]) => sendTelegramMessageMock(...args),
   loadConnectedTelegramBotToken: async () => "bot-token"
 }));
-vi.mock("../src/services/twilio/twilioService.js", () => ({ sendTwilioWhatsAppMessage: vi.fn(), sendTwilioWhatsAppReminderTemplate: vi.fn() }));
 
 const { buildOrderReadyText, cleanForNames, createPublicOrder, extractOrderCode, formatTicket, generateOrderCode, handleOrderCodeMessage, mergeOrderItems, orderTotal, summarizeOrderItems } = await import(
   "../src/services/publicOrders/publicOrderService.js"

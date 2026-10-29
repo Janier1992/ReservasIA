@@ -415,9 +415,9 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
   return { reply: FALLBACK_REPLY, roundsUsed: MAX_TOOL_ROUNDS };
 }
 
-// El webhook de Twilio dispara el turno del agente en segundo plano sin
-// esperarlo (para responderle a Twilio en <15s), así que si el cliente manda
-// dos mensajes seguidos por WhatsApp se pueden disparar dos turnos en
+// El webhook de WhatsApp/Telegram dispara el turno del agente en segundo
+// plano sin esperarlo (para responder rápido al proveedor del canal), así
+// que si el cliente manda dos mensajes seguidos se pueden disparar dos turnos en
 // paralelo para la misma conversación: ambos cargan el historial antes de
 // que el primero guarde su respuesta, y el que responda más rápido le llega
 // al cliente primero, generando respuestas fuera de orden y sin contexto

@@ -10,7 +10,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "npm:@insforge/sdk": stub("fakeInsforge.ts"),
-      "npm:twilio": stub("anyModule.ts"),
       "npm:openai": stub("anyModule.ts"),
       "npm:googleapis": stub("anyModule.ts"),
       "npm:date-fns-tz": "date-fns-tz",

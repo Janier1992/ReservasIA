@@ -25,10 +25,8 @@ export function createApp() {
   );
   app.use(pinoHttp({ logger, autoLogging: env.NODE_ENV !== "test" }));
 
-  // application/json global; las rutas de webhooks que necesitan
-  // application/x-www-form-urlencoded (Twilio) registran su propio parser.
-  // Se guarda también el cuerpo crudo: la firma de YCloud se calcula sobre
-  // esos bytes exactos, no sobre el JSON ya parseado.
+  // application/json global. Se guarda también el cuerpo crudo: la firma de
+  // YCloud se calcula sobre esos bytes exactos, no sobre el JSON ya parseado.
   app.use(
     express.json({
       limit: "1mb",

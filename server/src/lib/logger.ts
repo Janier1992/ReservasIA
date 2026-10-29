@@ -14,7 +14,6 @@ export const REDACT_PATHS = [
   "*.password",
   "*.secret",
   "req.headers.authorization",
-  "req.headers[\"x-twilio-signature\"]",
   // Con el secreto de Telegram cualquiera podría falsificar mensajes al webhook.
   "req.headers[\"x-telegram-bot-api-secret-token\"]",
   "req.headers[\"ycloud-signature\"]"

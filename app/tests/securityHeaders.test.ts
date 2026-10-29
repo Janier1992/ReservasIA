@@ -19,7 +19,11 @@ describe("cabeceras de seguridad de la app (vercel.json)", () => {
     // Si cambia el script de index.html (el que aplica el tema oscuro antes de
     // React), hay que actualizar su hash en vercel.json.
     // Los <script> sin atributos de index.html (los de Vite llevan src).
+    // Normaliza CRLF -> LF: git guarda el archivo con LF (lo que recibe el
+    // navegador en el deploy real), pero un checkout en Windows puede
+    // convertirlo a CRLF en disco y dar un hash distinto solo por eso.
     const inline = read("index.html")
+      .replace(/\r\n/g, "\n")
       .split("<script>")
       .slice(1)
       .map((part) => part.slice(0, part.indexOf("</script>")));

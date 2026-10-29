@@ -41,7 +41,7 @@ const SUBSCRIPTION_STATUS_VARIANT: Record<SubscriptionPayment["status"], "warnin
 
 const PROVIDER_LABEL: Record<string, string> = {
   telegram: "Telegram",
-  twilio: "WhatsApp (Twilio)",
+  ycloud: "WhatsApp (YCloud)",
   google_calendar: "Google Calendar"
 };
 
@@ -371,7 +371,7 @@ export function SupportBusinessDetailPage() {
           <CardTitle className="text-base">Integraciones</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          {["telegram", "twilio", "google_calendar"].map((provider) => {
+          {["telegram", "ycloud", "google_calendar"].map((provider) => {
             const row = integrations.find((i) => i.provider === provider);
             const connected = row?.status === "connected";
             return (

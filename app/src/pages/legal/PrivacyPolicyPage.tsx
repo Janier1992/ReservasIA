@@ -46,7 +46,7 @@ export function PrivacyPolicyPage() {
           Telegram o la página pública del negocio.
         </li>
         <li>
-          <strong>Integraciones:</strong> las credenciales que el negocio conecta (Google Calendar, YCloud, Twilio, Telegram), que se
+          <strong>Integraciones:</strong> las credenciales que el negocio conecta (Google Calendar, YCloud, Telegram), que se
           guardan protegidas y solo las usa el servidor; el panel del negocio no las muestra.
         </li>
         <li>
@@ -89,7 +89,7 @@ export function PrivacyPolicyPage() {
       <p>Usamos proveedores que tratan datos por cuenta nuestra, solo para prestar el servicio:</p>
       <ul>
         <li>Alojamiento y base de datos: InsForge, Railway y Vercel.</li>
-        <li>Mensajería: Meta (WhatsApp) a través de YCloud o Twilio, y Telegram, según lo que conecte el negocio.</li>
+        <li>Mensajería: Meta (WhatsApp) a través de YCloud, y Telegram, según lo que conecte el negocio.</li>
         <li>
           Inteligencia artificial: proveedores de modelos de lenguaje (como OpenAI o Google Gemini) procesan los mensajes para generar
           las respuestas del agente.

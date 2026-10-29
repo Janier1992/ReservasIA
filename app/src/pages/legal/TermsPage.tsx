@@ -28,7 +28,7 @@ export function TermsPage() {
         Las cuentas nuevas tienen un periodo de prueba gratis. Al terminar, para seguir usando el servicio hay que pagar la suscripción
         del plan elegido. Si la suscripción vence sin pago, la cuenta puede suspenderse hasta que se regularice; los datos se conservan
         según la <Link to="/privacidad" className="text-primary hover:underline">Política de privacidad</Link>. Los costos de terceros
-        que el negocio contrate por su cuenta (por ejemplo, los mensajes de WhatsApp cobrados por Meta a través de YCloud o Twilio) no
+        que el negocio contrate por su cuenta (por ejemplo, los mensajes de WhatsApp cobrados por Meta a través de YCloud) no
         están incluidos en la suscripción.
       </p>
 
@@ -55,7 +55,7 @@ export function TermsPage() {
 
       <h2>6. Integraciones de terceros</h2>
       <p>
-        Google Calendar, WhatsApp (por YCloud o Twilio), Telegram y otros servicios conectados se rigen además por sus propias
+        Google Calendar, WhatsApp (por YCloud), Telegram y otros servicios conectados se rigen además por sus propias
         condiciones. ReservasIA no controla su disponibilidad y no responde por fallas, bloqueos o cambios de esos servicios.
       </p>
 

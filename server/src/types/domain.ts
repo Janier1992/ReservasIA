@@ -166,7 +166,7 @@ export interface AgentRule {
   enabled: boolean;
 }
 
-export type IntegrationProvider = "twilio" | "google_calendar" | "telegram";
+export type IntegrationProvider = "ycloud" | "google_calendar" | "telegram";
 export type IntegrationStatus = "disconnected" | "connected" | "error";
 
 export interface Integration {

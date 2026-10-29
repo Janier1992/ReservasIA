@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { QueryErrorState } from "@/components/QueryErrorState";
 
 interface IntegrationRow {
-  provider: "twilio" | "google_calendar" | "telegram" | "ycloud";
+  provider: "google_calendar" | "telegram" | "ycloud";
   status: "connected" | "disconnected" | "error";
   metadata: Record<string, unknown>;
   connected_at: string | null;
@@ -49,7 +49,6 @@ export function IntegrationsPage() {
     }
   });
 
-  const twilio = integrations.find((i) => i.provider === "twilio");
   const google = integrations.find((i) => i.provider === "google_calendar");
   const telegram = integrations.find((i) => i.provider === "telegram");
   const ycloud = integrations.find((i) => i.provider === "ycloud");
@@ -89,16 +88,6 @@ export function IntegrationsPage() {
       invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo desconectar Google Calendar.");
-    }
-  }
-
-  async function disconnectTwilio() {
-    try {
-      await functionsClient.post("twilio-disconnect", { organization_id: currentOrganizationId });
-      toast.success("WhatsApp desconectado.");
-      invalidate();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo desconectar WhatsApp.");
     }
   }
 
@@ -281,32 +270,6 @@ export function IntegrationsPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* WhatsApp se conecta con YCloud. La tarjeta de Twilio solo aparece para un negocio que ya lo tenía
-          conectado, para que pueda desconectarlo. */}
-      {twilio?.status === "connected" && (
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <div className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-success" />
-              <CardTitle>WhatsApp (Twilio)</CardTitle>
-            </div>
-            <Badge variant="success">Connected</Badge>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">Número: {String(twilio.metadata?.whatsapp_number ?? "—")}</p>
-            <p className="text-sm text-muted-foreground">
-              Recordatorios automáticos:{" "}
-              {twilio.metadata?.reminder_template_sid
-                ? "configurados (la primera vez, Meta puede tardar hasta 24-48h en aprobar la plantilla)."
-                : "no se pudieron configurar automáticamente — contactá a soporte para activarlos."}
-            </p>
-            <Button variant="outline" onClick={disconnectTwilio}>
-              Desconectar
-            </Button>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">

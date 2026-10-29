@@ -288,7 +288,7 @@ arquitectura:
 | Dónde | Qué vive ahí | Por qué |
 |---|---|---|
 | **Postgres (migraciones)** | Tablas, RLS, triggers, RPCs (`book_reservation`, `create_organization_with_owner`, `accept_organization_invite`, etc.) | El frontend llama estas RPCs directamente vía `insforge.database.rpc()` — el SDK adjunta el token automáticamente porque es una llamada al propio backend de InsForge. |
-| **`functions/` (Edge Functions, Deno, desplegadas con `@insforge/cli functions deploy`)** | Las 16 de `functions/`: conectar/desconectar canales (`telegram-*`, `ycloud-*`) y Google, `agent-preview`, `check-availability`, `conversations-reply`, `voice-intake`, recibos y pagos de suscripción | Lógica privilegiada que el **frontend** dispara (necesita el token del usuario + una API key admin para tocar `integrations.credentials`, bloqueada por columna para `authenticated`). |
+| **`functions/` (Edge Functions, Deno, desplegadas con `@insforge/cli functions deploy`)** | Las 15 de `functions/`: conectar/desconectar canales (`telegram-*`, `ycloud-*`) y Google, `agent-preview`, `conversations-reply`, `voice-intake`, recibos y pagos de suscripción | Lógica privilegiada que el **frontend** dispara (necesita el token del usuario + una API key admin para tocar `integrations.credentials`, bloqueada por columna para `authenticated`). |
 | **`server/` (compute service, Node/Express persistente)** | Webhooks de WhatsApp (YCloud), callback de Google OAuth, el long-polling de cada bot de Telegram conectado, el loop de tool-calling del agente | YCloud y Google llaman directo (no el frontend vía SDK); Telegram no llama a nadie (long-polling saliente), pero igual necesita un proceso persistente corriendo. El agente necesita poder seguir procesando en background — algo que una función serverless de vida corta no garantiza. |
 
 **Importante para el despliegue**: por esto mismo, `app/` (el frontend) sí se puede desplegar en una plataforma
@@ -300,7 +300,7 @@ necesita estar escuchando todo el tiempo, no solo responder a requests puntuales
 
 - **Frontend** (`app/`): React 18 + TypeScript + Vite + Tailwind CSS + TanStack Query + React Hook Form + Zod +
   Radix UI + `vite-plugin-pwa`.
-- **Compute service** (`server/`): Node + Express + TypeScript, OpenAI SDK (tool-calling), `googleapis`; WhatsApp por la API de YCloud (Twilio SDK solo para la integración anterior).
+- **Compute service** (`server/`): Node + Express + TypeScript, OpenAI SDK (tool-calling), `googleapis`; WhatsApp por la API de YCloud.
 - **Edge Functions** (`functions/`): Deno, desplegadas a InsForge.
 - **Base de datos**: PostgreSQL vía InsForge, con RLS, triggers y RPCs en `migrations/`.
 
@@ -338,8 +338,7 @@ crm-clients-wpp/
 │   │   │   ├── conversations/    # handleInboundMessage: lógica compartida entre canales
 │   │   │   ├── google/           # OAuth callback + Google Calendar (crear/actualizar/borrar eventos)
 │   │   │   ├── ycloud/           # WhatsApp Business (coexistencia)
-│   │   │   ├── whatsapp/         # envío de WhatsApp (YCloud; Twilio solo para negocios ya conectados)
-│   │   │   ├── twilio/           # WhatsApp con Twilio (integración anterior)
+│   │   │   ├── whatsapp/         # envío de WhatsApp (YCloud)
 │   │   │   └── telegram/         # long-polling multi-tenant (telegramPollingManager)
 │   │   ├── middleware/           # rateLimit, errorHandler
 │   │   ├── config/env.ts         # Validación de variables de entorno
@@ -506,9 +505,6 @@ la sección 23 del manual de usuario (`docs/manual/`).
    unas horas); mientras tanto el recordatorio se salta y se reintenta cada 10 minutos. El estado queda en
    `integrations.metadata.reminder_template` y en los logs (`ycloud_reminder_template_*`). Meta cobra cada
    plantilla enviada según su tarifa para el país. Por Telegram el recordatorio sale como mensaje normal, gratis.
-
-> La integración anterior con Twilio sigue en el código solo para negocios que ya la tenían conectada (pueden
-> desconectarla); ya no se puede conectar desde la app.
 
 ---
 
@@ -727,18 +723,22 @@ npm run build
 
 ## Simplificaciones conocidas / próximos pasos
 
-- **`check-availability` duplicado**: la Edge Function y el servicio interno del compute service implementan el
-  mismo algoritmo por separado (Deno y Node) en vez de compartir una única fuente de verdad en SQL.
-- **Invitaciones de equipo sin email automático**: "invitar" crea un registro en `organization_invites` que la
-  persona debe aceptar manualmente iniciando sesión con ese email — no se envía un email de invitación automático.
-- **Política de seguridad de contenido**: está en modo solo-reporte (`Content-Security-Policy-Report-Only` en
-  `app/vercel.json`); pasarla a `Content-Security-Policy` cuando no aparezcan avisos en la consola.
 - **Credenciales de integraciones**: se guardan en `integrations.credentials` protegidas por permisos de columna,
   pero sin cifrado propio de la aplicación.
 - **Sin límite de mensajes por conversación (decisión del negocio)**: el agente responde todo lo que el cliente
   escriba, sin tope por conversación. Es deliberado: no agregar un límite sin acordarlo con el negocio.
-- **Twilio**: código heredado que solo usan negocios que ya lo tenían conectado; retirarlo cuando no quede ninguno.
-- **Google Login / Magic Link**: activables desde la configuración de Auth de InsForge sin cambios de código más
-  allá de agregar los botones de UI (`insforge.auth.signInWithOAuth`).
-- **Bundle del frontend**: el chunk principal supera los 500kB tras minificar; dividirlo con `manualChunks` o
-  `import()` dinámico mejoraría el tiempo de carga inicial en conexiones móviles lentas.
+
+Resuelto desde la última revisión de esta lista: se retiró por completo la integración anterior con Twilio (código,
+Edge Functions `twilio-connect`/`twilio-disconnect`, variables de entorno, UI y textos legales) — WhatsApp funciona
+exclusivamente por YCloud. De paso se corrigieron dos lugares que, desde que existe YCloud, habían quedado
+reconociendo solo "twilio" como canal de WhatsApp conectado y por eso nunca mostraban el estado real: el panel de
+soporte (lista y detalle de negocio) y los enlaces "Avisame por WhatsApp" de pedidos/reservas (`notifyLinks.ts`); se eliminó la Edge Function `check-availability` (quedó huérfana
+cuando la página pública de reservas pasó a pedirle disponibilidad al compute service — `/businesses/:slug/availability`
+— y ya había quedado desactualizada: no conocía ni el horario por recurso ni los bloqueos de agenda, los dos
+agregados más recientes al motor de disponibilidad real en `server/src/services/availability/availabilityService.ts`);
+política de seguridad de contenido pasada a modo bloqueo
+(`Content-Security-Policy` en `app/vercel.json`, tras auditar que no hay scripts/estilos/iframes que la violen);
+invitaciones de equipo ahora avisan por email (`insforge.emails.send`, mejor esfuerzo — si el plan no tiene envío
+de correo habilitado, la invitación igual se crea); login con Google/GitHub y con código por email (sin
+contraseña) agregados en `/login` y `/register`; bundle del frontend ya dividido por rutas y por vendor
+(`React.lazy` + `manualChunks` en `vite.config.ts`), ningún chunk pasa los 500kB.

@@ -51,9 +51,8 @@ export function buildReminderText(row: DueReminderRow): string {
  * libre: una reserva hecha con anticipación casi siempre cae fuera de la
  * ventana de 24h en la que Meta permite texto libre, así que un mensaje
  * libre se rechazaría. La plantilla se crea y somete a aprobación sola: con
- * YCloud la primera vez que hace falta (ver ycloud/ycloudReminderTemplate.ts)
- * y con Twilio al conectar (ver functions/twilio-connect.ts). Si todavía no
- * está aprobada, el recordatorio de esa reserva se salta y se reintenta en
+ * YCloud la primera vez que hace falta (ver ycloud/ycloudReminderTemplate.ts).
+ * Si todavía no está aprobada, el recordatorio de esa reserva se salta y se reintenta en
  * el siguiente ciclo — nunca se cae a texto libre.
  */
 async function sendReminder(row: DueReminderRow): Promise<boolean> {

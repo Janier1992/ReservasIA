@@ -51,7 +51,7 @@ describe("createReservationChatLink", () => {
   });
 
   it("ofrece WhatsApp con un mensaje 'Reserva #'", async () => {
-    useDb({ integrations: ok([{ provider: "twilio", metadata: { whatsapp_number: "whatsapp:+57 300 555 1234" } }]), reservations: ok(null) });
+    useDb({ integrations: ok([{ provider: "ycloud", metadata: { phone_number: "whatsapp:+57 300 555 1234" } }]), reservations: ok(null) });
     const links = await createReservationChatLink("org-1", "res-1");
     expect(links.whatsappUrl).toMatch(/^https:\/\/wa\.me\/573005551234\?text=Reserva%20%23[A-Z2-9]{10}$/);
   });

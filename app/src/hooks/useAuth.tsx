@@ -20,6 +20,14 @@ interface AuthContextValue {
   exchangeResetCode: (email: string, code: string) => Promise<string>;
   resetPassword: (newPassword: string, otp: string) => Promise<void>;
   refreshUser: () => Promise<void>;
+  /** Proveedores de OAuth habilitados en el backend (ej. ["google", "github"]). */
+  getOAuthProviders: () => Promise<string[]>;
+  /** Redirige al proveedor; la pestaña navega fuera, no hay nada que esperar después. */
+  signInWithOAuth: (provider: string) => Promise<void>;
+  /** Pide un código de acceso sin contraseña por email ("magic code"). */
+  sendLoginCode: (email: string) => Promise<void>;
+  /** Verifica el código pedido con sendLoginCode y crea la sesión. */
+  signInWithLoginCode: (email: string, otp: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -103,7 +111,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPassword: async (newPassword, otp) => {
       unwrap(await insforge.auth.resetPassword({ newPassword, otp }));
     },
-    refreshUser: hydrate
+    refreshUser: hydrate,
+    getOAuthProviders: async () => {
+      const { data } = await insforge.auth.getPublicAuthConfig();
+      return data?.oAuthProviders ?? [];
+    },
+    signInWithOAuth: async (provider) => {
+      const { error } = await insforge.auth.signInWithOAuth(provider, {
+        redirectTo: `${window.location.origin}/dashboard`
+      });
+      if (error) throw new Error(error.message ?? "No se pudo iniciar sesión.");
+    },
+    sendLoginCode: async (email) => {
+      unwrap(await insforge.auth.signInWithOtp({ email }));
+    },
+    signInWithLoginCode: async (email, otp) => {
+      const result = unwrap(await insforge.auth.verifyOtp({ email, otp }));
+      setUser(result.user as AuthUser);
+    }
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

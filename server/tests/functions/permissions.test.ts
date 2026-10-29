@@ -37,7 +37,6 @@ interface FunctionCase {
 
 const CASES: FunctionCase[] = [
   { name: "agent-preview", method: "POST", allowed: "admins", body: { organization_id: ORG, message: "hola" } },
-  { name: "check-availability", method: "GET", allowed: "members", query: { organization_id: ORG, date: "2030-01-10" } },
   { name: "conversations-reply", method: "POST", allowed: "members", body: { organization_id: ORG, conversation_id: "conv-1", content: "hola" } },
   { name: "get-receipt-url", method: "GET", allowed: "members", query: { organization_id: ORG, message_id: "msg-1" } },
   { name: "google-disconnect", method: "POST", allowed: "admins", body: { organization_id: ORG } },
@@ -45,13 +44,6 @@ const CASES: FunctionCase[] = [
   { name: "submit-subscription-payment", method: "POST", allowed: "admins", body: { organization_id: ORG, receipt_storage_path: `${ORG}/r.jpg`, amount: 1 } },
   { name: "telegram-connect", method: "POST", allowed: "admins", body: { organization_id: ORG, botToken: "123:abc" } },
   { name: "telegram-disconnect", method: "POST", allowed: "admins", body: { organization_id: ORG } },
-  {
-    name: "twilio-connect",
-    method: "POST",
-    allowed: "admins",
-    body: { organization_id: ORG, accountSid: "AC1", authToken: "t", whatsappNumber: "whatsapp:+1" }
-  },
-  { name: "twilio-disconnect", method: "POST", allowed: "admins", body: { organization_id: ORG } },
   { name: "voice-intake", method: "POST", allowed: "members", body: { organization_id: ORG, transcript: "Juan, corte mañana" } },
   { name: "ycloud-connect", method: "POST", allowed: "admins", body: { organization_id: ORG, apiKey: "key" } },
   { name: "ycloud-disconnect", method: "POST", allowed: "admins", body: { organization_id: ORG } },

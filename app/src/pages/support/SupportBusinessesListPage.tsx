@@ -88,7 +88,7 @@ export function SupportBusinessesListPage() {
           displayName: profileNameByOrg.get(org.id) || org.name,
           agentEnabled: agentByOrg.get(org.id) ?? null,
           telegramConnected: orgIntegrations.some((i) => i.provider === "telegram" && i.status === "connected"),
-          whatsappConnected: orgIntegrations.some((i) => i.provider === "twilio" && i.status === "connected"),
+          whatsappConnected: orgIntegrations.some((i) => i.provider === "ycloud" && i.status === "connected"),
           googleCalendarConnected: orgIntegrations.some((i) => i.provider === "google_calendar" && i.status === "connected"),
           reservationsLast7Days: reservationCountByOrg.get(org.id) ?? 0
         } satisfies BusinessRow;

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
+import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { AuthLayout } from "./AuthLayout";
 
 const schema = z.object({
@@ -117,6 +118,9 @@ export function RegisterPage() {
           .
         </p>
       </form>
+      <div className="mt-4">
+        <OAuthButtons />
+      </div>
       <p className="mt-4 text-center text-sm text-muted-foreground">
         ¿Ya tenés cuenta?{" "}
         <Link to="/login" className="font-medium text-primary hover:underline">
