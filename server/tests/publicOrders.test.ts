@@ -30,8 +30,8 @@ function useDb(tables: Record<string, TableResponse>) {
 
 beforeEach(() => sendTelegramMessageMock.mockReset());
 
-describe("order codes", () => {
-  it("generates 10-character codes without ambiguous characters", () => {
+describe("códigos de pedido", () => {
+  it("genera códigos de 10 caracteres sin letras ni números que se confundan", () => {
     for (let i = 0; i < 50; i++) expect(generateOrderCode()).toMatch(/^[A-HJ-NP-Z2-9]{10}$/);
   });
 
@@ -336,7 +336,7 @@ describe("createPublicOrder", () => {
   });
 });
 
-describe("order helpers", () => {
+describe("utilidades del pedido", () => {
   it("guarda un nombre por porción, sin espacios sobrantes ni vacíos", () => {
     expect(cleanForNames(undefined, 2)).toEqual([]);
     expect(cleanForNames(["  Ana ", " ", "Luis", "Pedro"], 2)).toEqual(["Ana", "Luis"]);
@@ -352,7 +352,7 @@ describe("order helpers", () => {
     ).toEqual([{ serviceId: "a", quantity: 2, forNames: ["Ana", "Luis"] }]);
   });
 
-  it("merges repeated products", () => {
+  it("junta los productos repetidos", () => {
     expect(
       mergeOrderItems([
         { serviceId: "a", quantity: 1 },
@@ -455,7 +455,7 @@ describe("sendReadyOrderNotifications", () => {
     expect(sendTelegramMessageMock).toHaveBeenCalledWith("bot-token", "77", "¡Ana, tu pedido de 2× Hamburguesa y Limonada está listo! Acercate a reclamarlo en Antojitos.");
   });
 
-  it("skips orders another instance already claimed", async () => {
+  it("omite los pedidos que otra instancia ya tomó", async () => {
     useDb({ walk_ins: [ok([ready]), ok([])] });
     expect(await sendReadyOrderNotifications()).toEqual({ sent: 0, failed: 0 });
     expect(sendTelegramMessageMock).not.toHaveBeenCalled();

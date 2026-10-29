@@ -46,7 +46,7 @@ describe("availabilityService.getAvailableSlots", () => {
     expect(result.slots.map((s) => s.start.slice(11, 16))).toEqual(["14:00", "15:00"]);
   });
 
-  it("excludes slots where capacity would be exceeded", async () => {
+  it("no ofrece horarios que superarían la capacidad", async () => {
     reservationsResponse = {
       data: [
         {

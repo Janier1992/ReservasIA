@@ -12,7 +12,7 @@ vi.mock("../src/lib/insforge.js", () => ({
 const { suspendExpiredSubscriptions } = await import("../src/services/subscription/subscriptionService.js");
 
 describe("suspendExpiredSubscriptions", () => {
-  it("suspends organizations whose subscription already expired", async () => {
+  it("suspende los negocios con la suscripción ya vencida", async () => {
     insforgeMockInstance = createInsforgeMock({
       organizations: { data: [{ id: "org-1" }, { id: "org-2" }], error: null }
     });

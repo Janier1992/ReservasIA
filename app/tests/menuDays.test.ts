@@ -9,13 +9,13 @@ describe("menú del día", () => {
     expect(weekdayIn("UTC", lateSaturday)).toBe(0);
   });
 
-  it("offers products without days every day", () => {
+  it("ofrece todos los días los productos sin días marcados", () => {
     expect(isOnMenu(null, 3)).toBe(true);
     expect(isOnMenu([1, 4], 4)).toBe(true);
     expect(isOnMenu([1, 4], 5)).toBe(false);
   });
 
-  it("toggles days, treating all seven as 'every day'", () => {
+  it("marca y desmarca días, y los siete juntos cuentan como 'todos los días'", () => {
     expect(toggleMenuDay(null, 0)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(toggleMenuDay([1, 2, 3, 4, 5, 6], 0)).toBeNull();
     expect(toggleMenuDay([1, 4], 4)).toEqual([1]);

@@ -119,7 +119,7 @@ function turn(overrides: Partial<{ conversationId: string }> = {}) {
   });
 }
 
-describe("runAgentTurn health/veterinary safety guardrails", () => {
+describe("runAgentTurn: protecciones de salud y veterinaria", () => {
   beforeEach(() => {
     log.length = 0;
     vi.clearAllMocks();

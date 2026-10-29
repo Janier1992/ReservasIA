@@ -48,7 +48,7 @@ describe("buildSystemPrompt", () => {
   });
 });
 
-describe("buildSystemPrompt business type guidance", () => {
+describe("buildSystemPrompt: guía por rubro", () => {
   const now = new Date("2026-09-07T15:00:00Z");
   const withType = (businessType: string) =>
     buildSystemPrompt(makeData({ organization: { id: "org-1", businessType, timezone: "America/Bogota", status: "active" } }), now);
@@ -99,7 +99,7 @@ describe("buildSystemPrompt business type guidance", () => {
   });
 });
 
-describe("buildSystemPrompt payment policy section", () => {
+describe("buildSystemPrompt: sección de pagos", () => {
   it("indica al agente que no mencione anticipos cuando están desactivados", () => {
     const prompt = buildSystemPrompt(makeData(), new Date("2026-09-07T15:00:00Z"));
     expect(prompt).toContain("Este negocio no pide anticipo. No menciones pagos por adelantado.");
