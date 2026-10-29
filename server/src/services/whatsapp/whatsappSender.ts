@@ -1,5 +1,7 @@
 import { sendTwilioWhatsAppMessage, sendTwilioWhatsAppReminderTemplate } from "../twilio/twilioService.js";
 import { loadYCloudIntegration, sendYCloudText } from "../ycloud/ycloudService.js";
+import { sendYCloudReminderTemplate } from "../ycloud/ycloudReminderTemplate.js";
+import { AppError, ErrorCodes } from "../../utils/AppError.js";
 
 /**
  * Un negocio atiende WhatsApp por YCloud (su propio número, coexistiendo con
@@ -16,15 +18,23 @@ export async function sendWhatsAppMessage(organizationId: string, toPhone: strin
 }
 
 /**
- * Recordatorio por plantilla aprobada. Con YCloud todavía no hay plantillas
- * configuradas (llegan en la etapa 2), así que se informa igual que un
- * negocio de Twilio sin plantilla: se salta, nunca se cae a texto libre.
+ * Recordatorio por plantilla aprobada (nunca texto libre), por YCloud si el
+ * negocio lo tiene conectado o por Twilio si no. "no_template_configured"
+ * mientras la plantilla no esté aprobada: se salta y se reintenta después.
+ * "no_whatsapp_channel" si el negocio no tiene WhatsApp conectado (por
+ * ejemplo, atiende solo por Telegram y el cliente dejó su número).
  */
 export async function sendWhatsAppReminderTemplate(
   organizationId: string,
   toPhone: string,
   variables: Record<string, string>
-): Promise<"sent" | "no_template_configured"> {
-  if (await loadYCloudIntegration(organizationId)) return "no_template_configured";
-  return sendTwilioWhatsAppReminderTemplate(organizationId, toPhone, variables);
+): Promise<"sent" | "no_template_configured" | "no_whatsapp_channel"> {
+  const ycloud = await loadYCloudIntegration(organizationId);
+  if (ycloud) return sendYCloudReminderTemplate(ycloud, toPhone, variables);
+  try {
+    return await sendTwilioWhatsAppReminderTemplate(organizationId, toPhone, variables);
+  } catch (err) {
+    if (err instanceof AppError && err.code === ErrorCodes.INTEGRATION_NOT_CONNECTED) return "no_whatsapp_channel";
+    throw err;
+  }
 }
