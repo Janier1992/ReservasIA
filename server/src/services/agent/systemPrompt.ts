@@ -8,6 +8,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import type { InsForgeClient } from "@insforge/sdk";
 import { CORE_AGENT_RULES } from "./coreRules.js";
 import { businessTypeGuidance, businessTypeLabel } from "./businessTypes.js";
+import { businessMapsUrl } from "../../utils/location.js";
 import type { AgentConfig, AgentRule, BusinessHourPeriod, BusinessProfile, Customer, Resource, Service } from "../../types/domain.js";
 
 const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -56,6 +57,23 @@ function formatPaymentPolicy(profile: BusinessProfile): string {
   }
   const kind = profile.deposit_mandatory ? "OBLIGATORIO" : "opcional (dejale elegir al cliente)";
   return `Anticipo ${kind} del ${profile.deposit_percentage}% del precio del servicio, a pagar por Nequi al número ${profile.nequi_phone}. El monto exacto y el número te los devuelve la herramienta crear_reserva, nunca los calcules ni los repitas de memoria.`;
+}
+
+function formatLocation(profile: BusinessProfile): string {
+  const mapsUrl = businessMapsUrl(profile);
+  if (!profile.address?.trim() && !mapsUrl) {
+    return "El negocio no cargó su dirección. Si el cliente pregunta cómo llegar, decile que se la confirma el negocio; nunca la inventes.";
+  }
+  const lines = [`- Dirección: ${profile.address?.trim() || "No especificada"}`];
+  if (profile.address_details?.trim()) lines.push(`- Indicaciones para llegar: ${profile.address_details.trim()}`);
+  if (mapsUrl) lines.push(`- Enlace del mapa: ${mapsUrl}`);
+  lines.push(
+    "Cuando el cliente pregunte dónde queda el negocio o cómo llegar, y al confirmarle una reserva nueva, compartí la dirección" +
+      (profile.address_details?.trim() ? ", las indicaciones" : "") +
+      (mapsUrl ? " y el enlace del mapa copiado tal cual, sin cambiarlo ni acortarlo" : "") +
+      "."
+  );
+  return lines.join("\n");
 }
 
 function formatAgentRules(rules: AgentRule[]): string {
@@ -166,11 +184,13 @@ INFORMACIÓN DEL NEGOCIO:
 - Tipo de negocio: ${businessTypeLabel(organization.businessType)}
 - Nombre: ${businessProfile.name}
 - Descripción: ${businessProfile.description ?? "No especificada"}
-- Dirección: ${businessProfile.address ?? "No especificada"}
 - Teléfono: ${businessProfile.phone ?? "No especificado"}
 - Política de cancelación: ${businessProfile.cancellation_policy ?? "No especificada"}
 - Instrucciones especiales: ${businessProfile.special_instructions ?? "Ninguna"}
 - Zona horaria: ${organization.timezone}
+
+UBICACIÓN:
+${formatLocation(businessProfile)}
 
 HORARIOS DE ATENCIÓN:
 ${formatHours(data.hours)}

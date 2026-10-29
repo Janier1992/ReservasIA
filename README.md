@@ -397,6 +397,15 @@ Completá en `.env`:
 - `VITE_INSFORGE_ANON_KEY`: la `ANON_KEY` obtenida arriba.
 - `INSFORGE_API_KEY`: una API key admin (Project Settings → API Keys en el dashboard de InsForge).
 
+### Ubicación del negocio
+
+En **Configuración → Ubicación** el negocio carga su dirección, indicaciones para llegar (piso, local, punto de
+referencia) y, opcionalmente, el enlace de Google Maps que copia desde **Compartir** (solo `https://`). Sin enlace se
+usa una búsqueda de Google Maps con la dirección (`server/src/utils/location.ts`). El agente comparte la dirección y
+el enlace cuando el cliente pregunta cómo llegar y al confirmar una reserva; la página de reservas muestra "Cómo
+llegar" y el correo de confirmación, "Ver ubicación en el mapa". Las indicaciones y el enlace necesitan la migración
+`20261029090000_business-location.sql`; antes de aplicarla, Configuración solo muestra la dirección.
+
 ### Recuperar contraseña
 
 La pantalla `/forgot-password` funciona con los dos métodos de recuperación de InsForge (Authentication en el

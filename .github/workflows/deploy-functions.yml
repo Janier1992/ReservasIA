@@ -10,7 +10,7 @@ name: Deploy Edge Functions
 on:
   push:
     branches: [main]
-    paths: ["functions/**", "server/src/services/agent/**", "scripts/function-bundle.mjs"]
+    paths: ["functions/**", "server/src/services/agent/**", "server/src/utils/location.ts", "scripts/function-bundle.mjs"]
   workflow_dispatch:
     inputs:
       functions:
@@ -44,7 +44,7 @@ jobs:
             echo "slugs=$MANUAL" >> "$GITHUB_OUTPUT"
           else
             changed=$(git diff --name-only --diff-filter=AM HEAD~1 HEAD -- 'functions/*.ts' | xargs -r -n1 basename | sed 's/\.ts$//' | tr '\n' ' ')
-            if ! git diff --quiet HEAD~1 HEAD -- server/src/services/agent scripts/function-bundle.mjs && [[ " $changed " != *" agent-preview "* ]]; then
+            if ! git diff --quiet HEAD~1 HEAD -- server/src/services/agent server/src/utils/location.ts scripts/function-bundle.mjs && [[ " $changed " != *" agent-preview "* ]]; then
               changed="$changed agent-preview"
             fi
             echo "slugs=$changed" >> "$GITHUB_OUTPUT"

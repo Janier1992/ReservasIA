@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { Copy, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { insforge } from "@/lib/insforgeClient";
 import { useOrganization } from "@/hooks/useOrganization";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,8 @@ import { PushNotificationsCard } from "@/components/PushNotificationsCard";
 import { SubscriptionCard } from "@/components/SubscriptionCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QueryErrorState } from "@/components/QueryErrorState";
-import { isNonNegativeNumber, isPositiveInteger, isValidEmail } from "@/lib/validation";
+import { isNonNegativeNumber, isPositiveInteger, isValidEmail, isValidMapsUrl } from "@/lib/validation";
+import { businessMapsUrl } from "@/lib/location";
 import type { BusinessHourPeriod, BusinessProfile } from "@/types/domain";
 
 const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -61,12 +62,20 @@ export function SettingsPage() {
   });
 
   useEffect(() => setProfile(profileData ?? null), [profileData]);
+  const hasLocationFields = Boolean(profileData && "maps_url" in profileData);
+  // Lo guardado (no lo que se está escribiendo): es lo que ya ven los
+  // clientes, y así un texto a medio escribir nunca termina en un enlace.
+  const savedMapsUrl = profileData ? businessMapsUrl(profileData) : null;
   useEffect(() => setHours(hoursData ?? []), [hoursData]);
 
   async function saveProfile() {
     if (!profile) return;
     if (profile.email?.trim() && !isValidEmail(profile.email)) {
       toast.error("Ingresá un correo de contacto válido.");
+      return;
+    }
+    if (profile.maps_url?.trim() && !isValidMapsUrl(profile.maps_url)) {
+      toast.error("El enlace del mapa tiene que empezar con https:// (copialo desde Compartir en Google Maps).");
       return;
     }
     if (
@@ -96,7 +105,12 @@ export function SettingsPage() {
         name: profile.name,
         tagline: profile.tagline?.trim() || null,
         description: profile.description,
-        address: profile.address,
+        address: profile.address?.trim() || null,
+        // Indicaciones y enlace del mapa solo si la base ya tiene esas columnas
+        // (migración 20261029090000): si no, guardar fallaría por completo.
+        ...(hasLocationFields
+          ? { address_details: profile.address_details?.trim() || null, maps_url: profile.maps_url?.trim() || null }
+          : {}),
         phone: profile.phone,
         email: profile.email,
         website: profile.website,
@@ -397,6 +411,71 @@ export function SettingsPage() {
               value={profile.description ?? ""}
               onChange={(e) => setProfile({ ...profile, description: e.target.value })}
             />
+          </div>
+          <div className="space-y-3 rounded-lg border border-border p-4">
+            <div>
+              <p className="text-sm font-medium">Ubicación</p>
+              <p className="text-xs text-muted-foreground">
+                El agente la comparte cuando un cliente pregunta cómo llegar y al confirmarle una reserva. También sale en tu página de
+                reservas y en el correo de confirmación.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="settings-address">Dirección</Label>
+              <Input
+                id="settings-address"
+                disabled={readOnly}
+                placeholder="Ej: Calle 10 # 43-12, El Poblado, Medellín"
+                value={profile.address ?? ""}
+                onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+              />
+            </div>
+            {hasLocationFields ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-address-details">Indicaciones para llegar</Label>
+                  <Input
+                    id="settings-address-details"
+                    disabled={readOnly}
+                    maxLength={200}
+                    placeholder="Ej: Local 3, segundo piso, frente al parque"
+                    value={profile.address_details ?? ""}
+                    onChange={(e) => setProfile({ ...profile, address_details: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-maps-url">Enlace de Google Maps (opcional)</Label>
+                  <Input
+                    id="settings-maps-url"
+                    type="url"
+                    inputMode="url"
+                    disabled={readOnly}
+                    maxLength={500}
+                    placeholder="https://maps.app.goo.gl/..."
+                    value={profile.maps_url ?? ""}
+                    onChange={(e) => setProfile({ ...profile, maps_url: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    En Google Maps buscá tu negocio, tocá <strong>Compartir</strong> y <strong>Copiar enlace</strong>. Así el cliente llega al punto exacto.
+                    Si lo dejás vacío, se usa una búsqueda con la dirección.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Las indicaciones y el enlace de Google Maps se activan cuando se aplique la actualización de la base de datos.
+              </p>
+            )}
+            {savedMapsUrl && (
+              <a
+                href={savedMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+              >
+                <ExternalLink className="h-4 w-4" /> Ver en el mapa lo que ve el cliente (lo guardado)
+              </a>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Política de cancelación</Label>

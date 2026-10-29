@@ -1,5 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { es } from "date-fns/locale";
+import { businessMapsUrl } from "../../utils/location.js";
 
 /**
  * Correo de reserva con la marca del negocio (logo, nombre, eslogan). HTML con
@@ -11,7 +12,17 @@ export type ReservationEmailKind = "confirmed" | "rescheduled" | "cancelled";
 
 export interface ReservationEmailData {
   kind: ReservationEmailKind;
-  business: { name: string; logoUrl: string | null; slogan: string | null; address: string | null; phone: string | null };
+  business: {
+    name: string;
+    logoUrl: string | null;
+    slogan: string | null;
+    address: string | null;
+    /** Indicaciones para llegar (piso, local, referencia). */
+    addressDetails?: string | null;
+    /** Enlace de mapa que cargó el negocio; sin él se arma uno con la dirección. */
+    mapsUrl?: string | null;
+    phone: string | null;
+  };
   customerName: string | null;
   serviceName: string | null;
   startAt: string;
@@ -86,8 +97,14 @@ export function buildReservationEmail(data: ReservationEmailData): { subject: st
     detailRow("Hora", escapeHtml(when.time)),
     data.partySize ? detailRow("Personas", String(data.partySize)) : "",
     data.notes ? detailRow("Notas", escapeHtml(data.notes)) : "",
-    data.business.address ? detailRow("Dirección", escapeHtml(data.business.address)) : ""
+    data.business.address ? detailRow("Dirección", escapeHtml(data.business.address)) : "",
+    data.business.addressDetails ? detailRow("Cómo llegar", escapeHtml(data.business.addressDetails)) : ""
   ].join("");
+  const mapsUrl = businessMapsUrl({ address: data.business.address, maps_url: data.business.mapsUrl });
+  const mapsLink =
+    mapsUrl && data.kind !== "cancelled"
+      ? `<tr><td style="padding:0 32px 8px;text-align:center"><a href="${escapeHtml(mapsUrl)}" style="color:${ACCENT};font-size:15px;font-weight:700;text-decoration:underline">Ver ubicación en el mapa</a></td></tr>`
+      : "";
   const button =
     data.kind === "cancelled"
       ? ""
@@ -112,6 +129,7 @@ export function buildReservationEmail(data: ReservationEmailData): { subject: st
 <p style="margin:8px 0 0;color:${INK};font-size:17px">${first ? `Hola ${escapeHtml(first)}, ` : ""}${escapeHtml(copy.intro)}</p></td></tr>
 <tr><td style="padding:8px 32px 20px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr>
 ${button}
+${mapsLink}
 ${policy}
 <tr><td style="padding:16px 32px 28px;text-align:center;color:${MUTED};font-size:14px">${contact}</td></tr>
 <tr><td style="padding:18px 32px;background:#FAFAF9;border-top:1px solid ${LINE};text-align:center;color:${MUTED};font-size:12px">${escapeHtml(

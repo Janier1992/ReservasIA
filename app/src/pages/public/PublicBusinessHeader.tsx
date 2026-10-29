@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
-import { MapPin, Phone } from "lucide-react";
+import { Phone } from "lucide-react";
 import type { PublicBusiness } from "@/lib/publicApi";
+import { BusinessLocation } from "./BusinessLocation";
 
 /** Logo, nombre y datos de contacto del negocio en sus páginas públicas. */
 export function PublicBusinessHeader({ business, icon: Icon }: { business: PublicBusiness; icon: LucideIcon }) {
@@ -17,11 +18,7 @@ export function PublicBusinessHeader({ business, icon: Icon }: { business: Publi
         <h1 className="font-display text-3xl font-semibold leading-tight sm:text-4xl">{business.name}</h1>
         {business.description && <p className="text-muted-foreground">{business.description}</p>}
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-          {business.address && (
-            <span className="flex items-center gap-1.5">
-              <MapPin className="h-4 w-4" /> {business.address}
-            </span>
-          )}
+          <BusinessLocation business={business} />
           {business.phone && (
             <span className="flex items-center gap-1.5">
               <Phone className="h-4 w-4" /> {business.phone}

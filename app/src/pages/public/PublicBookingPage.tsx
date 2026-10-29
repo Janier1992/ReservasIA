@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { formatInTimeZone } from "date-fns-tz";
 import { es } from "date-fns/locale";
-import { ArrowLeft, CalendarCheck, Check, Clock, MapPin, PencilLine } from "lucide-react";
+import { ArrowLeft, CalendarCheck, Check, Clock, PencilLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ import { useApplyTheme } from "@/hooks/useBusinessTheme";
 import { PublicApiError, publicApi, type PublicBooking, type PublicService, type PublicSlot } from "@/lib/publicApi";
 import { upcomingDates } from "@/lib/publicBookingUtils";
 import { HEALTH_CONSENT_LABEL, requiresHealthDataConsent } from "@/lib/healthData";
+import { BusinessLocation } from "./BusinessLocation";
 import { PublicBusinessHeader } from "./PublicBusinessHeader";
 import { PublicOrderView } from "./PublicOrderView";
 import { NotifyChannelsCard } from "./NotifyChannelsCard";
@@ -157,11 +158,9 @@ export function PublicBookingPage() {
           Tu reserva de <strong className="text-foreground">{chosenName}</strong> en {business.name} quedó para el{" "}
           <strong className="text-foreground">{fmt(confirmed.start_at, "EEEE d 'de' MMMM 'a las' h:mm a")}</strong>.
         </p>
-        {business.address && (
-          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <MapPin className="h-4 w-4" /> {business.address}
-          </p>
-        )}
+        <p className="text-sm text-muted-foreground">
+          <BusinessLocation business={business} />
+        </p>
         <NotifyChannelsCard
           telegramUrl={confirmed.telegramUrl}
           whatsappUrl={confirmed.whatsappUrl}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isNonNegativeNumber, isPositiveInteger, isValidEmail } from "@/lib/validation";
+import { isNonNegativeNumber, isPositiveInteger, isValidEmail, isValidMapsUrl } from "@/lib/validation";
 
 describe("isValidEmail", () => {
   it("accepts well-formed emails", () => {
@@ -39,5 +39,19 @@ describe("isPositiveInteger", () => {
     expect(isPositiveInteger(-5)).toBe(false);
     expect(isPositiveInteger(1.5)).toBe(false);
     expect(isPositiveInteger(Number.NaN)).toBe(false);
+  });
+});
+
+describe("isValidMapsUrl", () => {
+  it("acepta el enlace que se copia desde Compartir en Google Maps", () => {
+    expect(isValidMapsUrl("https://maps.app.goo.gl/abc123")).toBe(true);
+    expect(isValidMapsUrl("  https://www.google.com/maps/place/Barber%C3%ADa  ")).toBe(true);
+  });
+
+  it("rechaza lo que no es un enlace https", () => {
+    expect(isValidMapsUrl("maps.app.goo.gl/abc")).toBe(false);
+    expect(isValidMapsUrl("http://maps.app.goo.gl/abc")).toBe(false);
+    expect(isValidMapsUrl("javascript:alert(1)")).toBe(false);
+    expect(isValidMapsUrl(`https://${"a".repeat(500)}.com`)).toBe(false);
   });
 });
