@@ -349,7 +349,8 @@ crm-clients-wpp/
 ├── db-tests/                     # Test de aislamiento multi-tenant (SQL plano, correr con psql)
 ├── scripts/
 │   ├── deploy-functions.mjs      # Deploya todas las Edge Functions de una sola vez
-│   └── function-bundle.mjs       # Empaqueta en un archivo las funciones que importan código del repo
+│   ├── function-bundle.mjs       # Empaqueta en un archivo las funciones que importan código del repo
+│   └── changed-functions.mjs     # Qué funciones publicar según los archivos que cambiaron en un push
 └── .env.example
 ```
 
@@ -432,14 +433,16 @@ o una por una:
 npx @insforge/cli functions deploy <slug> --file functions/<slug>.ts
 ```
 
-InsForge recibe un solo archivo por función. `agent-preview` importa las instrucciones del agente real
-(`server/src/services/agent/systemPrompt.ts`) para que la vista previa del panel muestre lo mismo que verán los
-clientes, así que los dos scripts de despliegue la empaquetan antes con esbuild (`scripts/function-bundle.mjs`);
-no la publiques con el comando de una por una. El workflow la vuelve a publicar también cuando cambian los archivos
-de `server/src/services/agent/`.
+InsForge recibe un solo archivo por función. Las que importan código del repo (`agent-preview`, que usa las
+instrucciones del agente real de `server/src/services/agent/systemPrompt.ts`, y las que usan `functions/_shared/`,
+como el cifrado de credenciales) se empaquetan antes con esbuild (`scripts/function-bundle.mjs`) en los dos scripts
+de despliegue; no las publiques con el comando de una por una. `functions/_shared/` es código compartido, no una
+función.
 
-Sin terminal: el workflow de GitHub Actions **Deploy Edge Functions** publica solo las funciones que cambian en cada
-push a `main`, y se puede correr a mano (Actions → Deploy Edge Functions → Run workflow, con los nombres separados
+Sin terminal: el workflow de GitHub Actions **Deploy Edge Functions** publica en cada push a `main` solo las
+funciones afectadas por lo que cambió en todo el push (aunque traiga varios commits): `scripts/changed-functions.mjs`
+mira de qué archivos depende cada función (su propio `.ts`, `functions/_shared/` o código del server que importa).
+También se puede correr a mano (Actions → Deploy Edge Functions → Run workflow, con los nombres separados
 por espacio o vacío para todas). Usa los secretos del repositorio `INSFORGE_URL` e `INSFORGE_API_KEY` (los mismos
 valores que el compute service en Railway) y llama a la API de InsForge con `scripts/deploy-functions-api.mjs`.
 
