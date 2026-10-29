@@ -63,6 +63,9 @@ export function SettingsPage() {
 
   useEffect(() => setProfile(profileData ?? null), [profileData]);
   const hasLocationFields = Boolean(profileData && "maps_url" in profileData);
+  // Lo guardado (no lo que se está escribiendo): es lo que ya ven los
+  // clientes, y así un texto a medio escribir nunca termina en un enlace.
+  const savedMapsUrl = profileData ? businessMapsUrl(profileData) : null;
   useEffect(() => setHours(hoursData ?? []), [hoursData]);
 
   async function saveProfile() {
@@ -463,14 +466,14 @@ export function SettingsPage() {
                 Las indicaciones y el enlace de Google Maps se activan cuando se aplique la actualización de la base de datos.
               </p>
             )}
-            {businessMapsUrl(profile) && (
+            {savedMapsUrl && (
               <a
-                href={businessMapsUrl(profile)!}
+                href={savedMapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
               >
-                <ExternalLink className="h-4 w-4" /> Ver cómo lo verá el cliente en el mapa
+                <ExternalLink className="h-4 w-4" /> Ver en el mapa lo que ve el cliente (lo guardado)
               </a>
             )}
           </div>

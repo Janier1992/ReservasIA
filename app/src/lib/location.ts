@@ -4,7 +4,14 @@
 // búsqueda de Google Maps con la dirección.
 export function businessMapsUrl(location: { address?: string | null; maps_url?: string | null }): string | null {
   const custom = location.maps_url?.trim();
-  if (custom && custom.startsWith("https://")) return custom;
+  if (custom) {
+    try {
+      const url = new URL(custom);
+      if (url.protocol === "https:") return url.href;
+    } catch {
+      // Enlace mal escrito: se usa la búsqueda con la dirección.
+    }
+  }
   const address = location.address?.trim();
   if (!address) return null;
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
