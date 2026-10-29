@@ -65,7 +65,7 @@ function without<T extends object, K extends keyof T>(obj: T, key: K): Omit<T, K
 let ip = 0;
 const nextIp = () => `10.0.0.${++ip}`;
 
-describe("public booking API", () => {
+describe("API pública de reservas", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     insforgeMockInstance = mockFor(ACTIVE_ORG);
@@ -183,7 +183,7 @@ describe("public booking API", () => {
     expect(createReservationMock).not.toHaveBeenCalled();
   });
 
-  it("limits how many bookings one connection can make", async () => {
+  it("limita cuántas reservas puede hacer una misma conexión", async () => {
     const sameIp = nextIp();
     const statuses: number[] = [];
     for (let i = 0; i < 6; i++) {

@@ -14,7 +14,7 @@ const { startTelegramPollingManager, stopTelegramPollingManager, getTelegramPoll
   "../src/services/telegram/telegramPollingManager.js"
 );
 
-describe("telegramPollingManager loop", () => {
+describe("telegramPollingManager: ciclo de lectura", () => {
   afterEach(() => {
     stopTelegramPollingManager();
     vi.useRealTimers();

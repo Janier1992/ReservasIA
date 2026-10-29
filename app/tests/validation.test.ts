@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { isNonNegativeNumber, isPositiveInteger, isValidEmail, isValidMapsUrl } from "@/lib/validation";
 
 describe("isValidEmail", () => {
-  it("accepts well-formed emails", () => {
+  it("acepta correos bien escritos", () => {
     expect(isValidEmail("cliente@negocio.com")).toBe(true);
     expect(isValidEmail("  cliente@negocio.com  ")).toBe(true);
   });
 
-  it("rejects malformed emails", () => {
+  it("rechaza correos mal escritos", () => {
     expect(isValidEmail("no-es-un-email")).toBe(false);
     expect(isValidEmail("falta-arroba.com")).toBe(false);
     expect(isValidEmail("sin-dominio@")).toBe(false);
@@ -29,7 +29,7 @@ describe("isNonNegativeNumber", () => {
 });
 
 describe("isPositiveInteger", () => {
-  it("accepts positive integers", () => {
+  it("acepta enteros positivos", () => {
     expect(isPositiveInteger(1)).toBe(true);
     expect(isPositiveInteger(60)).toBe(true);
   });

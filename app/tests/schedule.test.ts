@@ -41,7 +41,7 @@ describe("overlappingReservations", () => {
   });
 });
 
-describe("hour periods", () => {
+describe("franjas horarias", () => {
   it("detecta franjas invertidas y solapadas", () => {
     expect(validateHourPeriods([{ day_of_week: 1, opening_time: "09:00", closing_time: "13:00" }, { day_of_week: 1, opening_time: "14:00", closing_time: "18:00" }])).toBeNull();
     expect(validateHourPeriods([{ day_of_week: 2, opening_time: "10:00", closing_time: "09:00" }])).toMatch(/Martes/);

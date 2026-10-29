@@ -37,7 +37,7 @@ function queriesFor(table: string) {
     .map((c) => c.query);
 }
 
-describe("handleInboundMessage claim handling", () => {
+describe("handleInboundMessage: mensajes repetidos", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

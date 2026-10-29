@@ -10,7 +10,7 @@ import {
   whatsappNumber
 } from "@/lib/engagement";
 
-describe("whatsapp links", () => {
+describe("enlaces de WhatsApp", () => {
   it("agrega el indicativo de Colombia a los celulares de 10 dígitos y omite a los clientes de Telegram", () => {
     expect(whatsappNumber("300 123 4567")).toBe("573001234567");
     expect(whatsappNumber("+57 300 123 4567")).toBe("573001234567");
@@ -21,7 +21,7 @@ describe("whatsapp links", () => {
   });
 });
 
-describe("messages", () => {
+describe("mensajes", () => {
   it("arma el mensaje de la encuesta con el primer nombre y el enlace", () => {
     const url = surveyUrl("a".repeat(64), "https://app.test");
     expect(url).toBe(`https://app.test/o/${"a".repeat(64)}`);
@@ -45,7 +45,7 @@ describe("ratingStats", () => {
 
 describe("sinceLabel", () => {
   const now = new Date("2026-09-27T12:00:00Z");
-  it("uses days, then months", () => {
+  it("usa días y después meses", () => {
     expect(sinceLabel("2026-08-06T12:00:00Z", now)).toBe("hace 52 días");
     expect(sinceLabel("2026-05-27T12:00:00Z", now)).toBe("hace 4 meses");
     expect(sinceLabel("2025-01-01T12:00:00Z", now)).toBe("hace más de un año");

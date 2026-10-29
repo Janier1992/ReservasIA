@@ -40,7 +40,7 @@ describe("líneas del carrito y total", () => {
   });
 });
 
-describe("order summaries", () => {
+describe("resúmenes del pedido", () => {
   it("se lee como una frase", () => {
     expect(summarizeOrderItems(null)).toBe("");
     expect(summarizeOrderItems([{ name: "Limonada", quantity: 1 }])).toBe("Limonada");

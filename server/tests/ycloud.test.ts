@@ -85,7 +85,7 @@ describe("verifyYCloudSignature", () => {
 });
 
 describe("normalizeWhatsAppPhone", () => {
-  it("always returns +<digits>", () => {
+  it("siempre devuelve +<dígitos>", () => {
     expect(normalizeWhatsAppPhone("573001112233")).toBe("+573001112233");
     expect(normalizeWhatsAppPhone("whatsapp:+57 300 111 2233")).toBe("+573001112233");
   });

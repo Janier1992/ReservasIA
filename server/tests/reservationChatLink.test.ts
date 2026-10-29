@@ -110,7 +110,7 @@ describe("linkReservationByCode", () => {
 });
 
 describe("buildReservationLinkedText", () => {
-  it("works without names", () => {
+  it("funciona sin nombres", () => {
     expect(buildReservationLinkedText(null, null, "", "2026-10-10T15:00:00Z", "America/Bogota")).toMatch(/^¡Hola! Tu reserva quedó confirmada para el sábado 10 de octubre/);
   });
 });
