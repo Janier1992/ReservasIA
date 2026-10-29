@@ -23,6 +23,10 @@ export interface PublicBusiness {
   name: string;
   description: string | null;
   address: string | null;
+  /** Indicaciones para llegar (piso, local, punto de referencia). */
+  addressDetails: string | null;
+  /** Enlace "cómo llegar" (el del negocio o una búsqueda con la dirección). */
+  mapsUrl: string | null;
   phone: string | null;
   logoUrl: string | null;
   maxBookingDays: number;

@@ -19,6 +19,10 @@ export interface BusinessProfile {
   logo_url: string | null;
   description: string | null;
   address: string | null;
+  /** Indicaciones para llegar (piso, local, punto de referencia). Opcional hasta aplicar 20261029090000. */
+  address_details?: string | null;
+  /** Enlace de Google Maps/Waze del negocio (https). Opcional hasta aplicar 20261029090000. */
+  maps_url?: string | null;
   phone: string | null;
   email: string | null;
   website: string | null;

@@ -6,6 +6,7 @@ test("un cliente reserva en la página pública, y solo después de autorizar el
   await page.goto(`/r/${BARBERSHOP.slug}`);
 
   await expect(page.getByRole("heading", { name: BARBERSHOP.name })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Cómo llegar" })).toHaveAttribute("href", BARBERSHOP.mapsUrl);
   await page.getByText("Corte clásico").click();
   await page.getByRole("button", { name: /10:00/ }).first().click();
   await page.getByLabel(/Nombre/).fill("Laura Gómez");
@@ -20,6 +21,7 @@ test("un cliente reserva en la página pública, y solo después de autorizar el
   await page.getByRole("button", { name: "Confirmar reserva" }).click();
 
   await expect(page.getByRole("heading", { name: /¡Listo, Laura!/ })).toBeVisible();
+  await expect(page.getByText("(Local 3)")).toBeVisible();
   expect(sent.bookings).toEqual([
     expect.objectContaining({ serviceId: "svc-corte", name: "Laura Gómez", phone: "300 111 2233", dataConsent: true })
   ]);
