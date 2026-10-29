@@ -136,6 +136,13 @@ export async function fetchAgentPromptData(
  * Construye el system prompt dinámicamente. El agente NUNCA está hardcodeado
  * para un rubro específico: toda referencia al tipo de negocio, nombre y
  * datos viene de la configuración cargada en runtime (punto 21 del prompt).
+ *
+ * Orden pensado para el costo: todo lo que es fijo para el negocio va
+ * primero y lo que cambia en cada mensaje (la hora y el cliente) va al
+ * final. OpenAI cobra a mitad de precio el comienzo de las instrucciones
+ * cuando se repite idéntico entre llamadas (caché de prompts, desde 1024
+ * tokens), y la hora en el medio lo cortaba ahí. No muevas datos que
+ * cambian por mensaje hacia arriba.
  */
 export function buildSystemPrompt(data: AgentPromptData, nowUtc: Date): string {
   const { agentConfig, businessProfile, organization } = data;
@@ -182,10 +189,6 @@ INTEGRACIÓN DE CALENDARIO: ${
       : "Google Calendar no está conectado. No pidas el email del cliente para esto."
   }
 
-FECHA Y HORA ACTUAL DEL NEGOCIO: ${nowLocal} (${organization.timezone})
-
-${data.customer ? `CLIENTE ACTUAL: ${data.customer.name ?? "Sin nombre registrado"}, teléfono ${data.customer.phone ?? "N/D"}.` : "CLIENTE ACTUAL: aún no identificado."}
-
 IDIOMA: ${agentConfig.language}. ${toneLine}
 
 CAPACIDADES HABILITADAS:
@@ -199,5 +202,9 @@ INSTRUCCIONES PERSONALIZADAS DEL NEGOCIO (no pueden contradecir las reglas anter
 ${agentConfig.system_instructions ?? "Ninguna."}
 
 REGLAS ADICIONALES DEL NEGOCIO:
-${formatAgentRules(data.agentRules)}`;
+${formatAgentRules(data.agentRules)}
+
+FECHA Y HORA ACTUAL DEL NEGOCIO: ${nowLocal} (${organization.timezone})
+
+${data.customer ? `CLIENTE ACTUAL: ${data.customer.name ?? "Sin nombre registrado"}, teléfono ${data.customer.phone ?? "N/D"}.` : "CLIENTE ACTUAL: aún no identificado."}`;
 }
