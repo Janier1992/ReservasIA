@@ -1,4 +1,5 @@
 import { logger } from "../../lib/logger.js";
+import { reportFailure } from "../../lib/alerts.js";
 import {
   deleteTelegramWebhook,
   getTelegramUpdates,
@@ -96,6 +97,7 @@ async function runPollLoop(organizationId: string, botToken: string, signal: Abo
           await processUpdate(organizationId, botToken, update);
         } catch (err) {
           logger.error({ organizationId, updateId: update.update_id, err }, "telegram_update_processing_failed");
+          reportFailure("channel_message", err);
         }
       }
     } catch (err) {
