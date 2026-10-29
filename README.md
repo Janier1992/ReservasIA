@@ -725,6 +725,17 @@ npm run build
 - [x] Logging estructurado sin secretos, rate limiting en la API pública, validaciones con Zod. Costos de IA acotados
       por respuesta (rondas de herramientas, historial y largo del mensaje limitados, con timeout).
 
+## Monitoreo y alertas
+
+- **Disponibilidad**: `GET /api/health` del compute service responde 200 mientras el server está vivo. Conviene un
+  monitor externo gratuito (por ejemplo UptimeRobot, cada 5 minutos) que avise si deja de responder.
+- **Fallas repetidas** (`server/src/lib/alerts.ts`): si el mismo tipo de falla pasa 5 veces en 10 minutos, se
+  manda un correo a `ALERT_EMAIL` (variable de Railway; varios correos separados por coma), como mucho uno por
+  hora por tipo. Tipos: el agente no pudo consultar a la IA (`agent_ai`), mensajes de WhatsApp/Telegram que no se
+  pudieron procesar (`channel_message`), una tarea programada que falla (`scheduled_job:<nombre>`) y errores 500
+  del server (`server_error`). El correo nunca lleva datos de clientes, solo el tipo de falla y el mensaje técnico.
+  Sin `ALERT_EMAIL` la alerta queda en el log como `alert_triggered`. Usa la misma cuota de correos de InsForge.
+
 ## Simplificaciones conocidas / próximos pasos
 
 - **Sin límite de mensajes por conversación (decisión del negocio)**: el agente responde todo lo que el cliente

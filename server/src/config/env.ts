@@ -39,6 +39,10 @@ const envSchema = z.object({
   // leen y escriben esa columna) cifren y descifren con la misma clave.
   INTEGRATIONS_ENCRYPTION_KEY: z.string().min(8).default(DEFAULT_INTEGRATIONS_ENCRYPTION_KEY),
 
+  // Correo (o varios, separados por coma) que recibe las alertas cuando algo
+  // empieza a fallar seguido (ver lib/alerts.ts). Vacío = solo quedan en el log.
+  ALERT_EMAIL: z.string().optional().default(""),
+
   // "true" en el .env LOCAL: no arranca el poller de Telegram ni los
   // schedulers. Si no, un server local con las credenciales de producción
   // lee los mismos bots que Railway (Telegram entrega cada mensaje a ambos) —

@@ -2,6 +2,7 @@ import type OpenAI from "openai";
 import { openai, OPENAI_MODEL, IS_OPENROUTER } from "../../lib/openai.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logAgentEvent, logger } from "../../lib/logger.js";
+import { reportFailure } from "../../lib/alerts.js";
 import { AGENT_TIMEOUT_MS, MAX_CONVERSATION_HISTORY_MESSAGES, MAX_MESSAGE_LENGTH } from "../../config/env.js";
 import { buildSystemPrompt, loadAgentPromptData } from "./promptBuilder.js";
 import { getToolDefinitionsForAgent } from "./tools.js";
@@ -318,6 +319,7 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
     } catch (err) {
       logAgentEvent(logCtx, { scope: "agent", result: "error", durationMs: Date.now() - start, message: "openai_call_failed" });
       logger.error({ ...logCtx, err }, "agent_openai_error");
+      reportFailure("agent_ai", err);
       return { reply: FALLBACK_REPLY, roundsUsed: round };
     }
 

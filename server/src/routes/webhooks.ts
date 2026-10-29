@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { logger } from "../lib/logger.js";
+import { reportFailure } from "../lib/alerts.js";
 import { AppError, ErrorCodes } from "../utils/AppError.js";
 import { processUpdate } from "../services/telegram/telegramUpdateHandler.js";
 import { botTokenForWebhook, isValidTelegramWebhookSecret } from "../services/telegram/telegramWebhookManager.js";
@@ -42,9 +43,10 @@ webhooksRouter.post("/telegram/:organizationId", async (req, res, next) => {
       logger.warn({ organizationId }, "telegram_webhook_without_connected_bot");
       return;
     }
-    processUpdate(organizationId, botToken, update).catch((err) =>
-      logger.error({ organizationId, updateId: update.update_id, err }, "telegram_update_processing_failed")
-    );
+    processUpdate(organizationId, botToken, update).catch((err) => {
+      logger.error({ organizationId, updateId: update.update_id, err }, "telegram_update_processing_failed");
+      reportFailure("channel_message", err);
+    });
   } catch (err) {
     next(err);
   }
@@ -75,9 +77,10 @@ webhooksRouter.post("/ycloud/:organizationId", async (req, res, next) => {
 
     res.status(200).json({ ok: true });
     const event = req.body as YCloudEvent;
-    handleYCloudEvent(organizationId, integration, event).catch((err) =>
-      logger.error({ organizationId, eventId: event?.id, eventType: event?.type, err }, "ycloud_event_processing_failed")
-    );
+    handleYCloudEvent(organizationId, integration, event).catch((err) => {
+      logger.error({ organizationId, eventId: event?.id, eventType: event?.type, err }, "ycloud_event_processing_failed");
+      reportFailure("channel_message", err);
+    });
   } catch (err) {
     next(err);
   }
