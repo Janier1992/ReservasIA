@@ -729,6 +729,10 @@ npm run build
 
 - **Sin límite de mensajes por conversación (decisión del negocio)**: el agente responde todo lo que el cliente
   escriba, sin tope por conversación. Es deliberado: no agregar un límite sin acordarlo con el negocio.
+  Lo que sí hay es un **límite de velocidad** contra ráfagas anormales (`server/src/services/agent/agentRateLimit.ts`):
+  hasta 10 turnos del agente por minuto por cliente y 120 por minuto por negocio. Un mensaje frenado igual queda
+  guardado (se ve en la Bandeja y el agente lo lee en el siguiente turno), y el cliente recibe una sola vez el aviso
+  de que le responden en un minuto. Vive en memoria del server (alcanza con una sola instancia, como hoy).
 
 Con esto se cierran los últimos pendientes técnicos que quedaban documentados en esta sección; lo único que sigue
 en esta lista es la decisión deliberada de arriba (no un pendiente real). Resuelto más recientemente: las
