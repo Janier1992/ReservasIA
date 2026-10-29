@@ -1,3 +1,4 @@
+import { decryptCredentials } from "../../lib/credentialsCrypto.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 
@@ -47,11 +48,12 @@ export async function listConnectedTelegramBots(): Promise<ConnectedTelegramBot[
   if (error) throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudieron cargar las integraciones de Telegram.", 500);
 
   return (data ?? [])
-    .filter((row) => (row.credentials as TelegramCredentials | null)?.bot_token)
     .map((row) => ({
       organizationId: row.organization_id as string,
-      botToken: (row.credentials as TelegramCredentials).bot_token
-    }));
+      credentials: decryptCredentials(row.credentials as Record<string, unknown> | null) as Partial<TelegramCredentials>
+    }))
+    .filter((row) => row.credentials.bot_token)
+    .map((row) => ({ organizationId: row.organizationId, botToken: row.credentials.bot_token! }));
 }
 
 /** Token del bot conectado de un negocio, o null si no tiene Telegram conectado. */
@@ -63,7 +65,8 @@ export async function loadConnectedTelegramBotToken(organizationId: string): Pro
     .eq("provider", "telegram")
     .eq("status", "connected")
     .maybeSingle();
-  return (data?.credentials as Partial<TelegramCredentials> | null)?.bot_token ?? null;
+  const credentials = decryptCredentials(data?.credentials as Record<string, unknown> | null) as Partial<TelegramCredentials>;
+  return credentials.bot_token ?? null;
 }
 
 /**

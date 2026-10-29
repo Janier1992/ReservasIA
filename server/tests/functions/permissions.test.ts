@@ -19,7 +19,8 @@ const ENV: Record<string, string> = {
   GOOGLE_CLIENT_ID: "client-id",
   GOOGLE_REDIRECT_URI: "https://server.test/api/integrations/google/callback",
   OPENAI_API_KEY: "openai-key",
-  GEMINI_API_KEY: "gemini-key"
+  GEMINI_API_KEY: "gemini-key",
+  INTEGRATIONS_ENCRYPTION_KEY: "a-test-encryption-key-with-enough-length"
 };
 
 type Role = "owner" | "admin" | "staff";

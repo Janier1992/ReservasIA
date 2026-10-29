@@ -52,6 +52,7 @@ const { createCalendarEvent, deleteCalendarEvent, handleGoogleOAuthCallback, upd
   "../src/services/google/googleService.js"
 );
 const { env } = await import("../src/config/env.js");
+const { decryptCredentials } = await import("../src/lib/credentialsCrypto.js");
 
 const CONNECTED = {
   organization_id: "org-1",
@@ -170,11 +171,9 @@ describe("eventos de Google Calendar", () => {
     expect(google.onTokens).toBeTypeOf("function");
     google.onTokens!({ access_token: "nuevo" });
     await Promise.resolve();
-    expect(savedIntegration()).toMatchObject({
-      organization_id: "org-1",
-      status: "connected",
-      credentials: { access_token: "nuevo", refresh_token: "r" }
-    });
+    const saved = savedIntegration();
+    expect(saved).toMatchObject({ organization_id: "org-1", status: "connected" });
+    expect(decryptCredentials(saved?.credentials as Record<string, unknown>)).toEqual({ access_token: "nuevo", refresh_token: "r" });
   });
 });
 
@@ -194,13 +193,14 @@ describe("conexión con Google (callback de OAuth)", () => {
 
     expect(await handleGoogleOAuthCallback("code-1", state)).toEqual({ organizationId: "org-1" });
     expect(google.getToken).toHaveBeenCalledWith("code-1");
-    expect(savedIntegration()).toMatchObject({
+    const saved = savedIntegration();
+    expect(saved).toMatchObject({
       organization_id: "org-1",
       provider: "google_calendar",
       status: "connected",
-      credentials: { access_token: "a", refresh_token: "r" },
       metadata: { email: "negocio@test.local", calendarId: "primary" }
     });
+    expect(decryptCredentials(saved?.credentials as Record<string, unknown>)).toMatchObject({ access_token: "a", refresh_token: "r" });
   });
 
   it("no conecta nada si el state no viene firmado por el servidor", async () => {

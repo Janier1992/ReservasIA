@@ -4,6 +4,7 @@
 // WhatsApp, lo envía por la API de YCloud usando las credenciales
 // guardadas (columna integrations.credentials, sólo accesible vía admin).
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
+import { decryptCredentials } from "./_shared/credentialsCrypto.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -83,7 +84,10 @@ export default async function handler(req: Request): Promise<Response> {
       .maybeSingle();
     if (ycloud?.status === "connected") {
       try {
-        const apiKey = (ycloud.credentials as { api_key: string }).api_key;
+        const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY");
+        if (!encryptionKey) throw new Error("Falta configurar INTEGRATIONS_ENCRYPTION_KEY.");
+        const credentials = await decryptCredentials(ycloud.credentials as Record<string, unknown> | null, encryptionKey);
+        const apiKey = credentials.api_key as string;
         const fromNumber = (ycloud.metadata as Record<string, unknown>).phone_number as string;
         const to = `+${customerPhone.replace(/[^\d]/g, "")}`;
         const res = await fetch("https://api.ycloud.com/v2/whatsapp/messages/sendDirectly", {

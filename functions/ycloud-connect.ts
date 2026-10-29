@@ -6,6 +6,7 @@
 // le manda al compute service cada mensaje del cliente y cada mensaje que
 // el negocio escribe desde su app (para pausar al agente).
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
+import { decryptCredentials, encryptCredentials } from "./_shared/credentialsCrypto.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -64,6 +65,11 @@ export default async function handler(req: Request): Promise<Response> {
   const apiKey = body.apiKey?.trim();
   if (!organizationId || !apiKey) {
     return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "Pegá la API key de YCloud." } }, 400);
+  }
+
+  const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY");
+  if (!encryptionKey) {
+    return jsonResponse({ error: { code: "NOT_CONFIGURED", message: "Falta configurar el cifrado de credenciales en el servidor." } }, 500);
   }
 
   // URL pública del compute service (Railway) donde YCloud entrega los mensajes.
@@ -142,7 +148,10 @@ export default async function handler(req: Request): Promise<Response> {
     .eq("organization_id", organizationId)
     .eq("provider", "ycloud")
     .maybeSingle();
-  const previousCredentials = previous?.credentials as { api_key?: string; webhook_endpoint_id?: string } | null;
+  const previousCredentials = (await decryptCredentials(previous?.credentials as Record<string, unknown> | null, encryptionKey)) as {
+    api_key?: string;
+    webhook_endpoint_id?: string;
+  };
   if (previousCredentials?.webhook_endpoint_id && previousCredentials.api_key) {
     try {
       await ycloud(previousCredentials.api_key, `/webhookEndpoints/${previousCredentials.webhook_endpoint_id}`, { method: "DELETE" });
@@ -178,7 +187,7 @@ export default async function handler(req: Request): Promise<Response> {
         organization_id: organizationId,
         provider: "ycloud",
         status: "connected",
-        credentials: { api_key: apiKey, webhook_secret: endpoint.secret, webhook_endpoint_id: endpoint.id },
+        credentials: await encryptCredentials({ api_key: apiKey, webhook_secret: endpoint.secret, webhook_endpoint_id: endpoint.id }, encryptionKey),
         metadata: {
           phone_number: phoneNumber,
           display_phone_number: number.displayPhoneNumber ?? phoneNumber,

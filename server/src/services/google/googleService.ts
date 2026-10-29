@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { google } from "googleapis";
 import { DEFAULT_OAUTH_STATE_SECRET, env, isDeployed } from "../../config/env.js";
+import { decryptCredentials, encryptCredentials } from "../../lib/credentialsCrypto.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
@@ -54,7 +55,8 @@ async function loadIntegration(organizationId: string): Promise<Integration | nu
     .maybeSingle();
 
   if (error) throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudo cargar la integración de Google Calendar.", 500);
-  return (data as Integration) ?? null;
+  if (!data) return null;
+  return { ...(data as Integration), credentials: decryptCredentials((data as Integration).credentials) };
 }
 
 async function persistCredentials(
@@ -69,7 +71,7 @@ async function persistCredentials(
         organization_id: organizationId,
         provider: "google_calendar",
         status,
-        credentials,
+        credentials: encryptCredentials(credentials),
         metadata,
         connected_at: status === "connected" ? new Date().toISOString() : null
       }

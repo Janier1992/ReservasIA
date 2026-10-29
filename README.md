@@ -445,8 +445,8 @@ valores que el compute service en Railway) y llama a la API de InsForge con `scr
 
 Cada función necesita estos secretos en InsForge (`npx @insforge/cli secrets add <KEY> <VALUE>`): `INSFORGE_BASE_URL`
 y `API_KEY` (reservados, ya provistos por InsForge), más `OPENAI_API_KEY`, `OPENAI_MODEL`, `GOOGLE_CLIENT_ID`,
-`GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` y `OAUTH_STATE_SECRET` (este último con el mismo valor que en el
-`.env` del compute service).
+`GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `OAUTH_STATE_SECRET` e `INTEGRATIONS_ENCRYPTION_KEY` (estos dos
+últimos con el mismo valor que en el `.env` del compute service).
 
 ---
 
@@ -699,7 +699,8 @@ npm run build
 - [x] Multi-tenant con `organizations` + `organization_members` + roles `owner/admin/staff`.
 - [x] RLS activo en todas las tablas tenant-aware, con funciones helper `SECURITY DEFINER`
       (`SET search_path = pg_catalog, public, pg_temp`) para evitar recursión.
-- [x] GRANT explícito + REVOKE de columna (`integrations.credentials`).
+- [x] GRANT explícito + REVOKE de columna (`integrations.credentials`), cifrada además a nivel de aplicación
+      (AES-256-GCM) antes de guardarse.
 - [x] Prevención de doble reserva con `EXCLUDE` constraint + locks de asesoría.
 - [x] `book_reservation` valida que el servicio/recurso pertenezcan a la organización que reserva (aislamiento
       multi-tenant también a nivel de datos referenciados, no sólo de filas propias).
@@ -723,10 +724,18 @@ npm run build
 
 ## Simplificaciones conocidas / próximos pasos
 
-- **Credenciales de integraciones**: se guardan en `integrations.credentials` protegidas por permisos de columna,
-  pero sin cifrado propio de la aplicación.
 - **Sin límite de mensajes por conversación (decisión del negocio)**: el agente responde todo lo que el cliente
   escriba, sin tope por conversación. Es deliberado: no agregar un límite sin acordarlo con el negocio.
+
+Con esto se cierran los últimos pendientes técnicos que quedaban documentados en esta sección; lo único que sigue
+en esta lista es la decisión deliberada de arriba (no un pendiente real). Resuelto más recientemente: las
+credenciales de integraciones (`integrations.credentials`: tokens de Google, API keys de YCloud, bot tokens de
+Telegram) ahora se cifran a nivel de aplicación (AES-256-GCM, clave derivada de `INTEGRATIONS_ENCRYPTION_KEY`) antes
+de guardarse, además del permiso de columna que ya tenían — tanto el compute service (Node) como las Edge Functions
+que conectan/desconectan cada canal (Deno) cifran y descifran con la misma clave, así que cualquiera de los dos
+lados puede leer lo que escribió el otro; las filas que ya estaban conectadas antes de este cambio se migraron con
+`server/scripts/backfillEncryptIntegrationCredentials.ts` (idempotente: tolera texto plano y cifrado ya existente,
+así que es seguro volver a correrlo).
 
 Resuelto desde la última revisión de esta lista: se retiró por completo la integración anterior con Twilio (código,
 Edge Functions `twilio-connect`/`twilio-disconnect`, variables de entorno, UI y textos legales) — WhatsApp funciona

@@ -5,6 +5,7 @@
 // (telegramPollingManager.ts) o, con TELEGRAM_MODE=webhook, registrándole su
 // webhook en menos de un minuto (telegramWebhookManager.ts).
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
+import { encryptCredentials } from "./_shared/credentialsCrypto.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +40,11 @@ export default async function handler(req: Request): Promise<Response> {
   const botToken = body.botToken?.trim();
   if (!organizationId || !botToken) {
     return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "organization_id y botToken son requeridos." } }, 400);
+  }
+
+  const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY");
+  if (!encryptionKey) {
+    return jsonResponse({ error: { code: "NOT_CONFIGURED", message: "Falta configurar el cifrado de credenciales en el servidor." } }, 500);
   }
 
   const { data: membership } = await userClient.database
@@ -81,7 +87,7 @@ export default async function handler(req: Request): Promise<Response> {
         organization_id: organizationId,
         provider: "telegram",
         status: "connected",
-        credentials: { bot_token: botToken },
+        credentials: await encryptCredentials({ bot_token: botToken }, encryptionKey),
         metadata: { bot_username: botInfo.username ?? null, bot_first_name: botInfo.first_name ?? null },
         connected_at: new Date().toISOString()
       }
