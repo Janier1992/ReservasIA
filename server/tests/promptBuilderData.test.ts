@@ -88,6 +88,15 @@ describe("datos del negocio en las instrucciones del agente", () => {
     expect(known).toContain("CLIENTE ACTUAL: Laura, teléfono +573001112233.");
   });
 
+  it("deja la hora y el cliente al final, para que el resto se reutilice del caché entre mensajes", () => {
+    const first = buildSystemPrompt(base, NOW);
+    const later = buildSystemPrompt(makeData({ customer: { name: "Laura", phone: "+573001112233" } as never }), new Date(NOW.getTime() + 90 * 60_000));
+    const fixedPart = first.slice(0, first.indexOf("FECHA Y HORA ACTUAL DEL NEGOCIO"));
+    expect(later.startsWith(fixedPart)).toBe(true);
+    expect(fixedPart).toContain("REGLAS ADICIONALES DEL NEGOCIO");
+    expect(first.length - fixedPart.length).toBeLessThan(200);
+  });
+
   it("solo pide el correo del cliente para Google Calendar cuando el calendario está conectado", () => {
     expect(buildSystemPrompt(base, NOW)).toContain("No pidas el email del cliente para esto.");
     expect(buildSystemPrompt(makeData({ googleCalendarConnected: true }), NOW)).toContain("campo email_cliente");

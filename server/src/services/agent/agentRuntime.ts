@@ -321,6 +321,19 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
       return { reply: FALLBACK_REPLY, roundsUsed: round };
     }
 
+    // Consumo de cada llamada, para medir el costo real por negocio en los
+    // logs (cachedTokens = parte de las instrucciones cobrada a mitad de precio).
+    logger.info(
+      {
+        ...logCtx,
+        round,
+        promptTokens: completion.usage?.prompt_tokens,
+        cachedTokens: completion.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+        completionTokens: completion.usage?.completion_tokens
+      },
+      "agent_openai_usage"
+    );
+
     const choice = completion.choices[0];
     const responseMessage = choice.message;
 
