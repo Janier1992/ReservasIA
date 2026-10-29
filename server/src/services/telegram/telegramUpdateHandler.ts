@@ -2,6 +2,7 @@ import { logger } from "../../lib/logger.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { handleInboundMessage } from "../conversations/inboundMessageHandler.js";
 import { runAgentTurn } from "../agent/agentRuntime.js";
+import { checkAgentTurn, RATE_LIMIT_NOTICE } from "../agent/agentRateLimit.js";
 import { markAwaitingPaymentAsAwaitingConfirmation } from "../reservations/reservationsService.js";
 import { notifyPaymentReceiptReceived } from "../notifications/pushService.js";
 import { uploadPaymentReceipt } from "../storage/receiptsService.js";
@@ -140,6 +141,15 @@ export async function processUpdate(organizationId: string, botToken: string, up
       conversationId
     });
     await sendTelegramMessage(botToken, chatId, reply);
+    return;
+  }
+
+  // Ráfaga anormal de mensajes: el mensaje ya quedó guardado, pero no se
+  // llama a la IA por cada uno (ver agentRateLimit.ts).
+  const decision = checkAgentTurn(organizationId, externalIdentity);
+  if (decision !== "allowed") {
+    logger.warn({ organizationId, conversationId, decision }, "agent_turn_rate_limited");
+    if (decision === "limited_notify") await sendTelegramMessage(botToken, chatId, RATE_LIMIT_NOTICE);
     return;
   }
 

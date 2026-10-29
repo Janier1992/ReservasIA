@@ -1,6 +1,7 @@
 import { logger } from "../../lib/logger.js";
 import { handleInboundMessage } from "../conversations/inboundMessageHandler.js";
 import { runAgentTurn } from "../agent/agentRuntime.js";
+import { checkAgentTurn, RATE_LIMIT_NOTICE } from "../agent/agentRateLimit.js";
 import { extractOrderCode, handleOrderCodeMessage } from "../publicOrders/publicOrderService.js";
 import { normalizeWhatsAppPhone, sendYCloudText, type YCloudIntegration } from "./ycloudService.js";
 
@@ -78,6 +79,15 @@ async function handleCustomerMessage(organizationId: string, integration: YCloud
       conversationId
     });
     await sendYCloudText(integration, customerPhone, reply);
+    return;
+  }
+
+  // Ráfaga anormal de mensajes: el mensaje ya quedó guardado, pero no se
+  // llama a la IA por cada uno (ver agentRateLimit.ts).
+  const decision = checkAgentTurn(organizationId, `whatsapp:${customerPhone}`);
+  if (decision !== "allowed") {
+    logger.warn({ organizationId, conversationId, decision }, "agent_turn_rate_limited");
+    if (decision === "limited_notify") await sendYCloudText(integration, customerPhone, RATE_LIMIT_NOTICE);
     return;
   }
 
