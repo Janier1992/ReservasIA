@@ -491,6 +491,12 @@ la sección 23 del manual de usuario (`docs/manual/`).
    responde al cliente con el agente y pausa al agente 30 minutos cuando el negocio escribe desde la app.
 4. La dirección pública del compute service sale de `SERVER_PUBLIC_URL` (secreto de las Edge Functions en InsForge)
    o, si no está, de `VITE_API_URL` del frontend.
+5. **Recordatorios**: Meta solo deja escribirle primero al cliente con una plantilla aprobada. La primera vez que
+   hay un recordatorio por mandar, el compute service crea en la cuenta de YCloud del negocio la plantilla de
+   utilidad `reservasia_recordatorio_reserva` (español) y espera a que Meta la apruebe (suele tardar de minutos a
+   unas horas); mientras tanto el recordatorio se salta y se reintenta cada 10 minutos. El estado queda en
+   `integrations.metadata.reminder_template` y en los logs (`ycloud_reminder_template_*`). Meta cobra cada
+   plantilla enviada según su tarifa para el país. Por Telegram el recordatorio sale como mensaje normal, gratis.
 
 > La integración anterior con Twilio sigue en el código solo para negocios que ya la tenían conectada (pueden
 > desconectarla); ya no se puede conectar desde la app.

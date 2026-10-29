@@ -50,10 +50,11 @@ export function buildReminderText(row: DueReminderRow): string {
  * WhatsApp SIEMPRE se manda por plantilla pre-aprobada, nunca como texto
  * libre: una reserva hecha con anticipación casi siempre cae fuera de la
  * ventana de 24h en la que Meta permite texto libre, así que un mensaje
- * libre se rechazaría. La plantilla se crea y somete a aprobación sola al
- * conectar WhatsApp (ver functions/twilio-connect.ts); si todavía no está
- * configurada (o Meta no la aprobó), el recordatorio de esa reserva se
- * salta y se reintenta en el siguiente ciclo — nunca se cae a texto libre.
+ * libre se rechazaría. La plantilla se crea y somete a aprobación sola: con
+ * YCloud la primera vez que hace falta (ver ycloud/ycloudReminderTemplate.ts)
+ * y con Twilio al conectar (ver functions/twilio-connect.ts). Si todavía no
+ * está aprobada, el recordatorio de esa reserva se salta y se reintenta en
+ * el siguiente ciclo — nunca se cae a texto libre.
  */
 async function sendReminder(row: DueReminderRow): Promise<boolean> {
   if (!row.customer_phone) return false;
@@ -77,6 +78,12 @@ async function sendReminder(row: DueReminderRow): Promise<boolean> {
     });
     if (result === "no_template_configured") {
       logger.warn({ reservationId: row.reservation_id, organizationId: row.organization_id }, "reminder_skipped_no_whatsapp_template");
+      return false;
+    }
+    if (result === "no_whatsapp_channel") {
+      // El cliente dejó un número pero el negocio no tiene WhatsApp: no hay
+      // por dónde escribirle (por Telegram solo se puede si vinculó su chat).
+      logger.info({ reservationId: row.reservation_id, organizationId: row.organization_id }, "reminder_skipped_no_whatsapp_channel");
       return false;
     }
     return true;

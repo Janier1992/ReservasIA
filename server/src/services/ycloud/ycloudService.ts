@@ -11,8 +11,8 @@ import { logger } from "../../lib/logger.js";
  * /api/webhooks/ycloud/:organizationId.
  */
 
-const YCLOUD_API_BASE = "https://api.ycloud.com/v2";
-const SEND_TIMEOUT_MS = 10_000;
+export const YCLOUD_API_BASE = "https://api.ycloud.com/v2";
+export const SEND_TIMEOUT_MS = 10_000;
 // YCloud firma cada entrega con su hora: una firma más vieja que esto se
 // rechaza para que no se pueda reenviar un webhook capturado.
 const SIGNATURE_TOLERANCE_MS = 5 * 60 * 1000;
@@ -28,6 +28,8 @@ export interface YCloudIntegration {
   credentials: YCloudCredentials;
   /** Número de WhatsApp del negocio en formato +<código país><número>. */
   phoneNumber: string;
+  /** integrations.metadata tal cual (waba_id, plantilla de recordatorio, etc.). */
+  metadata: Record<string, unknown>;
 }
 
 /** "+573001112233" sin importar si llega con o sin "+" (o con el prefijo de Twilio). */
@@ -74,9 +76,10 @@ export async function loadYCloudIntegration(organizationId: string): Promise<YCl
     .eq("status", "connected")
     .maybeSingle();
   const credentials = data?.credentials as Partial<YCloudCredentials> | null;
-  const phoneNumber = (data?.metadata as { phone_number?: string } | null)?.phone_number;
+  const metadata = (data?.metadata ?? {}) as Record<string, unknown>;
+  const phoneNumber = typeof metadata.phone_number === "string" ? metadata.phone_number : "";
   if (!credentials?.api_key || !credentials.webhook_secret || !phoneNumber) return null;
-  return { organizationId, credentials: credentials as YCloudCredentials, phoneNumber: normalizeWhatsAppPhone(phoneNumber) };
+  return { organizationId, credentials: credentials as YCloudCredentials, phoneNumber: normalizeWhatsAppPhone(phoneNumber), metadata };
 }
 
 /**
@@ -114,7 +117,7 @@ export async function sendYCloudText(integration: YCloudIntegration, toPhone: st
  * por si alguna vez llegara el eco de un mensaje enviado por la API, se deja
  * reclamado su id: ese eco se descarta como repetido y no pausa al agente.
  */
-async function claimSentMessage(organizationId: string, customerPhone: string, ids: (string | undefined)[]): Promise<void> {
+export async function claimSentMessage(organizationId: string, customerPhone: string, ids: (string | undefined)[]): Promise<void> {
   const rows = ids
     .filter((id): id is string => Boolean(id))
     .map((id) => ({ organization_id: organizationId, channel: "whatsapp", external_conversation_id: customerPhone, external_message_id: id }));
