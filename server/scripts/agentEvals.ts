@@ -157,7 +157,13 @@ export async function runAll(client: ChatClient, model: string, list: EvalScenar
   return results;
 }
 
-const cell = (text: string) => text.replace(/\|/g, "\\|").replace(/\s+/g, " ").slice(0, 300);
+/** Texto dentro de una celda de tabla Markdown: primero las barras invertidas, después "|". */
+const cell = (text: string) =>
+  text
+    .replace(/\\/g, "\\\\")
+    .replace(/\|/g, "\\|")
+    .replace(/\s+/g, " ")
+    .slice(0, 300);
 
 /** Informe en Markdown: resumen arriba y, por cada falla, la respuesta y el motivo. */
 export function formatReport(results: EvalResult[], model: string): string {

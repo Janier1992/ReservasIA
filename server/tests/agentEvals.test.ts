@@ -77,5 +77,8 @@ describe("batería de pruebas del agente", () => {
     );
     expect(report).toContain("**1/2** respuestas correctas");
     expect(report).toContain("| b | Dijiste que mañana es lunes; no debería decir /lunes/ | Mañana lunes \\| abrimos |");
+    // Una barra invertida en la respuesta no puede "desescapar" el separador de la tabla.
+    const tricky = formatReport([{ id: "c", passed: false, reply: "a\\| b", issues: [], missing: [], forbidden: [], tools: [] }], "m");
+    expect(tricky).toContain("| c |  | a\\\\\\| b |");
   });
 });
