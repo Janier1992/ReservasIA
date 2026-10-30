@@ -6,7 +6,7 @@
 // le manda al compute service cada mensaje del cliente y cada mensaje que
 // el negocio escribe desde su app (para pausar al agente).
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
-import { encryptCredentials, tryDecryptCredentials } from "./_shared/credentialsCrypto.ts";
+import { tryDecryptCredentials } from "./_shared/credentialsCrypto.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -67,13 +67,8 @@ export default async function handler(req: Request): Promise<Response> {
     return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "Pegá la API key de YCloud." } }, 400);
   }
 
-  // Redeploy forzado 2026-10-30 (ter, clave simplificada sin símbolos): una función ya desplegada sigue leyendo el
-  // valor del secreto que tenía al publicarse, no el que se actualice
-  // después en InsForge — hay que volver a publicarla para que lo recoja.
-  const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY");
-  if (!encryptionKey) {
-    return jsonResponse({ error: { code: "NOT_CONFIGURED", message: "Falta configurar el cifrado de credenciales en el servidor." } }, 500);
-  }
+  // Solo para leer una conexión anterior que quedó cifrada (ver el guardado más abajo).
+  const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY") ?? "";
 
   // URL pública del compute service (Railway) donde YCloud entrega los mensajes.
   const serverUrl = (Deno.env.get("SERVER_PUBLIC_URL") || body.webhookBaseUrl || "").replace(/\/+$/, "");
@@ -153,7 +148,9 @@ export default async function handler(req: Request): Promise<Response> {
     .maybeSingle();
   // Si las anteriores ya no se pueden leer (se cambió la clave), se reconecta igual: el webhook viejo
   // queda en YCloud apuntando a credenciales que el server descarta.
-  const previousCredentials = ((await tryDecryptCredentials(previous?.credentials as Record<string, unknown> | null, encryptionKey)) ?? {}) as {
+  const previousCredentials = ((encryptionKey
+    ? await tryDecryptCredentials(previous?.credentials as Record<string, unknown> | null, encryptionKey)
+    : null) ?? {}) as {
     api_key?: string;
     webhook_endpoint_id?: string;
   };
@@ -192,7 +189,11 @@ export default async function handler(req: Request): Promise<Response> {
         organization_id: organizationId,
         provider: "ycloud",
         status: "connected",
-        credentials: await encryptCredentials({ api_key: apiKey, webhook_secret: endpoint.secret, webhook_endpoint_id: endpoint.id }, encryptionKey),
+        // Sin cifrar a propósito (2026-10-30), igual que telegram-connect: el server (Railway) no
+        // lograba descifrar lo que cifraba esta función con la clave de InsForge, y el agente no
+        // recibía ni respondía mensajes. El server acepta texto plano (decryptCredentials lo deja
+        // pasar). Volver a cifrar cuando se confirme que Railway lee lo que guarda InsForge.
+        credentials: { api_key: apiKey, webhook_secret: endpoint.secret, webhook_endpoint_id: endpoint.id },
         metadata: {
           phone_number: phoneNumber,
           display_phone_number: number.displayPhoneNumber ?? phoneNumber,
