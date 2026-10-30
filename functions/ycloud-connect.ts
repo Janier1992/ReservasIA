@@ -6,7 +6,7 @@
 // le manda al compute service cada mensaje del cliente y cada mensaje que
 // el negocio escribe desde su app (para pausar al agente).
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
-import { decryptCredentials, encryptCredentials } from "./_shared/credentialsCrypto.ts";
+import { encryptCredentials, tryDecryptCredentials } from "./_shared/credentialsCrypto.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -151,7 +151,9 @@ export default async function handler(req: Request): Promise<Response> {
     .eq("organization_id", organizationId)
     .eq("provider", "ycloud")
     .maybeSingle();
-  const previousCredentials = (await decryptCredentials(previous?.credentials as Record<string, unknown> | null, encryptionKey)) as {
+  // Si las anteriores ya no se pueden leer (se cambió la clave), se reconecta igual: el webhook viejo
+  // queda en YCloud apuntando a credenciales que el server descarta.
+  const previousCredentials = ((await tryDecryptCredentials(previous?.credentials as Record<string, unknown> | null, encryptionKey)) ?? {}) as {
     api_key?: string;
     webhook_endpoint_id?: string;
   };

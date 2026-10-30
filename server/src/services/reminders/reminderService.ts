@@ -1,6 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { es } from "date-fns/locale";
-import { decryptCredentials } from "../../lib/credentialsCrypto.js";
+import { readIntegrationCredentials } from "../integrations/credentialsCheck.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 import { sendTelegramMessage } from "../telegram/telegramService.js";
@@ -28,7 +28,9 @@ async function loadTelegramBotToken(organizationId: string): Promise<string | nu
     .eq("provider", "telegram")
     .eq("status", "connected")
     .maybeSingle();
-  const credentials = decryptCredentials(data?.credentials as Record<string, unknown> | null) as { bot_token?: string };
+  const credentials = (readIntegrationCredentials("telegram", organizationId, data?.credentials as Record<string, unknown> | null) ?? {}) as {
+    bot_token?: string;
+  };
   return credentials.bot_token ?? null;
 }
 

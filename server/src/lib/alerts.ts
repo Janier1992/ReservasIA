@@ -27,6 +27,8 @@ const ALERT_LABELS: Record<string, string> = {
   reservation_email: "No salen los correos de confirmación de reservas (InsForge)",
   google_calendar: "No se pueden crear o actualizar eventos en Google Calendar",
   agent_unverified_reply: "El agente intentó dar horarios, días o precios que no coinciden con los datos del negocio (se envió una respuesta segura): revisá la configuración del negocio",
+  integration_credentials_unreadable:
+    "El server no puede leer las credenciales de una integración (Telegram, WhatsApp o Google): la clave INTEGRATIONS_ENCRYPTION_KEY cambió o no es igual en Railway y en InsForge. El negocio tiene que reconectarla en Integraciones",
   google_connection_expired: "Venció la conexión de un negocio con Google Calendar: tiene que reconectarla en Integraciones"
 };
 
