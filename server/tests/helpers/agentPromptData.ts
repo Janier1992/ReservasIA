@@ -44,6 +44,8 @@ export function makeData(overrides: Partial<AgentPromptData> = {}): AgentPromptD
     services: [],
     resources: [],
     hours: [],
+    resourceHours: [],
+    blocks: [],
     agentRules: [],
     customer: null,
     googleCalendarConnected: false,

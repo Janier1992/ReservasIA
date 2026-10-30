@@ -4,40 +4,20 @@
 // functions/agent-preview.ts lo importa tal cual para que la vista previa
 // del panel use exactamente las mismas instrucciones que el agente real.
 // Si agregás un import acá, tiene que ser igual de autónomo.
-import { formatInTimeZone } from "date-fns-tz";
 import type { InsForgeClient } from "@insforge/sdk";
 import { CORE_AGENT_RULES } from "./coreRules.js";
 import { businessTypeGuidance, businessTypeLabel } from "./businessTypes.js";
 import { businessMapsUrl } from "../../utils/location.js";
+import {
+  formatNow,
+  formatResourceHours,
+  formatUpcomingDays,
+  formatWeeklyHours,
+  UPCOMING_DAYS,
+  type AgendaBlock,
+  type ResourceHours
+} from "./scheduleText.js";
 import type { AgentConfig, AgentRule, BusinessHourPeriod, BusinessProfile, Customer, Resource, Service } from "../../types/domain.js";
-
-const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-
-function formatHours(periods: BusinessHourPeriod[]): string {
-  if (periods.length === 0) return "No hay horarios configurados.";
-
-  const byDay = new Map<number, BusinessHourPeriod[]>();
-  for (const p of periods) {
-    if (!byDay.has(p.day_of_week)) byDay.set(p.day_of_week, []);
-    byDay.get(p.day_of_week)!.push(p);
-  }
-
-  const lines: string[] = [];
-  for (let dow = 0; dow < 7; dow++) {
-    const dayPeriods = byDay.get(dow);
-    if (!dayPeriods || dayPeriods.length === 0) continue;
-    if (dayPeriods.every((p) => p.is_closed)) {
-      lines.push(`- ${DAY_NAMES[dow]}: cerrado`);
-      continue;
-    }
-    const ranges = dayPeriods
-      .filter((p) => !p.is_closed)
-      .map((p) => `${p.opening_time?.slice(0, 5)}-${p.closing_time?.slice(0, 5)}`)
-      .join(", ");
-    lines.push(`- ${DAY_NAMES[dow]}: ${ranges}`);
-  }
-  return lines.join("\n");
-}
 
 function formatServices(services: Service[]): string {
   if (services.length === 0) return "No hay servicios configurados.";
@@ -95,6 +75,10 @@ export interface AgentPromptData {
   services: Service[];
   resources: Resource[];
   hours: BusinessHourPeriod[];
+  /** Horario propio de los recursos que lo tienen (resource_hour_periods). */
+  resourceHours: ResourceHours[];
+  /** Bloqueos de agenda de los próximos días (schedule_blocks). */
+  blocks: AgendaBlock[];
   agentRules: AgentRule[];
   customer: Customer | null;
   googleCalendarConnected: boolean;
@@ -119,6 +103,8 @@ export async function fetchAgentPromptData(
     { data: services },
     { data: resources },
     { data: hours },
+    { data: resourceHours },
+    { data: blocks },
     { data: agentRules },
     customerResult,
     { data: googleIntegration }
@@ -129,6 +115,16 @@ export async function fetchAgentPromptData(
     db.database.from("services").select("*").eq("organization_id", organizationId).eq("is_active", true),
     db.database.from("resources").select("*").eq("organization_id", organizationId).eq("is_active", true),
     db.database.from("business_hour_periods").select("*").eq("organization_id", organizationId),
+    db.database
+      .from("resource_hour_periods")
+      .select("resource_id, day_of_week, opening_time, closing_time")
+      .eq("organization_id", organizationId),
+    db.database
+      .from("schedule_blocks")
+      .select("resource_id, starts_at, ends_at, reason")
+      .eq("organization_id", organizationId)
+      .lt("starts_at", new Date(Date.now() + (UPCOMING_DAYS + 1) * 24 * 60 * 60 * 1000).toISOString())
+      .gt("ends_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
     db.database.from("agent_rules").select("*").eq("organization_id", organizationId).eq("enabled", true),
     customerId
       ? db.database.from("customers").select("*").eq("id", customerId).maybeSingle()
@@ -150,6 +146,8 @@ export async function fetchAgentPromptData(
     services: (services ?? []) as Service[],
     resources: (resources ?? []) as Resource[],
     hours: (hours ?? []) as BusinessHourPeriod[],
+    resourceHours: (resourceHours ?? []) as ResourceHours[],
+    blocks: (blocks ?? []) as AgendaBlock[],
     agentRules: (agentRules ?? []) as AgentRule[],
     customer: (customerResult.data as Customer | null) ?? null,
     googleCalendarConnected: googleIntegration?.status === "connected"
@@ -170,7 +168,8 @@ export async function fetchAgentPromptData(
  */
 export function buildSystemPrompt(data: AgentPromptData, nowUtc: Date): string {
   const { agentConfig, businessProfile, organization } = data;
-  const nowLocal = formatInTimeZone(nowUtc, organization.timezone, "EEEE d 'de' MMMM yyyy, HH:mm");
+  const nowLocal = formatNow(nowUtc, organization.timezone);
+  const resourceHoursText = formatResourceHours(data.resources, data.resourceHours);
 
   const toneLine =
     agentConfig.tone === "formal"
@@ -198,14 +197,18 @@ INFORMACIÓN DEL NEGOCIO:
 UBICACIÓN:
 ${formatLocation(businessProfile)}
 
-HORARIOS DE ATENCIÓN:
-${formatHours(data.hours)}
+HORARIOS DE ATENCIÓN (semana normal; lo que no figura como abierto está cerrado):
+${formatWeeklyHours(data.hours)}
 
 SERVICIOS DISPONIBLES:
 ${formatServices(data.services)}
 
 RECURSOS:
-${formatResources(data.resources)}
+${formatResources(data.resources)}${
+    resourceHoursText
+      ? `\n\nHORARIO PROPIO DEL PERSONAL / RECURSOS (solo atienden en estas franjas, aunque el negocio esté abierto más horas):\n${resourceHoursText}`
+      : ""
+  }
 
 PAGOS: ${formatPaymentPolicy(businessProfile)}
 
@@ -231,6 +234,9 @@ REGLAS ADICIONALES DEL NEGOCIO:
 ${formatAgentRules(data.agentRules)}
 
 FECHA Y HORA ACTUAL DEL NEGOCIO: ${nowLocal} (${organization.timezone})
+
+CALENDARIO DE LOS PRÓXIMOS ${UPCOMING_DAYS} DÍAS (ya resuelto con fecha, día de la semana, horario y bloqueos; usalo para "hoy", "mañana", "el viernes" o "cuándo vuelven a abrir"):
+${formatUpcomingDays(nowUtc, organization.timezone, data.hours, data.blocks)}
 
 ${formatCurrentCustomer(data.customer)}`;
 }
