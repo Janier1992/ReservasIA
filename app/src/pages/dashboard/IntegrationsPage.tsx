@@ -277,12 +277,24 @@ export function IntegrationsPage() {
             <CalendarDays className="h-5 w-5 text-secondary" />
             <CardTitle>Google Calendar</CardTitle>
           </div>
-          <Badge variant={google?.status === "connected" ? "success" : "muted"}>
-            {google?.status === "connected" ? "Connected" : "Disconnected"}
+          <Badge variant={google?.status === "connected" ? "success" : google?.status === "error" ? "destructive" : "muted"}>
+            {google?.status === "connected" ? "Connected" : google?.status === "error" ? "Reconectar" : "Disconnected"}
           </Badge>
         </CardHeader>
         <CardContent className="space-y-3">
-          {google?.status === "connected" ? (
+          {google?.status === "error" ? (
+            <>
+              <p role="alert" className="text-sm text-destructive">
+                La conexión con Google venció o se revocó, y las reservas nuevas no están llegando a tu calendario. Volvé a
+                conectarla para que todo siga funcionando.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Si vuelve a pasar a los pocos días, la app de Google Cloud está en modo &quot;Prueba&quot;: Google vence la conexión a los 7
+                días. Para que no venza, hay que publicarla (Google Cloud → Pantalla de consentimiento de OAuth).
+              </p>
+              <Button onClick={connectGoogle}>Reconectar Google Calendar</Button>
+            </>
+          ) : google?.status === "connected" ? (
             <>
               <CardDescription>Cuenta conectada: {String(google.metadata?.email ?? "—")}</CardDescription>
               <div className="flex gap-2">

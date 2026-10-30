@@ -732,8 +732,11 @@ npm run build
 - **Fallas repetidas** (`server/src/lib/alerts.ts`): si el mismo tipo de falla pasa 5 veces en 10 minutos, se
   manda un correo a `ALERT_EMAIL` (variable de Railway; varios correos separados por coma), como mucho uno por
   hora por tipo. Tipos: el agente no pudo consultar a la IA (`agent_ai`), mensajes de WhatsApp/Telegram que no se
-  pudieron procesar (`channel_message`), una tarea programada que falla (`scheduled_job:<nombre>`) y errores 500
-  del server (`server_error`). El correo nunca lleva datos de clientes, solo el tipo de falla y el mensaje técnico.
+  pudieron procesar (`channel_message`), una tarea programada que falla (`scheduled_job:<nombre>`), errores 500
+  del server (`server_error`), correos de reserva que InsForge no envió (`reservation_email`) y eventos de Google
+  Calendar que fallan (`google_calendar`). Si Google responde que la conexión de un negocio venció
+  (`invalid_grant`), la integración queda en estado `error`, Integraciones le pide reconectar y la alerta
+  `google_connection_expired` sale a la primera. El correo nunca lleva datos de clientes, solo el tipo de falla y el mensaje técnico.
   Sin `ALERT_EMAIL` la alerta queda en el log como `alert_triggered`. Usa la misma cuota de correos de InsForge.
 
 ## Simplificaciones conocidas / próximos pasos

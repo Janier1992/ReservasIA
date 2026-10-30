@@ -10,7 +10,9 @@ process.env.ALERT_EMAIL = "dueno@test.local, soporte@test.local";
 const sendMock = vi.fn(async (_options: { to: string[]; subject: string; html: string }) => ({ data: {}, error: null }));
 vi.mock("../src/lib/insforge.js", () => ({ insforgeAdmin: { emails: { send: (options: never) => sendMock(options) } } }));
 
-const { ALERT_COOLDOWN_MS, ALERT_THRESHOLD, ALERT_WINDOW_MS, reportFailure, resetAlerts } = await import("../src/lib/alerts.js");
+const { ALERT_COOLDOWN_MS, ALERT_THRESHOLD, ALERT_WINDOW_MS, reportCriticalFailure, reportFailure, resetAlerts } = await import(
+  "../src/lib/alerts.js"
+);
 
 const T0 = 1_900_000_000_000;
 const failTimes = (kind: string, times: number, start = T0, gapMs = 1000) => {
@@ -69,5 +71,14 @@ describe("alertas por fallas repetidas", () => {
   it("si mandar el correo falla, no rompe a quien reportó la falla", () => {
     sendMock.mockRejectedValueOnce(new Error("sin cuota"));
     expect(() => failTimes("agent_ai", ALERT_THRESHOLD)).not.toThrow();
+  });
+
+  it("una falla crítica (la conexión con Google venció) avisa a la primera, una vez por hora", () => {
+    reportCriticalFailure("google_connection_expired", new Error("invalid_grant"), T0);
+    reportCriticalFailure("google_connection_expired", new Error("invalid_grant"), T0 + 1000);
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    const [{ subject, html }] = sendMock.mock.calls[0];
+    expect(subject).toContain("Venció la conexión de un negocio con Google Calendar");
+    expect(html).toContain("Pasó recién.");
   });
 });

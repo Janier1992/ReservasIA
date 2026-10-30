@@ -4,6 +4,7 @@ import { DEFAULT_OAUTH_STATE_SECRET, env, isDeployed } from "../../config/env.js
 import { decryptCredentials, encryptCredentials } from "../../lib/credentialsCrypto.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
+import { reportCriticalFailure } from "../../lib/alerts.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 import type { Integration, Reservation } from "../../types/domain.js";
 
@@ -123,6 +124,50 @@ async function getAuthorizedClient(organizationId: string) {
 }
 
 /**
+ * Google respondió que la conexión del negocio ya no sirve: el permiso venció
+ * (las apps de Google Cloud en modo "Prueba" lo vencen a los 7 días), se
+ * revocó o se cambió la contraseña de la cuenta. Reintentar no lo arregla.
+ */
+export function isGoogleConnectionExpired(err: unknown): boolean {
+  const e = err as { message?: string; response?: { status?: number; data?: { error?: string } } };
+  return e?.response?.data?.error === "invalid_grant" || /invalid_grant/.test(e?.message ?? "");
+}
+
+/**
+ * Deja la integración en "error" (la página de Integraciones pide
+ * reconectar) y deja de intentar con Google hasta que el negocio la
+ * reconecte: getAuthorizedClient solo usa integraciones "connected".
+ * El agente tampoco ofrece ya la invitación al calendario mientras tanto.
+ */
+async function markGoogleNeedsReconnect(organizationId: string): Promise<void> {
+  const { data } = await insforgeAdmin.database
+    .from("integrations")
+    .select("metadata")
+    .eq("organization_id", organizationId)
+    .eq("provider", "google_calendar")
+    .maybeSingle();
+  const metadata = (data?.metadata ?? {}) as Record<string, unknown>;
+  const { error } = await insforgeAdmin.database
+    .from("integrations")
+    .update({ status: "error", metadata: { ...metadata, last_error: "token_expired", last_error_at: new Date().toISOString() } })
+    .eq("organization_id", organizationId)
+    .eq("provider", "google_calendar");
+  if (error) logger.warn({ organizationId, err: error }, "google_mark_needs_reconnect_failed");
+  else logger.warn({ organizationId }, "google_connection_expired_needs_reconnect");
+  reportCriticalFailure("google_connection_expired", new Error(`Negocio ${organizationId}: Google respondió invalid_grant`));
+}
+
+/** Corre una llamada a Google Calendar; si la conexión venció, lo deja registrado antes de propagar el error. */
+async function withExpiredConnectionCheck<T>(organizationId: string, call: () => Promise<T>): Promise<T> {
+  try {
+    return await call();
+  } catch (err) {
+    if (isGoogleConnectionExpired(err)) await markGoogleNeedsReconnect(organizationId);
+    throw err;
+  }
+}
+
+/**
  * Sólo el negocio pasa por el consentimiento de Google (una vez, al conectar
  * la integración). El cliente que reserva NUNCA hace su propio login de
  * Google: recibe su reserva en SU calendario porque lo agregamos como
@@ -188,11 +233,13 @@ export async function createCalendarEvent(reservation: Reservation, { notifyCust
     notifyCustomer ? loadCustomerEmail(reservation.customer_id) : NO_ATTENDEE
   ]);
   const calendar = google.calendar({ version: "v3", auth: client });
-  const { data } = await calendar.events.insert({
-    calendarId: "primary",
-    sendUpdates: attendee.email ? "all" : "none",
-    requestBody: buildEventBody(reservation, timezone, attendee)
-  });
+  const { data } = await withExpiredConnectionCheck(reservation.organization_id, () =>
+    calendar.events.insert({
+      calendarId: "primary",
+      sendUpdates: attendee.email ? "all" : "none",
+      requestBody: buildEventBody(reservation, timezone, attendee)
+    })
+  );
 
   return data.id ?? null;
 }
@@ -208,12 +255,15 @@ export async function updateCalendarEvent(reservation: Reservation, { notifyCust
     notifyCustomer ? loadCustomerEmail(reservation.customer_id) : NO_ATTENDEE
   ]);
   const calendar = google.calendar({ version: "v3", auth: client });
-  await calendar.events.patch({
-    calendarId: "primary",
-    eventId: reservation.google_event_id,
-    sendUpdates: attendee.email ? "all" : "none",
-    requestBody: buildEventBody(reservation, timezone, attendee)
-  });
+  const eventId = reservation.google_event_id;
+  await withExpiredConnectionCheck(reservation.organization_id, () =>
+    calendar.events.patch({
+      calendarId: "primary",
+      eventId,
+      sendUpdates: attendee.email ? "all" : "none",
+      requestBody: buildEventBody(reservation, timezone, attendee)
+    })
+  );
 }
 
 export async function deleteCalendarEvent(
@@ -229,7 +279,9 @@ export async function deleteCalendarEvent(
     // sendUpdates:"all" para que, si el cliente había sido invitado, también
     // reciba el aviso de cancelación en su Google Calendar (salvo que ya le
     // haya llegado nuestro correo de cancelación).
-    await calendar.events.delete({ calendarId: "primary", eventId, sendUpdates: notifyCustomer ? "all" : "none" });
+    await withExpiredConnectionCheck(organizationId, () =>
+      calendar.events.delete({ calendarId: "primary", eventId, sendUpdates: notifyCustomer ? "all" : "none" })
+    );
   } catch (err: unknown) {
     const status = (err as { code?: number; response?: { status?: number } })?.response?.status;
     if (status !== 404 && status !== 410) throw err;
