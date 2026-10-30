@@ -67,7 +67,7 @@ export default async function handler(req: Request): Promise<Response> {
     return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "Pegá la API key de YCloud." } }, 400);
   }
 
-  // Redeploy forzado 2026-10-30 (bis, secreto recreado en InsForge): una función ya desplegada sigue leyendo el
+  // Redeploy forzado 2026-10-30 (ter, clave simplificada sin símbolos): una función ya desplegada sigue leyendo el
   // valor del secreto que tenía al publicarse, no el que se actualice
   // después en InsForge — hay que volver a publicarla para que lo recoja.
   const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY");

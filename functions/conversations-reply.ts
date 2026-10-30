@@ -84,7 +84,7 @@ export default async function handler(req: Request): Promise<Response> {
       .maybeSingle();
     if (ycloud?.status === "connected") {
       try {
-        // Redeploy forzado 2026-10-30 bis (ver ycloud-connect.ts): recoger el secreto actualizado.
+        // Redeploy forzado 2026-10-30 ter (ver ycloud-connect.ts): recoger el secreto actualizado.
         const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY");
         if (!encryptionKey) throw new Error("Falta configurar INTEGRATIONS_ENCRYPTION_KEY.");
         const credentials = await decryptCredentials(ycloud.credentials as Record<string, unknown> | null, encryptionKey);
