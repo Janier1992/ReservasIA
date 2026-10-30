@@ -80,20 +80,17 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
 
     setSubmitting(true);
     try {
-      // Key con prefijo de organización: la política de storage sólo deja
-      // subir acá si el primer segmento del key es el propio organization_id.
-      const { data: uploadData, error: uploadError } = await insforge.storage
-        .from("subscription-receipts")
-        .upload(`${organizationId}/${crypto.randomUUID()}`, file);
-
-      if (uploadError || !uploadData) {
-        toast.error(uploadError?.message ?? "No se pudo subir el comprobante.");
-        return;
-      }
+      // El comprobante se manda en base64 y lo sube la función con la clave
+      // admin: "subscription-receipts" es un bucket privado y no acepta
+      // escrituras directas del navegador, aunque la cuenta esté suspendida.
+      const buffer = await file.arrayBuffer();
+      let binary = "";
+      for (const byte of new Uint8Array(buffer)) binary += String.fromCharCode(byte);
 
       await functionsClient.post("submit-subscription-payment", {
         organization_id: organizationId,
-        receipt_storage_path: uploadData.key,
+        receipt_base64: btoa(binary),
+        receipt_mime_type: file.type,
         amount: amount ? Number(amount) : undefined,
         note: note.trim() || undefined
       });

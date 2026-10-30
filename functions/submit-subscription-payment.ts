@@ -1,11 +1,22 @@
 // Edge Function: submit-subscription-payment
-// El dueño/admin del negocio ya subió el comprobante al bucket privado
-// "subscription-receipts" directo desde el navegador (RLS de storage
-// valida que el key empiece con su propio organization_id). Esta función
-// registra el reporte de pago y avisa a soporte por correo — insertar el
-// pago directo desde el cliente ya lo permite RLS, pero mandar el email
-// necesita la clave admin.
+// Recibe el comprobante en base64 y lo sube acá mismo, con la clave admin,
+// al bucket privado "subscription-receipts" — igual que payment-receipts
+// (ver server/src/services/storage/receiptsService.ts), no con un upload
+// directo del navegador: un bucket privado no acepta escrituras directas
+// de "authenticated" aunque la RLS policy esté bien (comprobado en
+// producción 2026-10-30, ver subscription_receipts_owner_insert en
+// 20260923120000_subscription-payments.sql; la policy queda documentando
+// la intención pero esta función es la que realmente escribe). Después
+// registra el reporte de pago y avisa a soporte por correo.
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
+
+const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
+const ALLOWED_MIME_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp"
+};
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -31,16 +42,34 @@ export default async function handler(req: Request): Promise<Response> {
   const { data: userData } = await userClient.auth.getCurrentUser();
   if (!userData?.user?.id) return jsonResponse({ error: { code: "UNAUTHENTICATED" } }, 401);
 
-  let body: { organization_id?: string; receipt_storage_path?: string; amount?: number; note?: string };
+  let body: { organization_id?: string; receipt_base64?: string; receipt_mime_type?: string; amount?: number; note?: string };
   try {
     body = await req.json();
   } catch {
     return jsonResponse({ error: { code: "VALIDATION_ERROR" } }, 400);
   }
 
-  const { organization_id: organizationId, receipt_storage_path: receiptPath, amount, note } = body;
-  if (!organizationId || !receiptPath) {
-    return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "organization_id y receipt_storage_path son requeridos." } }, 400);
+  const { organization_id: organizationId, receipt_base64: receiptBase64, receipt_mime_type: receiptMimeType, amount, note } = body;
+  if (!organizationId || !receiptBase64 || !receiptMimeType) {
+    return jsonResponse(
+      { error: { code: "VALIDATION_ERROR", message: "organization_id, receipt_base64 y receipt_mime_type son requeridos." } },
+      400
+    );
+  }
+
+  const extension = ALLOWED_MIME_EXTENSIONS[receiptMimeType];
+  if (!extension) {
+    return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "El comprobante debe ser una imagen (jpg, png o webp)." } }, 400);
+  }
+
+  let receiptBytes: Uint8Array;
+  try {
+    receiptBytes = Uint8Array.from(atob(receiptBase64), (c) => c.charCodeAt(0));
+  } catch {
+    return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "El comprobante no se pudo leer." } }, 400);
+  }
+  if (receiptBytes.length === 0 || receiptBytes.length > MAX_RECEIPT_BYTES) {
+    return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "La imagen no puede superar 5 MB." } }, 400);
   }
 
   const { data: membership } = await userClient.database
@@ -54,13 +83,18 @@ export default async function handler(req: Request): Promise<Response> {
     return jsonResponse({ error: { code: "FORBIDDEN" } }, 403);
   }
 
-  // El comprobante debe empezar con "<organization_id>/" — evita que
-  // alguien reporte un pago apuntando al archivo de otro negocio.
-  if (!receiptPath.startsWith(`${organizationId}/`)) {
-    return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "El comprobante no pertenece a este negocio." } }, 400);
-  }
-
   const admin = createAdminClient({ baseUrl, apiKey: Deno.env.get("API_KEY")! });
+
+  // Bucket privado: lo sube la clave admin, no el navegador directo (ver
+  // comentario del encabezado de este archivo).
+  const receiptPath = `${organizationId}/${crypto.randomUUID()}.${extension}`;
+  const { error: uploadError } = await admin.storage
+    .from("subscription-receipts")
+    .upload(receiptPath, new Blob([receiptBytes], { type: receiptMimeType }));
+  if (uploadError) {
+    console.error("submit_subscription_payment_upload_failed", uploadError);
+    return jsonResponse({ error: { code: "INTERNAL_ERROR", message: "No se pudo subir el comprobante." } }, 500);
+  }
 
   const { data: payment, error: insertError } = await admin.database
     .from("subscription_payments")
