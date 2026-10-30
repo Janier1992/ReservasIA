@@ -85,7 +85,10 @@ describe("datos del negocio en las instrucciones del agente", () => {
     expect(anonymous).toContain("CLIENTE ACTUAL: aún no identificado.");
 
     const known = buildSystemPrompt(makeData({ customer: { name: "Laura", phone: "+573001112233" } as never }), NOW);
-    expect(known).toContain("CLIENTE ACTUAL: Laura, teléfono +573001112233.");
+    expect(known).toContain("CLIENTE ACTUAL: Laura, teléfono +573001112233, sin correo registrado.");
+
+    const withEmail = buildSystemPrompt(makeData({ customer: { name: "Laura", phone: "+573001112233", email: "laura@test.local" } as never }), NOW);
+    expect(withEmail).toContain("CLIENTE ACTUAL: Laura, teléfono +573001112233, correo registrado laura@test.local.");
   });
 
   it("deja la hora y el cliente al final, para que el resto se reutilice del caché entre mensajes", () => {
@@ -97,9 +100,16 @@ describe("datos del negocio en las instrucciones del agente", () => {
     expect(first.length - fixedPart.length).toBeLessThan(200);
   });
 
-  it("solo pide el correo del cliente para Google Calendar cuando el calendario está conectado", () => {
-    expect(buildSystemPrompt(base, NOW)).toContain("No pidas el email del cliente para esto.");
-    expect(buildSystemPrompt(makeData({ googleCalendarConnected: true }), NOW)).toContain("campo email_cliente");
+  it("ofrece la confirmación por correo esté o no conectado Google Calendar", () => {
+    for (const googleCalendarConnected of [false, true]) {
+      const prompt = buildSystemPrompt(makeData({ googleCalendarConnected }), NOW);
+      expect(prompt).toContain("preguntá amablemente si el cliente quiere recibir la confirmación por correo");
+      expect(prompt).not.toContain("No pidas el email");
+    }
+    expect(buildSystemPrompt(makeData({ googleCalendarConnected: false }), NOW)).toContain(
+      "Google Calendar no está conectado. El correo de confirmación al cliente sale igual"
+    );
+    expect(buildSystemPrompt(makeData({ googleCalendarConnected: true }), NOW)).toContain("Google Calendar está conectado");
   });
 
   it("refleja las capacidades que el negocio apagó", () => {
