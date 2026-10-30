@@ -29,11 +29,16 @@ jobs:
         with:
           node-version: 20
       - name: Migraciones en InsForge
+        # inputs.aplicar (no github.event.inputs.aplicar): con el evento crudo,
+        # un booleano tildado en el formulario de "Run workflow" seguía
+        # llegando vacío acá y el script corría siempre en modo "solo
+        # mostrar" (reportado 2026-10-30: dos corridas con el check marcado,
+        # ninguna aplicó nada).
         env:
           INSFORGE_URL: ${{ secrets.INSFORGE_URL }}
           INSFORGE_API_KEY: ${{ secrets.INSFORGE_API_KEY }}
-          APPLY: ${{ github.event.inputs.aplicar }}
-          SINCE: ${{ github.event.inputs.desde }}
+          APPLY: ${{ inputs.aplicar }}
+          SINCE: ${{ inputs.desde }}
         run: |
           set --
           if [ "$APPLY" = "true" ]; then set -- "$@" --apply; fi
