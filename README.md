@@ -678,6 +678,17 @@ Sobre un Postgres **vacío** (nunca un proyecto InsForge real: crea roles, esque
 a punta y los tests de base de datos de arriba contra un Postgres 16. Además corren CodeQL (`codeql.yml`) y la
 búsqueda de claves (`secret-scan.yml`, gitleaks).
 
+### Pruebas del agente con el modelo real
+
+Los tests de arriba usan un modelo simulado. Antes de cambiar las instrucciones, las reglas o el modelo del agente,
+corré la batería contra el modelo real: Actions → **Pruebas del agente con el modelo real** → Run workflow (necesita
+el secreto `OPENROUTER_API_KEY`). Manda ~22 preguntas de clientes a tres negocios de ejemplo (barbería, restaurante
+de fin de semana, odontología con festivo; `server/scripts/agentEvalScenarios.ts`), con las mismas instrucciones,
+herramientas y temperatura que producción, y revisa cada respuesta **original** (antes de la corrección automática)
+con `responseVerifier.ts` y con lo que cada escenario exige o prohíbe. El informe queda en el resumen de la corrida.
+Localmente: `OPENAI_API_KEY=... OPENAI_BASE_URL=https://openrouter.ai/api/v1 npm run evals -w server`
+(`EVAL_RUNS` repite cada escenario; `EVAL_ONLY` filtra por id). Cuesta centavos por corrida.
+
 ## Build y producción
 
 ```bash

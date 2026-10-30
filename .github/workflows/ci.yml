@@ -24,7 +24,7 @@ jobs:
       - name: Typecheck
         run: |
           npx tsc --noEmit -p app
-          npx tsc --noEmit -p server
+          npx tsc -p server/tsconfig.scripts.json
       - run: npm test
       # El build del frontend exige estas variables (lib/env.ts); valores de
       # relleno: acá solo se valida que compile, no se despliega.
