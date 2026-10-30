@@ -76,6 +76,12 @@ function formatLocation(profile: BusinessProfile): string {
   return lines.join("\n");
 }
 
+function formatCurrentCustomer(customer: Customer | null): string {
+  if (!customer) return "CLIENTE ACTUAL: aún no identificado.";
+  const email = customer.email?.trim() ? `, correo registrado ${customer.email.trim()}` : ", sin correo registrado";
+  return `CLIENTE ACTUAL: ${customer.name ?? "Sin nombre registrado"}, teléfono ${customer.phone ?? "N/D"}${email}.`;
+}
+
 function formatAgentRules(rules: AgentRule[]): string {
   const enabled = rules.filter((r) => r.enabled).sort((a, b) => a.priority - b.priority);
   if (enabled.length === 0) return "Sin reglas adicionales.";
@@ -205,8 +211,8 @@ PAGOS: ${formatPaymentPolicy(businessProfile)}
 
 INTEGRACIÓN DE CALENDARIO: ${
     data.googleCalendarConnected
-      ? "Google Calendar está conectado. Podés pedir el email del cliente (OPCIONAL, campo email_cliente) para mandarle la invitación del turno directamente a su propio Google Calendar."
-      : "Google Calendar no está conectado. No pidas el email del cliente para esto."
+      ? "Google Calendar está conectado: cada reserva queda también en el calendario del negocio."
+      : "Google Calendar no está conectado. El correo de confirmación al cliente sale igual (ver regla 22)."
   }
 
 IDIOMA: ${agentConfig.language}. ${toneLine}
@@ -226,5 +232,5 @@ ${formatAgentRules(data.agentRules)}
 
 FECHA Y HORA ACTUAL DEL NEGOCIO: ${nowLocal} (${organization.timezone})
 
-${data.customer ? `CLIENTE ACTUAL: ${data.customer.name ?? "Sin nombre registrado"}, teléfono ${data.customer.phone ?? "N/D"}.` : "CLIENTE ACTUAL: aún no identificado."}`;
+${formatCurrentCustomer(data.customer)}`;
 }
