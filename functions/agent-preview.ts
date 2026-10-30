@@ -5,7 +5,8 @@
 // Usa las MISMAS instrucciones que el agente real: el texto lo arma
 // buildSystemPrompt (server/src/services/agent/systemPrompt.ts) con la
 // configuración real del negocio, y se aplican las mismas protecciones de
-// código de los rubros de salud (emergencias y consejos médicos). La única
+// código de los rubros de salud (emergencias y consejos médicos) y la misma
+// revisión automática de días, horas y precios. La única
 // diferencia es que acá no hay herramientas: hace una sola llamada al modelo
 // y nunca puede crear, cancelar ni reprogramar una reserva real.
 //
@@ -16,6 +17,7 @@ import { createClient } from "npm:@insforge/sdk";
 import OpenAI from "npm:openai";
 import { buildSystemPrompt, fetchAgentPromptData } from "../server/src/services/agent/systemPrompt.ts";
 import { AGENT_TEMPERATURE } from "../server/src/services/agent/coreRules.ts";
+import { correctionPrompt, UNVERIFIED_REPLY_FALLBACK, verifyAgentReply } from "../server/src/services/agent/responseVerifier.ts";
 import {
   containsMedicalAdvice,
   detectEmergency,
@@ -96,7 +98,8 @@ export default async function handler(req: Request): Promise<Response> {
     return jsonResponse({ reply: emergencyReplyFor(businessType) }, 200);
   }
 
-  const systemPrompt = `${buildSystemPrompt(data, new Date())}\n\n${PREVIEW_NOTE}`;
+  const now = new Date();
+  const systemPrompt = `${buildSystemPrompt(data, now)}\n\n${PREVIEW_NOTE}`;
 
   // OPENAI_BASE_URL es opcional: permite usar un endpoint compatible con la
   // API de OpenAI (ej. OpenRouter) para desarrollo/demo. En producción se
@@ -108,16 +111,22 @@ export default async function handler(req: Request): Promise<Response> {
   const model = Deno.env.get("OPENAI_MODEL") ?? "gpt-4o";
 
   try {
-    const completion = await openai.chat.completions.create({
-      model,
-      temperature: AGENT_TEMPERATURE,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: message }
-      ]
-    });
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: message }
+    ];
+    const ask = async () =>
+      (await openai.chat.completions.create({ model, temperature: AGENT_TEMPERATURE, messages })).choices[0]?.message?.content ?? "";
 
-    const reply = completion.choices[0]?.message?.content ?? "";
+    // Igual que el agente real: si la respuesta trae días, horas o precios que
+    // no son del negocio, se le pide una corrección; si sigue mal, respuesta fija.
+    let reply = await ask();
+    const issues = verifyAgentReply(reply, data, now);
+    if (issues.length > 0) {
+      messages.push({ role: "assistant", content: reply }, { role: "system", content: correctionPrompt(issues) });
+      reply = await ask();
+      if (verifyAgentReply(reply, data, now).length > 0) reply = UNVERIFIED_REPLY_FALLBACK;
+    }
     // Misma red de seguridad que el agente real: nunca muestra una
     // indicación de medicamentos o dosis en un rubro de salud.
     if (isHealthNiche(businessType) && containsMedicalAdvice(reply)) {

@@ -56,6 +56,11 @@ conexión de canales — todo antes de llegar al dashboard.
   negocio.
 - Nunca inventa horarios, precios ni servicios: todo lo que dice sale de datos reales (`consultar_disponibilidad`,
   `consultar_servicios`, `obtener_info_negocio`).
+- Revisión automática de cada respuesta antes de enviarla (`responseVerifier.ts`): días que ofrece como abiertos,
+  "hoy"/"mañana" y fechas contra su día de la semana, horas dentro del horario (del negocio o del recurso, o devueltas
+  por una herramienta) y precios de los servicios. Si algo no cuadra, el modelo corrige una vez; si sigue mal, se
+  envía una respuesta segura ("ese detalle te lo confirma el negocio") y llega la alerta `agent_unverified_reply`.
+  La vista previa del panel aplica la misma revisión. "Creatividad" del modelo baja (`AGENT_TEMPERATURE` = 0.1).
 - Pide confirmación explícita del cliente antes de reservar, cancelar o reprogramar.
 - Resuelve `service_id`/`resource_id` reales (nunca los inventa) cuando el negocio tiene catálogo configurado.
 - Si el negocio conectó Google Calendar, ofrece pedirle el email al cliente (opcional) para invitarlo al turno en su

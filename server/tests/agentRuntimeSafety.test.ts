@@ -6,6 +6,7 @@ import {
   MEDICAL_ADVICE_FALLBACK_REPLY,
   VETERINARY_EMERGENCY_FALLBACK_REPLY
 } from "../src/services/agent/safetyGuardrails.js";
+import { UNVERIFIED_REPLY_FALLBACK } from "../src/services/agent/responseVerifier.js";
 
 // Ejercita runAgentTurn de punta a punta para los guardrails de código de
 // salud/veterinaria (no solo texto del prompt, ver safetyGuardrails.ts):
@@ -16,6 +17,8 @@ let businessType = "barbershop";
 let lastUserMessageContent = "hola";
 let conversationPrivacyNoticeSentAt: string | null = null;
 let customerConsentAt: string | null = null;
+// Lunes a sábado de 9:00 a. m. a 7:00 p. m. (para la revisión de horarios).
+const hours = [1, 2, 3, 4, 5, 6].map((d) => ({ day_of_week: d, opening_time: "09:00:00", closing_time: "19:00:00", is_closed: false }));
 
 vi.mock("../src/services/agent/promptBuilder.js", () => ({
   loadAgentPromptData: async () => ({
@@ -35,7 +38,7 @@ vi.mock("../src/services/agent/promptBuilder.js", () => ({
     businessProfile: {} as never,
     services: [],
     resources: [],
-    hours: [],
+    hours,
     agentRules: [],
     customer: null,
     googleCalendarConnected: false
@@ -224,5 +227,54 @@ describe("runAgentTurn: protecciones de salud y veterinaria", () => {
     expect(log.some((l) => l.startsWith("consent_saved"))).toBe(false);
     const systemPrompt = (createMock.mock.calls[0][0] as { messages: { content: string }[] }).messages[0].content;
     expect(systemPrompt).toContain("NO autorizó guardar datos de salud");
+  });
+});
+
+describe("runAgentTurn: revisión automática de días, horas y precios", () => {
+  beforeEach(() => {
+    log.length = 0;
+    vi.clearAllMocks();
+    businessType = "barbershop";
+    lastUserMessageContent = "¿a qué hora abren el domingo?";
+  });
+
+  const reply = (content: string) => ({ choices: [{ message: { content, tool_calls: undefined } }] });
+
+  it("si la respuesta trae un horario que no es del negocio, le pide al modelo que la corrija y envía la corregida", async () => {
+    createMock
+      .mockResolvedValueOnce(reply("El domingo atendemos de 9:00 a. m. a 11:00 p. m."))
+      .mockResolvedValueOnce(reply("Los domingos está cerrado. De lunes a sábado atendemos de 9:00 a. m. a 7:00 p. m."));
+
+    const result = await turn();
+
+    expect(result.reply).toBe("Los domingos está cerrado. De lunes a sábado atendemos de 9:00 a. m. a 7:00 p. m.");
+    expect(createMock).toHaveBeenCalledTimes(2);
+    const [{ messages }] = createMock.mock.calls[1] as unknown as [{ messages: { role: string; content: string }[] }];
+    const correction = messages.at(-1)!;
+    expect(correction.role).toBe("system");
+    expect(correction.content).toContain("REVISIÓN AUTOMÁTICA");
+    expect(correction.content).toContain("el domingo el negocio está cerrado");
+    expect(correction.content).toContain("11:00 p. m.");
+    // La respuesta equivocada nunca se guarda ni se envía.
+    expect(log.some((l) => l.includes("11:00 p. m."))).toBe(false);
+  });
+
+  it("si la corregida tampoco cuadra, envía la respuesta segura en vez de un dato inventado", async () => {
+    createMock.mockResolvedValue(reply("El domingo atendemos de 9:00 a. m. a 11:00 p. m."));
+
+    const result = await turn();
+
+    expect(result.reply).toBe(UNVERIFIED_REPLY_FALLBACK);
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(log).toContain(`persist:assistant:${UNVERIFIED_REPLY_FALLBACK}`);
+  });
+
+  it("una respuesta correcta sale en la primera llamada, sin revisión extra", async () => {
+    createMock.mockResolvedValueOnce(reply("El domingo no atendemos; te espero el lunes desde las 9:00 a. m."));
+
+    const result = await turn();
+
+    expect(result.reply).toBe("El domingo no atendemos; te espero el lunes desde las 9:00 a. m.");
+    expect(createMock).toHaveBeenCalledOnce();
   });
 });
