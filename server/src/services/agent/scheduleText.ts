@@ -43,7 +43,7 @@ export function formatClock(time: string): string {
 const range = (open: string, close: string) => `${formatClock(open)} a ${formatClock(close)}`;
 
 /** Franjas abiertas de un día del horario del negocio, ordenadas; [] = cerrado. */
-function businessRanges(periods: BusinessHourPeriod[], dayOfWeek: number): { open: string; close: string }[] {
+export function businessRanges(periods: BusinessHourPeriod[], dayOfWeek: number): { open: string; close: string }[] {
   return periods
     .filter((p) => p.day_of_week === dayOfWeek && !p.is_closed && p.opening_time && p.closing_time)
     .map((p) => ({ open: p.opening_time!.slice(0, 5), close: p.closing_time!.slice(0, 5) }))
@@ -87,14 +87,14 @@ export function formatResourceHours(resources: Resource[], resourceHours: Resour
 }
 
 /** Fecha local (YYYY-MM-DD) `offset` días después de hoy en la zona del negocio. */
-function localDate(nowUtc: Date, timezone: string, offset: number): string {
+export function localDate(nowUtc: Date, timezone: string, offset: number): string {
   const today = formatInTimeZone(nowUtc, timezone, "yyyy-MM-dd");
   const [y, m, d] = today.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d + offset)).toISOString().slice(0, 10);
 }
 
 /** Bloqueos de todo el negocio (sin recurso) que tocan el día local `date`. */
-function blocksOnDay(blocks: AgendaBlock[], date: string, timezone: string): { from: string; to: string; reason: string | null; wholeDay: boolean }[] {
+export function blocksOnDay(blocks: AgendaBlock[], date: string, timezone: string): { from: string; to: string; reason: string | null; wholeDay: boolean }[] {
   const dayStart = fromZonedTime(`${date}T00:00:00`, timezone);
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
   return blocks

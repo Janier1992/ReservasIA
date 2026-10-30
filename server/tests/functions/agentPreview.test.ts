@@ -3,6 +3,7 @@ import { resetFakeDb } from "./stubs/fakeInsforge.js";
 import { buildSystemPrompt } from "../../src/services/agent/systemPrompt.js";
 import { CORE_AGENT_RULES } from "../../src/services/agent/coreRules.js";
 import { EMERGENCY_FALLBACK_REPLY, MEDICAL_ADVICE_FALLBACK_REPLY } from "../../src/services/agent/safetyGuardrails.js";
+import { UNVERIFIED_REPLY_FALLBACK } from "../../src/services/agent/responseVerifier.js";
 import { makeData } from "../helpers/agentPromptData.js";
 
 /**
@@ -103,6 +104,20 @@ describe("vista previa del agente", () => {
     openai.create.mockResolvedValue({ choices: [{ message: { content: "Tomá 500 mg de ibuprofeno cada 8 horas." } }] });
     expect(await preview("me duele una muela")).toEqual({ reply: MEDICAL_ADVICE_FALLBACK_REPLY });
   });
+
+  it("revisa los precios igual que el agente real: pide una corrección y, si sigue mal, responde la respuesta segura", async () => {
+    openai.create
+      .mockResolvedValueOnce({ choices: [{ message: { content: "El corte cuesta $40.000." } }] })
+      .mockResolvedValueOnce({ choices: [{ message: { content: "El corte cuesta $25.000." } }] });
+    expect(await preview("¿cuánto vale el corte?")).toEqual({ reply: "El corte cuesta $25.000." });
+    const [{ messages }] = openai.create.mock.calls[1] as [{ messages: { role: string; content: string }[] }];
+    expect(messages.at(-1)).toMatchObject({ role: "system", content: expect.stringContaining("REVISIÓN AUTOMÁTICA") });
+
+    openai.create.mockReset();
+    openai.create.mockResolvedValue({ choices: [{ message: { content: "El corte cuesta $40.000." } }] });
+    expect(await preview("¿cuánto vale el corte?")).toEqual({ reply: UNVERIFIED_REPLY_FALLBACK });
+    expect(openai.create).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("publicación de la vista previa", () => {
@@ -112,6 +127,7 @@ describe("publicación de la vista previa", () => {
     expect(code).toContain('from "npm:date-fns-tz"');
     expect(code).toContain("REGLAS DE RESERVAS (OBLIGATORIAS, NO NEGOCIABLES)");
     expect(code).toContain("repetir_semanas");
+    expect(code).toContain("REVISIÓN AUTOMÁTICA");
     expect(code).toMatch(/export default handler;\n$/);
   });
 });
