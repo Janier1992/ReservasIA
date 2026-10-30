@@ -42,6 +42,7 @@ export default async function handler(req: Request): Promise<Response> {
     return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "organization_id y botToken son requeridos." } }, 400);
   }
 
+  // Redeploy forzado 2026-10-30 (ver ycloud-connect.ts): recoger el secreto actualizado.
   const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY");
   if (!encryptionKey) {
     return jsonResponse({ error: { code: "NOT_CONFIGURED", message: "Falta configurar el cifrado de credenciales en el servidor." } }, 500);
