@@ -177,6 +177,44 @@ describe("eventos de Google Calendar", () => {
   });
 });
 
+describe("conexión con Google vencida", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    google.onTokens = null;
+  });
+
+  /** Lo que se guardó con .update en integrations (si se guardó algo). */
+  function integrationUpdate(): Record<string, unknown> | undefined {
+    const calls = insforgeMockInstance.database.from.mock.results
+      .map((r) => r.value as { update: ReturnType<typeof vi.fn> })
+      .flatMap((query) => query.update.mock.calls);
+    return calls.at(-1)?.[0] as Record<string, unknown> | undefined;
+  }
+
+  it("si Google responde invalid_grant, marca la integración para reconectar y no se traga el error", async () => {
+    connectedBusiness();
+    google.insert.mockRejectedValueOnce({ message: "invalid_grant", response: { status: 400, data: { error: "invalid_grant" } } });
+    await expect(createCalendarEvent(reservation())).rejects.toMatchObject({ message: "invalid_grant" });
+    expect(integrationUpdate()).toMatchObject({
+      status: "error",
+      metadata: { email: "negocio@test.local", calendarId: "primary", last_error: "token_expired" }
+    });
+  });
+
+  it("un error común de Google (por ejemplo, un corte) no marca la integración", async () => {
+    connectedBusiness();
+    google.insert.mockRejectedValueOnce({ message: "socket hang up", response: { status: 503 } });
+    await expect(createCalendarEvent(reservation())).rejects.toMatchObject({ message: "socket hang up" });
+    expect(integrationUpdate()).toBeUndefined();
+  });
+
+  it("con la integración marcada para reconectar, no vuelve a intentar con Google", async () => {
+    insforgeMockInstance = createInsforgeMock({ integrations: { data: { ...CONNECTED, status: "error" }, error: null } });
+    expect(await createCalendarEvent(reservation())).toBeNull();
+    expect(google.insert).not.toHaveBeenCalled();
+  });
+});
+
 describe("conexión con Google (callback de OAuth)", () => {
   beforeEach(() => {
     vi.clearAllMocks();

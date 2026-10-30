@@ -23,7 +23,10 @@ export const ALERT_COOLDOWN_MS = 60 * 60 * 1000;
 const ALERT_LABELS: Record<string, string> = {
   agent_ai: "El agente no pudo consultar a la IA (OpenRouter/OpenAI)",
   channel_message: "Mensajes de WhatsApp o Telegram que no se pudieron procesar",
-  server_error: "Errores inesperados del servidor (respuestas 500)"
+  server_error: "Errores inesperados del servidor (respuestas 500)",
+  reservation_email: "No salen los correos de confirmación de reservas (InsForge)",
+  google_calendar: "No se pueden crear o actualizar eventos en Google Calendar",
+  google_connection_expired: "Venció la conexión de un negocio con Google Calendar: tiene que reconectarla en Integraciones"
 };
 
 const failures = new Map<string, number[]>();
@@ -49,7 +52,7 @@ async function sendAlertEmail(kind: string, count: number, lastError: string): P
   if (recipients.length === 0) return;
   const label = alertLabel(kind);
   const html = `<p><strong>${escapeHtml(label)}</strong></p>
-<p>Pasó ${count} veces en los últimos ${ALERT_WINDOW_MS / 60_000} minutos.</p>
+<p>${count === 1 ? "Pasó recién." : `Pasó ${count} veces en los últimos ${ALERT_WINDOW_MS / 60_000} minutos.`}</p>
 <p>Último error: <code>${escapeHtml(lastError)}</code></p>
 <p>Revisá los logs del compute service en Railway (buscá el tipo <code>${escapeHtml(kind)}</code>). Si sigue fallando, no vas a recibir otro aviso de este tipo durante la próxima hora.</p>`;
   const { error } = await insforgeAdmin.emails.send({ to: recipients, subject: `[ReservasIA] Alerta: ${label}`, html });
@@ -61,12 +64,12 @@ async function sendAlertEmail(kind: string, count: number, lastError: string): P
  * ventana, avisa. Nunca lanza: una alerta que falla no puede romper el
  * flujo que la llamó.
  */
-export function reportFailure(kind: string, err: unknown, now: number = Date.now()): void {
+export function reportFailure(kind: string, err: unknown, now: number = Date.now(), threshold: number = ALERT_THRESHOLD): void {
   try {
     const recent = (failures.get(kind) ?? []).filter((t) => now - t < ALERT_WINDOW_MS);
     recent.push(now);
     failures.set(kind, recent);
-    if (recent.length < ALERT_THRESHOLD) return;
+    if (recent.length < threshold) return;
 
     const last = lastAlertAt.get(kind);
     if (last !== undefined && now - last < ALERT_COOLDOWN_MS) return;
@@ -78,6 +81,14 @@ export function reportFailure(kind: string, err: unknown, now: number = Date.now
   } catch (alertErr) {
     logger.warn({ kind, err: alertErr }, "alert_report_failed");
   }
+}
+
+/**
+ * Falla que no se arregla sola y que no se va a repetir (porque el sistema
+ * deja de intentar): avisa a la primera, con la misma pausa de una hora.
+ */
+export function reportCriticalFailure(kind: string, err: unknown, now: number = Date.now()): void {
+  reportFailure(kind, err, now, 1);
 }
 
 /** Solo para pruebas. */
