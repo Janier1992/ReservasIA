@@ -1,7 +1,5 @@
-import { decryptCredentials } from "../../lib/credentialsCrypto.js";
+import { readIntegrationCredentials } from "../integrations/credentialsCheck.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
-import { logger } from "../../lib/logger.js";
-import { reportFailure } from "../../lib/alerts.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 
 const TELEGRAM_API_BASE = "https://api.telegram.org";
@@ -49,23 +47,15 @@ export async function listConnectedTelegramBots(): Promise<ConnectedTelegramBot[
 
   if (error) throw new AppError(ErrorCodes.INTERNAL_ERROR, "No se pudieron cargar las integraciones de Telegram.", 500);
 
-  const bots: ConnectedTelegramBot[] = [];
-  for (const row of data ?? []) {
-    const organizationId = row.organization_id as string;
-    let credentials: Partial<TelegramCredentials>;
-    try {
-      credentials = decryptCredentials(row.credentials as Record<string, unknown> | null) as Partial<TelegramCredentials>;
-    } catch (err) {
-      // Una credencial que no descifra (clave de cifrado distinta a la que se
-      // usó para guardarla) no puede tirar abajo Telegram para el resto de
-      // los negocios: se salta esta sola y se avisa.
-      logger.error({ organizationId, err }, "telegram_credentials_decrypt_failed");
-      reportFailure("telegram_credentials_decrypt_failed", err);
-      continue;
-    }
-    if (credentials.bot_token) bots.push({ organizationId, botToken: credentials.bot_token });
-  }
-  return bots;
+  // Una fila ilegible (cifrada con otra clave) se salta: no puede dejar sin Telegram a los demás negocios.
+  return (data ?? [])
+    .map((row) => ({
+      organizationId: row.organization_id as string,
+      credentials: (readIntegrationCredentials("telegram", row.organization_id as string, row.credentials as Record<string, unknown> | null) ??
+        {}) as Partial<TelegramCredentials>
+    }))
+    .filter((row) => row.credentials.bot_token)
+    .map((row) => ({ organizationId: row.organizationId, botToken: row.credentials.bot_token! }));
 }
 
 /** Token del bot conectado de un negocio, o null si no tiene Telegram conectado. */
@@ -77,7 +67,8 @@ export async function loadConnectedTelegramBotToken(organizationId: string): Pro
     .eq("provider", "telegram")
     .eq("status", "connected")
     .maybeSingle();
-  const credentials = decryptCredentials(data?.credentials as Record<string, unknown> | null) as Partial<TelegramCredentials>;
+  const credentials = (readIntegrationCredentials("telegram", organizationId, data?.credentials as Record<string, unknown> | null) ??
+    {}) as Partial<TelegramCredentials>;
   return credentials.bot_token ?? null;
 }
 

@@ -1,6 +1,6 @@
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
 import { google } from "npm:googleapis";
-import { decryptCredentials } from "./_shared/credentialsCrypto.ts";
+import { tryDecryptCredentials } from "./_shared/credentialsCrypto.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -58,7 +58,8 @@ export default async function handler(req: Request): Promise<Response> {
     .eq("provider", "google_calendar")
     .maybeSingle();
 
-  const credentials = await decryptCredentials(integration?.credentials as Record<string, unknown> | null, encryptionKey);
+  // Ilegibles (otra clave): se desconecta igual, solo que sin poder revocar el token en Google.
+  const credentials = (await tryDecryptCredentials(integration?.credentials as Record<string, unknown> | null, encryptionKey)) ?? {};
   const accessToken = credentials.access_token as string | undefined;
   if (accessToken) {
     try {
