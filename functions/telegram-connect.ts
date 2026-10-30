@@ -5,7 +5,6 @@
 // (telegramPollingManager.ts) o, con TELEGRAM_MODE=webhook, registrándole su
 // webhook en menos de un minuto (telegramWebhookManager.ts).
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
-import { encryptCredentials } from "./_shared/credentialsCrypto.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -40,12 +39,6 @@ export default async function handler(req: Request): Promise<Response> {
   const botToken = body.botToken?.trim();
   if (!organizationId || !botToken) {
     return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "organization_id y botToken son requeridos." } }, 400);
-  }
-
-  // Redeploy forzado 2026-10-30 ter (ver ycloud-connect.ts): recoger el secreto actualizado.
-  const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY");
-  if (!encryptionKey) {
-    return jsonResponse({ error: { code: "NOT_CONFIGURED", message: "Falta configurar el cifrado de credenciales en el servidor." } }, 500);
   }
 
   const { data: membership } = await userClient.database
@@ -88,7 +81,11 @@ export default async function handler(req: Request): Promise<Response> {
         organization_id: organizationId,
         provider: "telegram",
         status: "connected",
-        credentials: await encryptCredentials({ bot_token: botToken }, encryptionKey),
+        // Sin cifrar a propósito (2026-10-30): el servidor no lograba descifrar
+        // lo que guardaba esta función y los bots dejaron de responder. El
+        // servidor acepta texto plano (decryptCredentials lo deja pasar);
+        // volver a cifrar cuando se confirme que Railway lee cada fila.
+        credentials: { bot_token: botToken },
         metadata: { bot_username: botInfo.username ?? null, bot_first_name: botInfo.first_name ?? null },
         connected_at: new Date().toISOString()
       }
