@@ -88,6 +88,8 @@ describe("vista previa del agente", () => {
     expect(sent).toContain(CORE_AGENT_RULES);
     expect(sent).toContain("- Silla 1 (silla)");
     expect(openai.create.mock.calls[0][0]).not.toHaveProperty("tools");
+    // Misma "creatividad" baja que el agente real.
+    expect(openai.create.mock.calls[0][0]).toMatchObject({ temperature: 0.1 });
   });
 
   it("ante una emergencia en un rubro de salud responde el mensaje fijo, sin preguntarle al modelo", async () => {
