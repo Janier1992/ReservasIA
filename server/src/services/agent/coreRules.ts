@@ -44,3 +44,9 @@ export const CORE_AGENT_RULES = `REGLAS DE RESERVAS (OBLIGATORIAS, NO NEGOCIABLE
 // -> respuesta final) necesita 3-4 rondas. 5 deja margen sin permitir que un
 // loop del modelo se coma minutos de latencia en rondas contra OpenRouter.
 export const MAX_TOOL_ROUNDS = 5;
+
+// "Creatividad" del modelo: baja a propósito. Un agente de reservas tiene que
+// repetir datos del negocio tal cual (horarios, precios, dirección), no
+// redactar variado; con valores altos inventaba con más facilidad. La usan el
+// agente real y la vista previa del panel, para que respondan igual.
+export const AGENT_TEMPERATURE = 0.1;

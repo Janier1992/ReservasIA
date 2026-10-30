@@ -7,7 +7,7 @@ import { AGENT_TIMEOUT_MS, MAX_CONVERSATION_HISTORY_MESSAGES, MAX_MESSAGE_LENGTH
 import { buildSystemPrompt, loadAgentPromptData } from "./promptBuilder.js";
 import { getToolDefinitionsForAgent } from "./tools.js";
 import { executeTool, type AgentExecutionContext } from "./toolExecutors.js";
-import { MAX_TOOL_ROUNDS } from "./coreRules.js";
+import { AGENT_TEMPERATURE, MAX_TOOL_ROUNDS } from "./coreRules.js";
 import {
   containsMedicalAdvice,
   detectEmergency,
@@ -307,7 +307,7 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
         messages,
         tools: tools.length > 0 ? tools : undefined,
         tool_choice: tools.length > 0 ? "auto" : undefined,
-        temperature: 0.4,
+        temperature: AGENT_TEMPERATURE,
         stop: KNOWN_LEAKED_CONTROL_TOKENS
       };
       if (IS_OPENROUTER) {

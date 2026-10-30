@@ -15,6 +15,7 @@
 import { createClient } from "npm:@insforge/sdk";
 import OpenAI from "npm:openai";
 import { buildSystemPrompt, fetchAgentPromptData } from "../server/src/services/agent/systemPrompt.ts";
+import { AGENT_TEMPERATURE } from "../server/src/services/agent/coreRules.ts";
 import {
   containsMedicalAdvice,
   detectEmergency,
@@ -109,7 +110,7 @@ export default async function handler(req: Request): Promise<Response> {
   try {
     const completion = await openai.chat.completions.create({
       model,
-      temperature: 0.4,
+      temperature: AGENT_TEMPERATURE,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message }

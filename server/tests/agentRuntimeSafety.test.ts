@@ -159,6 +159,8 @@ describe("runAgentTurn: protecciones de salud y veterinaria", () => {
 
     expect(createMock).toHaveBeenCalledOnce();
     expect(result.reply).toBe("¡Qué bueno! ¿Reservamos?");
+    // "Creatividad" baja: el agente repite los datos del negocio, no improvisa.
+    expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ temperature: 0.1 }));
   });
 
   it("bloquea una respuesta con indicaciones de dosis o medicamentos y la reemplaza por una respuesta segura", async () => {
