@@ -21,6 +21,18 @@ function jsonResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
 }
 
+/**
+ * ¿El número que escribió el dueño es este de YCloud? Acepta el número con o
+ * sin código de país: "3242385733" (como se escribe en Colombia) coincide con
+ * "+573242385733". Se exigen al menos 7 dígitos para no confundir números.
+ */
+function samePhone(typed: string, ycloudNumber: string): boolean {
+  const a = typed.replace(/[^\d]/g, "");
+  const b = ycloudNumber.replace(/[^\d]/g, "");
+  if (a.length < 7 || b.length < 7) return a === b;
+  return a === b || b.endsWith(a) || a.endsWith(b);
+}
+
 function normalizePhone(value: string): string {
   const digits = value.replace(/[^\d]/g, "");
   return digits ? `+${digits}` : "";
@@ -102,7 +114,7 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const wanted = body.phoneNumber ? normalizePhone(body.phoneNumber) : "";
-  const candidates = numbers.filter((n) => n.phoneNumber && (!wanted || normalizePhone(n.phoneNumber) === wanted));
+  const candidates = numbers.filter((n) => n.phoneNumber && (!wanted || samePhone(wanted, n.phoneNumber)));
   if (candidates.length === 0) {
     return jsonResponse(
       {
