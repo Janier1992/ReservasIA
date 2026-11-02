@@ -34,7 +34,7 @@ const NOW = new Date("2026-10-04T12:00:00Z");
 beforeEach(() => useDb({}));
 
 describe("códigos de reserva desde WhatsApp", () => {
-  it("reads 'Reserva #<código>' as well as 'Pedido #<código>'", () => {
+  it("lee 'Reserva #<código>' además de 'Pedido #<código>'", () => {
     expect(extractOrderCode("Reserva #abcde23456")).toBe("ABCDE23456");
     expect(extractOrderCode("Hola, Reserva # ABCDE23456 gracias")).toBe("ABCDE23456");
     expect(extractOrderCode("quiero hacer una reserva para mañana")).toBeNull();
