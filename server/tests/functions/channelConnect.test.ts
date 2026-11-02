@@ -100,6 +100,17 @@ describe("conectar canales desde el panel", () => {
     });
   });
 
+  it("WhatsApp: acepta el número escrito sin código de país (como se escribe en Colombia)", async () => {
+    mockYCloud();
+    for (const phoneNumber of ["3001112233", "300 111 2233", "+57 300 111 2233", "573001112233"]) {
+      const res = await call("ycloud-connect", { organization_id: ORG, apiKey: "api-key-ycloud", phoneNumber });
+      expect(res.status, phoneNumber).toBe(200);
+    }
+    const other = await call("ycloud-connect", { organization_id: ORG, apiKey: "api-key-ycloud", phoneNumber: "3009998877" });
+    expect(other.status).toBe(400);
+    expect(((await other.json()) as { error: { message: string } }).error.message).toContain("no está en tu cuenta de YCloud");
+  });
+
   it("WhatsApp: se puede reconectar aunque la conexión anterior quedó cifrada con otra clave", async () => {
     seed([
       {
