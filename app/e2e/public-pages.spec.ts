@@ -58,6 +58,7 @@ test("la dirección principal muestra la presentación de ReservasIA y lleva a c
   await expect(page).toHaveTitle(/ReservasIA/);
   await expect(page.getByRole("heading", { level: 1, name: /responde y agenda solo/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "Ingresar" })).toHaveAttribute("href", "/login");
+  await expect(page.getByRole("button", { name: "Instalar app" })).toBeVisible();
   await page.getByRole("link", { name: /Probar gratis 14 días/ }).click();
   await expect(page).toHaveURL(/\/register$/);
 });

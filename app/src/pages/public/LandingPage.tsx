@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { buttonVariants } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { InstallAppButton } from "@/components/InstallAppButton";
 import { LegalLinks } from "@/pages/legal/LegalLayout";
 import { BUSINESS_TYPES } from "@/lib/businessTypes";
 import { cn } from "@/lib/utils";
@@ -148,6 +149,10 @@ export function LandingPage() {
             </Link>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">Sin tarjeta de crédito. Cancelás cuando quieras.</p>
+          <div className="mt-6 flex flex-col items-center gap-2">
+            <p className="text-sm text-muted-foreground">Usala desde el navegador o instalala en tu celular o computador:</p>
+            <InstallAppButton />
+          </div>
         </section>
 
         <Section title="Todo lo que necesitás para no perder una reserva" subtitle="Pensado para negocios que agendan citas, turnos o mesas.">
