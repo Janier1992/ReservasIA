@@ -28,6 +28,17 @@ import { cn } from "@/lib/utils";
 import { AgentChatDemo } from "./AgentChatDemo";
 import { PanelMockup } from "./PanelMockup";
 import { Reveal } from "./Reveal";
+import {
+  ACTIVATION_INSTALLMENTS,
+  ACTIVATION_INSTALLMENT_COP,
+  ACTIVATION_PRICE_COP,
+  ANNUAL_FREE_MONTHS,
+  ANNUAL_MONTHLY_EQUIVALENT_COP,
+  ANNUAL_PRICE_COP,
+  MONTHLY_PRICE_COP,
+  TRIAL_DAYS,
+  formatCop
+} from "@/lib/pricing";
 
 /**
  * Página de presentación pública (la dirección principal del sitio): es lo que
@@ -36,13 +47,6 @@ import { Reveal } from "./Reveal";
  * se prometen funciones que no existen ni se inventan cifras o testimonios
  * (los números del panel de ejemplo están rotulados como ejemplo).
  */
-
-/** Días de prueba gratis al registrarse (igual que public.signup_trial_days() en la base). */
-const TRIAL_DAYS = 14;
-
-/** Precios en pesos colombianos. */
-const ACTIVATION_PRICE_COP = 850_000;
-const MONTHLY_PRICE_COP = 150_000;
 
 /**
  * Video de fondo opcional para la portada (por ejemplo, generado en
@@ -103,6 +107,29 @@ const AGENT_POINTS = [
   "Si respondés vos, se pausa para no pisarte"
 ];
 
+/** Lo que incluyen los dos planes (todo tiene que existir en el producto). */
+const PLAN_INCLUDES = [
+  "Agente con IA en WhatsApp y Telegram, las 24 horas",
+  "Panel completo con los módulos de tu rubro",
+  "Página de reservas y pedidos con QR",
+  "Recordatorios automáticos a tus clientes",
+  "Usuarios para todo tu equipo",
+  "Actualizaciones y arreglo de fallas"
+];
+
+/** Lo que suele dar miedo de un software por suscripción, dicho de frente. */
+const NO_SURPRISES = [
+  { title: "Sin cobros automáticos", text: "Cada pago lo hacés vos desde el panel. Si no pagás, la cuenta queda en pausa con tus datos guardados." },
+  {
+    title: "WhatsApp, en tu cuenta",
+    text: "Lo que Meta y YCloud cobren por los mensajes se paga en tu cuenta de YCloud. Telegram no tiene costo."
+  },
+  {
+    title: "Mejoras a la medida",
+    text: "El soporte personalizado y los desarrollos especiales van con tarifa fija por hora, con cotización antes."
+  }
+];
+
 const FAQS = [
   {
     q: "¿Necesito tarjeta para la prueba?",
@@ -110,23 +137,33 @@ const FAQS = [
   },
   {
     q: "¿Qué pasa cuando termina la prueba?",
-    a: "Si querés seguir, pagás la activación (una sola vez) y desde ahí la mensualidad. Si no, tu cuenta queda en pausa: no se cobra nada automáticamente."
+    a: "Elegís el plan mensual o el anual. Si no elegís ninguno, tu cuenta queda en pausa con tus datos guardados: nunca se cobra nada automáticamente."
+  },
+  {
+    q: "¿Para qué es la activación y puedo pagarla en cuotas?",
+    a: `Es un pago único del plan mensual para la puesta en marcha: cargar tus servicios o tu carta y tus horarios, conectar WhatsApp o Telegram y dejar el agente respondiendo como tu negocio. Podés pagarla de una vez (${formatCop(ACTIVATION_PRICE_COP)}) o en ${ACTIVATION_INSTALLMENTS} cuotas de ${formatCop(ACTIVATION_INSTALLMENT_COP)} junto con las primeras mensualidades. En el plan anual no se cobra.`
+  },
+  {
+    q: "¿Tengo que firmar permanencia?",
+    a: "No. El plan mensual se paga mes a mes y lo podés dejar cuando quieras. No hay cobros automáticos: cada pago lo hacés vos."
   },
   {
     q: "¿Cómo se paga?",
-    a: "Desde el panel: pagás por Nequi y subís la captura del comprobante. Apenas se confirma, tu servicio queda activo."
+    a: "Desde el panel, en Configuración → Suscripción: elegís qué vas a pagar, pagás por Nequi y subís la captura del comprobante. Apenas se confirma, tu servicio queda activo y te llega un correo."
+  },
+  {
+    q: "¿Los mensajes de WhatsApp tienen un costo aparte?",
+    a: "Telegram no tiene costo. WhatsApp funciona con tu propia cuenta de YCloud: lo que Meta y YCloud cobren por los mensajes se paga directamente en esa cuenta, según sus tarifas. ReservasIA no le suma nada."
   },
   {
     q: "¿Funciona con mi número de WhatsApp?",
     a: "Sí. El agente atiende en tu mismo número de WhatsApp Business y vos seguís usando la app en tu celular. También funciona con Telegram."
   },
   {
-    q: "¿Y si necesito ayuda o algo a la medida?",
-    a: "El soporte personalizado y las mejoras a la medida de tu negocio se cobran con una tarifa fija por hora."
+    q: "¿Qué incluye la mensualidad y qué se cobra aparte?",
+    a: "La mensualidad incluye todas las funciones, las actualizaciones y el arreglo de cualquier falla de la app. Aparte, con una tarifa fija por hora, va el soporte personalizado (capacitaciones extra o configuraciones especiales) y las mejoras hechas a la medida de tu negocio: siempre te pasamos la cotización antes y solo pagás si la aprobás."
   }
 ];
-
-const formatCop = (value: number) => `$${value.toLocaleString("es-CO")}`;
 
 /** Botón fijo abajo en el celular, después de pasar la portada: el llamado a la acción siempre a mano. */
 function MobileStickyCta() {
@@ -336,56 +373,108 @@ export function LandingPage() {
         <section id="precios" className="mx-auto w-full max-w-6xl scroll-mt-8 px-4 py-24">
           <Reveal className="mx-auto max-w-2xl text-center">
             <p className="text-sm font-medium text-primary">Precios claros</p>
-            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-5xl">Empezá gratis. Quedate si te sirve.</h2>
-            <p className="mt-4 text-muted-foreground">Precios en pesos colombianos.</p>
+            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-5xl">Un precio simple, sin letra pequeña.</h2>
+            <p className="mt-4 text-muted-foreground">
+              Probás gratis {TRIAL_DAYS} días y después elegís cómo pagar. Precios en pesos colombianos.
+            </p>
           </Reveal>
-          <div className="mt-14 grid gap-4 lg:grid-cols-3">
+
+          <Reveal className="mx-auto mt-12 max-w-4xl">
+            <div className="flex flex-col items-start gap-4 rounded-3xl border border-primary/30 bg-primary/5 p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                  <Gift className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="font-display text-lg font-semibold">{TRIAL_DAYS} días gratis, con todo incluido</p>
+                  <p className="text-sm text-muted-foreground">Sin tarjeta de crédito. Si no seguís, no pagás nada.</p>
+                </div>
+              </div>
+              <Link to="/register" className={cn(buttonVariants(), "w-full shrink-0 sm:w-auto")}>
+                Empezar mi prueba gratis
+              </Link>
+            </div>
+          </Reveal>
+
+          <div className="mx-auto mt-6 grid max-w-4xl gap-4 md:grid-cols-2">
             <Reveal className="h-full">
               <div className="flex h-full flex-col rounded-3xl border border-border bg-card p-7">
-                <p className="text-sm font-medium text-muted-foreground">1. Prueba</p>
-                <p className="mt-3 font-display text-4xl font-semibold">Gratis</p>
-                <p className="text-sm text-muted-foreground">{TRIAL_DAYS} días</p>
-                <p className="mt-5 flex-1 text-sm text-muted-foreground">
-                  Todo el panel y el agente con IA, con los módulos de tu rubro. Sin tarjeta de crédito.
+                <p className="text-sm font-medium text-muted-foreground">Plan mensual</p>
+                <p className="mt-3 font-display text-4xl font-semibold">
+                  {formatCop(MONTHLY_PRICE_COP)}
+                  <span className="text-base font-normal text-muted-foreground"> /mes</span>
                 </p>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Más una activación de {formatCop(ACTIVATION_PRICE_COP)}, una sola vez. Podés pagarla en {ACTIVATION_INSTALLMENTS} cuotas
+                  de {formatCop(ACTIVATION_INSTALLMENT_COP)} junto con tus primeras mensualidades.
+                </p>
+                <dl className="mt-5 flex-1 space-y-2 rounded-2xl bg-muted/60 p-4 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Meses 1 a {ACTIVATION_INSTALLMENTS}</dt>
+                    <dd className="font-medium">{formatCop(MONTHLY_PRICE_COP + ACTIVATION_INSTALLMENT_COP)} /mes</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Desde el mes {ACTIVATION_INSTALLMENTS + 1}</dt>
+                    <dd className="font-medium">{formatCop(MONTHLY_PRICE_COP)} /mes</dd>
+                  </div>
+                  <p className="pt-1 text-xs text-muted-foreground">Sin permanencia: lo dejás cuando quieras.</p>
+                </dl>
                 <Link to="/register" className={cn(buttonVariants({ variant: "outline" }), "mt-6 w-full")}>
-                  Empezar mi prueba gratis
+                  Probar gratis
                 </Link>
               </div>
             </Reveal>
             <Reveal delayMs={100} className="h-full">
-              <div className="flex h-full flex-col rounded-3xl border border-border bg-card p-7">
-                <p className="text-sm font-medium text-muted-foreground">2. Activación</p>
-                <p className="mt-3 font-display text-4xl font-semibold">{formatCop(ACTIVATION_PRICE_COP)}</p>
-                <p className="text-sm text-muted-foreground">pago único</p>
-                <p className="mt-5 flex-1 text-sm text-muted-foreground">
-                  Al terminar la prueba, si querés quedarte. Se paga una sola vez.
-                </p>
-              </div>
-            </Reveal>
-            <Reveal delayMs={200} className="h-full">
               <div className="relative flex h-full flex-col rounded-3xl border-2 border-primary bg-card p-7 shadow-2xl shadow-primary/15">
                 <span className="absolute -top-3 left-7 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
-                  Después
+                  Más conveniente · {ANNUAL_FREE_MONTHS} meses gratis
                 </span>
-                <p className="text-sm font-medium text-primary">3. Mensualidad</p>
-                <p className="mt-3 font-display text-4xl font-semibold">{formatCop(MONTHLY_PRICE_COP)}</p>
-                <p className="text-sm text-muted-foreground">por mes</p>
-                <ul className="mt-5 flex-1 space-y-2 text-sm">
-                  {["Agente con IA en WhatsApp y Telegram", "Panel completo con los módulos de tu rubro", "Página de reservas y pedidos con QR", "Usuarios para todo tu equipo"].map(
-                    (item) => (
-                      <li key={item} className="flex items-start gap-2">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {item}
-                      </li>
-                    )
-                  )}
-                </ul>
+                <p className="text-sm font-medium text-primary">Plan anual</p>
+                <p className="mt-3 font-display text-4xl font-semibold">
+                  {formatCop(ANNUAL_PRICE_COP)}
+                  <span className="text-base font-normal text-muted-foreground"> /año</span>
+                </p>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Equivale a {formatCop(ANNUAL_MONTHLY_EQUIVALENT_COP)} al mes. <strong className="text-foreground">Sin activación.</strong>
+                </p>
+                <dl className="mt-5 flex-1 space-y-2 rounded-2xl bg-primary/5 p-4 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Un solo pago</dt>
+                    <dd className="font-medium">12 meses de servicio</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Ahorrás el primer año</dt>
+                    <dd className="font-medium">
+                      {formatCop(MONTHLY_PRICE_COP * 12 + ACTIVATION_PRICE_COP - ANNUAL_PRICE_COP)}
+                    </dd>
+                  </div>
+                  <p className="pt-1 text-xs text-muted-foreground">Incluye la puesta en marcha sin costo.</p>
+                </dl>
+                <Link to="/register" className={cn(buttonVariants(), "mt-6 w-full")}>
+                  Probar gratis
+                </Link>
               </div>
             </Reveal>
           </div>
-          <Reveal className="mt-6 rounded-2xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-            <strong className="text-foreground">Soporte e implementación de mejoras:</strong> el soporte personalizado y las mejoras a
-            la medida de tu negocio tienen una tarifa fija por hora.
+
+          <Reveal className="mx-auto mt-6 max-w-4xl rounded-3xl border border-border bg-card p-7">
+            <p className="font-display text-lg font-semibold">Los dos planes incluyen todo</p>
+            <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+              {PLAN_INCLUDES.map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {item}
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+
+          <Reveal className="mx-auto mt-6 grid max-w-4xl gap-3 text-sm sm:grid-cols-3">
+            {NO_SURPRISES.map((item) => (
+              <div key={item.title} className="rounded-2xl border border-dashed border-border p-5">
+                <p className="font-medium">{item.title}</p>
+                <p className="mt-1 text-muted-foreground">{item.text}</p>
+              </div>
+            ))}
           </Reveal>
         </section>
 
