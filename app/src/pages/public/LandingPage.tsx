@@ -178,9 +178,6 @@ export function LandingPage() {
             className="absolute -right-40 top-40 h-[28rem] w-[28rem] animate-blob rounded-full bg-orange-500/25 blur-[120px] motion-reduce:animate-none"
             style={{ animationDelay: "-7s" }}
           />
-          <div
-            className="absolute inset-0 opacity-[0.07] [background-image:linear-gradient(to_right,white_1px,transparent_1px),linear-gradient(to_bottom,white_1px,transparent_1px)] [background-size:56px_56px] [mask-image:radial-gradient(ellipse_at_top,black_30%,transparent_75%)]"
-          />
         </div>
 
         <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-5">
