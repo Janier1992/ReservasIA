@@ -2,7 +2,8 @@
 <!-- Páginas públicas de ReservasIA para Google Search Console. Las páginas de
      reserva de cada negocio (/r/<slug>) no van acá: las comparte cada negocio. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://reservas-ia-app.vercel.app/login</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://reservas-ia-app.vercel.app/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://reservas-ia-app.vercel.app/login</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://reservas-ia-app.vercel.app/register</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://reservas-ia-app.vercel.app/privacidad</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://reservas-ia-app.vercel.app/terminos</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>

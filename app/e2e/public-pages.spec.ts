@@ -50,3 +50,14 @@ test("la página de inicio de sesión carga con los enlaces de privacidad y cond
   await expect(page.getByRole("link", { name: /Política de privacidad/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Condiciones del servicio/ })).toBeVisible();
 });
+
+test("la dirección principal muestra la presentación de ReservasIA y lleva a crear la cuenta", async ({ page }) => {
+  await mockBackend(page);
+  await page.goto("/");
+
+  await expect(page).toHaveTitle(/ReservasIA/);
+  await expect(page.getByRole("heading", { level: 1, name: /responde y agenda solo/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ingresar" })).toHaveAttribute("href", "/login");
+  await page.getByRole("link", { name: /Probar gratis 14 días/ }).click();
+  await expect(page).toHaveURL(/\/register$/);
+});
