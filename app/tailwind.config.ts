@@ -55,10 +55,28 @@ export default {
         "message-in": {
           from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" }
+        },
+        // Página de presentación: tarjetas que flotan, manchas de color que se mueven y avisos que aparecen.
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" }
+        },
+        blob: {
+          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
+          "33%": { transform: "translate(40px, -30px) scale(1.1)" },
+          "66%": { transform: "translate(-30px, 20px) scale(0.95)" }
+        },
+        "toast-in": {
+          "0%": { opacity: "0", transform: "translateY(12px) scale(0.96)" },
+          "12%, 88%": { opacity: "1", transform: "translateY(0) scale(1)" },
+          "100%": { opacity: "0", transform: "translateY(-6px) scale(0.98)" }
         }
       },
       animation: {
-        "message-in": "message-in 300ms ease-out"
+        "message-in": "message-in 300ms ease-out",
+        float: "float 6s ease-in-out infinite",
+        blob: "blob 18s ease-in-out infinite",
+        "toast-in": "toast-in 4s ease-in-out infinite"
       }
     }
   },
