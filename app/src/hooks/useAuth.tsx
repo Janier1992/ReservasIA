@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { insforge } from "@/lib/insforgeClient";
+import { mayHaveSession, rememberSession } from "@/lib/sessionHint";
 
 interface AuthUser {
   id: string;
@@ -42,9 +43,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   async function hydrate() {
+    // Sin señales de sesión no se pregunta: evita el 401 de /api/auth/refresh para visitantes nuevos.
+    if (!mayHaveSession()) {
+      setUser(null);
+      return;
+    }
     const { data, error } = await insforge.auth.getCurrentUser();
     setUser(error ? null : (data?.user as AuthUser | null) ?? null);
   }
+
+  useEffect(() => {
+    if (!loading) rememberSession(user !== null);
+  }, [user, loading]);
 
   useEffect(() => {
     let cancelled = false;
