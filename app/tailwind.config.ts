@@ -70,6 +70,10 @@ export default {
           from: { transform: "scaleY(0)" },
           to: { transform: "scaleY(1)" }
         },
+        "bar-grow-x": {
+          from: { transform: "scaleX(0)" },
+          to: { transform: "scaleX(1)" }
+        },
         // Cinta de rubros que se desplaza sin fin (el contenido va duplicado).
         marquee: {
           from: { transform: "translateX(0)" },
@@ -87,6 +91,7 @@ export default {
         blob: "blob 18s ease-in-out infinite",
         "toast-in": "toast-in 4s ease-in-out infinite",
         "bar-grow": "bar-grow 900ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        "bar-grow-x": "bar-grow-x 900ms cubic-bezier(0.22, 1, 0.36, 1) both",
         marquee: "marquee 40s linear infinite"
       }
     }
