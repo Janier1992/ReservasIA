@@ -66,7 +66,7 @@ export function AgentChatDemo({ className }: { className?: string }) {
 
   return (
     <div
-      className={cn("mx-auto w-full max-w-sm overflow-hidden rounded-[2rem] border border-border bg-card shadow-xl", className)}
+      className={cn("mx-auto w-full max-w-sm overflow-hidden rounded-[2rem] border border-border bg-card text-card-foreground shadow-xl", className)}
       role="img"
       aria-label="Ejemplo: un cliente pide cupo por WhatsApp y el agente le agenda la cita"
     >
