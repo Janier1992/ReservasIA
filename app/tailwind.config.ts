@@ -50,6 +50,15 @@ export default {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "Inter", "system-ui", "sans-serif"]
+      },
+      keyframes: {
+        "message-in": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" }
+        }
+      },
+      animation: {
+        "message-in": "message-in 300ms ease-out"
       }
     }
   },
