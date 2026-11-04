@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { daysLeftLabel, subscriptionState } from "@/lib/subscription";
-import { PAYMENT_OPTIONS, formatCop, paymentOptionNote, type PaymentOption } from "@/lib/pricing";
+import { PAYMENT_OPTIONS, VAT_PERCENT_LABEL, formatCop, paymentOptionNote, withVat, type PaymentOption } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { env } from "@/lib/env";
 import type { SubscriptionPayment } from "@/types/domain";
@@ -41,7 +41,7 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
   const readOnly = currentRole === "staff";
   const [optionId, setOptionId] = useState<PaymentOption["id"]>(PAYMENT_OPTIONS[0].id);
   const selectedOption = PAYMENT_OPTIONS.find((o) => o.id === optionId) ?? PAYMENT_OPTIONS[0];
-  const [amount, setAmount] = useState(String(PAYMENT_OPTIONS[0].amount));
+  const [amount, setAmount] = useState(String(withVat(PAYMENT_OPTIONS[0].amount)));
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [viewingId, setViewingId] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
 
   function chooseOption(option: PaymentOption) {
     setOptionId(option.id);
-    setAmount(String(option.amount));
+    setAmount(String(withVat(option.amount)));
   }
 
   const { data: payments = [] } = useQuery({
@@ -107,7 +107,7 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
       });
 
       toast.success("Pago reportado. Te avisamos por correo apenas soporte lo confirme.");
-      setAmount(String(selectedOption.amount));
+      setAmount(String(withVat(selectedOption.amount)));
       setNote("");
       queryClient.invalidateQueries({ queryKey: ["subscription-payments", organizationId] });
     } catch (err) {
@@ -181,12 +181,15 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
                         <span className="block text-xs text-muted-foreground">{option.detail}</span>
                       </span>
                     </span>
-                    <span className="shrink-0 font-semibold">{formatCop(option.amount)}</span>
+                    <span className="shrink-0 text-right">
+                      <span className="block font-semibold">{formatCop(withVat(option.amount))}</span>
+                      <span className="block text-xs text-muted-foreground">{formatCop(option.amount)} + IVA</span>
+                    </span>
                   </label>
                 ))}
               </fieldset>
               <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">2.</span> Pagá {formatCop(selectedOption.amount)} por Nequi
+                <span className="font-medium text-foreground">2.</span> Pagá {formatCop(withVat(selectedOption.amount))} (IVA del {VAT_PERCENT_LABEL} incluido) por Nequi
                 {env.SUBSCRIPTION_NEQUI_NUMBER ? (
                   <>
                     {" "}al número <strong className="text-foreground">{env.SUBSCRIPTION_NEQUI_NUMBER}</strong>.

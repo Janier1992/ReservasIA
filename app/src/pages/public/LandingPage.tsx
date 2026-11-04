@@ -37,6 +37,7 @@ import {
   ANNUAL_PRICE_COP,
   MONTHLY_PRICE_COP,
   TRIAL_DAYS,
+  VAT_PERCENT_LABEL,
   formatCop
 } from "@/lib/pricing";
 
@@ -141,7 +142,7 @@ const FAQS = [
   },
   {
     q: "¿Para qué es la activación y puedo pagarla en cuotas?",
-    a: `Es un pago único del plan mensual para la puesta en marcha: cargar tus servicios o tu carta y tus horarios, conectar WhatsApp o Telegram y dejar el agente respondiendo como tu negocio. Podés pagarla de una vez (${formatCop(ACTIVATION_PRICE_COP)}) o en ${ACTIVATION_INSTALLMENTS} cuotas de ${formatCop(ACTIVATION_INSTALLMENT_COP)} junto con las primeras mensualidades. En el plan anual no se cobra.`
+    a: `Es un pago único del plan mensual para la puesta en marcha: cargar tus servicios o tu carta y tus horarios, conectar WhatsApp o Telegram y dejar el agente respondiendo como tu negocio. Podés pagarla de una vez (${formatCop(ACTIVATION_PRICE_COP)}) o en ${ACTIVATION_INSTALLMENTS} cuotas de ${formatCop(ACTIVATION_INSTALLMENT_COP)} junto con las primeras mensualidades. En el plan anual no se cobra. Todos los valores son más IVA (${VAT_PERCENT_LABEL}).`
   },
   {
     q: "¿Tengo que firmar permanencia?",
@@ -149,7 +150,7 @@ const FAQS = [
   },
   {
     q: "¿Cómo se paga?",
-    a: "Desde el panel, en Configuración → Suscripción: elegís qué vas a pagar, pagás por Nequi y subís la captura del comprobante. Apenas se confirma, tu servicio queda activo y te llega un correo."
+    a: "Desde el panel, en Configuración → Suscripción: elegís qué vas a pagar y el panel te muestra el total con IVA; pagás por Nequi y subís la captura del comprobante. Apenas se confirma, tu servicio queda activo y te llega un correo."
   },
   {
     q: "¿Los mensajes de WhatsApp tienen un costo aparte?",
@@ -375,7 +376,7 @@ export function LandingPage() {
             <p className="text-sm font-medium text-primary">Precios claros</p>
             <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-5xl">Un precio simple, sin letra pequeña.</h2>
             <p className="mt-4 text-muted-foreground">
-              Probás gratis {TRIAL_DAYS} días y después elegís cómo pagar. Precios en pesos colombianos.
+              Probás gratis {TRIAL_DAYS} días y después elegís cómo pagar. Precios en pesos colombianos, más IVA ({VAT_PERCENT_LABEL}).
             </p>
           </Reveal>
 
@@ -402,20 +403,20 @@ export function LandingPage() {
                 <p className="text-sm font-medium text-muted-foreground">Plan mensual</p>
                 <p className="mt-3 font-display text-4xl font-semibold">
                   {formatCop(MONTHLY_PRICE_COP)}
-                  <span className="text-base font-normal text-muted-foreground"> /mes</span>
+                  <span className="text-base font-normal text-muted-foreground"> + IVA /mes</span>
                 </p>
                 <p className="mt-3 text-sm text-muted-foreground">
-                  Más una activación de {formatCop(ACTIVATION_PRICE_COP)}, una sola vez. Podés pagarla en {ACTIVATION_INSTALLMENTS} cuotas
+                  Más una activación de {formatCop(ACTIVATION_PRICE_COP)} + IVA, una sola vez. Podés pagarla en {ACTIVATION_INSTALLMENTS} cuotas
                   de {formatCop(ACTIVATION_INSTALLMENT_COP)} junto con tus primeras mensualidades.
                 </p>
                 <dl className="mt-5 flex-1 space-y-2 rounded-2xl bg-muted/60 p-4 text-sm">
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted-foreground">Meses 1 a {ACTIVATION_INSTALLMENTS}</dt>
-                    <dd className="font-medium">{formatCop(MONTHLY_PRICE_COP + ACTIVATION_INSTALLMENT_COP)} /mes</dd>
+                    <dd className="font-medium">{formatCop(MONTHLY_PRICE_COP + ACTIVATION_INSTALLMENT_COP)} + IVA</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted-foreground">Desde el mes {ACTIVATION_INSTALLMENTS + 1}</dt>
-                    <dd className="font-medium">{formatCop(MONTHLY_PRICE_COP)} /mes</dd>
+                    <dd className="font-medium">{formatCop(MONTHLY_PRICE_COP)} + IVA</dd>
                   </div>
                   <p className="pt-1 text-xs text-muted-foreground">Sin permanencia: lo dejás cuando quieras.</p>
                 </dl>
@@ -432,10 +433,10 @@ export function LandingPage() {
                 <p className="text-sm font-medium text-primary">Plan anual</p>
                 <p className="mt-3 font-display text-4xl font-semibold">
                   {formatCop(ANNUAL_PRICE_COP)}
-                  <span className="text-base font-normal text-muted-foreground"> /año</span>
+                  <span className="text-base font-normal text-muted-foreground"> + IVA /año</span>
                 </p>
                 <p className="mt-3 text-sm text-muted-foreground">
-                  Equivale a {formatCop(ANNUAL_MONTHLY_EQUIVALENT_COP)} al mes. <strong className="text-foreground">Sin activación.</strong>
+                  Equivale a {formatCop(ANNUAL_MONTHLY_EQUIVALENT_COP)} + IVA al mes. <strong className="text-foreground">Sin activación.</strong>
                 </p>
                 <dl className="mt-5 flex-1 space-y-2 rounded-2xl bg-primary/5 p-4 text-sm">
                   <div className="flex justify-between gap-3">

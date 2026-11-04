@@ -9,7 +9,8 @@ import {
   PAYMENT_OPTIONS,
   formatCop,
   monthsFromPaymentNote,
-  paymentOptionNote
+  paymentOptionNote,
+  withVat
 } from "@/lib/pricing";
 
 describe("precios de la suscripción", () => {
@@ -37,5 +38,11 @@ describe("precios de la suscripción", () => {
   it("los pagos viejos, sin plan en la nota, siguen sumando un mes", () => {
     expect(monthsFromPaymentNote(null)).toBe(1);
     expect(monthsFromPaymentNote("pago de octubre")).toBe(1);
+  });
+
+  it("suma el IVA del 19 % redondeado al peso", () => {
+    expect(withVat(MONTHLY_PRICE_COP)).toBe(178_500);
+    expect(withVat(MONTHLY_PRICE_COP + ACTIVATION_INSTALLMENT_COP)).toBe(333_200);
+    expect(withVat(ANNUAL_PRICE_COP)).toBe(1_785_000);
   });
 });
