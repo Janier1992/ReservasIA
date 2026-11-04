@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { AgentChatDemo } from "./AgentChatDemo";
 import { PanelMockup } from "./PanelMockup";
 import { Reveal } from "./Reveal";
+import { LossCalculator } from "./LossCalculator";
 import {
   ACTIVATION_INSTALLMENTS,
   ACTIVATION_INSTALLMENT_COP,
@@ -106,6 +107,19 @@ const AGENT_POINTS = [
   "Confirma por chat y por correo, y recuerda la cita",
   "Atiende en tu mismo número de WhatsApp Business",
   "Si respondés vos, se pausa para no pisarte"
+];
+
+/** Los pasos para dejar el negocio funcionando. */
+const START_STEPS = [
+  { title: "Creá tu cuenta", text: "Con tu correo, en un minuto. Elegís tu tipo de negocio y empezás la prueba gratis, sin tarjeta." },
+  {
+    title: "Cargá tus servicios y horarios",
+    text: "Tu carta o tus servicios con precios, y cuándo atendés. El agente responde con esa información."
+  },
+  {
+    title: "Conectá WhatsApp o Telegram",
+    text: "Desde el panel. A partir de ahí el agente contesta, agenda y te avisa de cada reserva."
+  }
 ];
 
 /** Lo que incluyen los dos planes (todo tiene que existir en el producto). */
@@ -368,6 +382,46 @@ export function LandingPage() {
               </div>
             </Reveal>
           </div>
+        </section>
+
+        {/* Cómo empezar */}
+        <section className="mx-auto w-full max-w-6xl px-4 pt-24">
+          <Reveal className="mx-auto max-w-2xl text-center">
+            <p className="text-sm font-medium text-primary">Cómo empezás</p>
+            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-5xl">Funcionando en 3 pasos.</h2>
+            <p className="mt-4 text-muted-foreground">Sin instalar nada raro ni saber de tecnología.</p>
+          </Reveal>
+          <ol className="mt-14 grid gap-4 md:grid-cols-3">
+            {START_STEPS.map((step, index) => (
+              <li key={step.title}>
+                <Reveal delayMs={index * 100} className="h-full">
+                  <div className="h-full rounded-3xl border border-border bg-card p-7">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary font-display text-lg font-semibold text-primary-foreground">
+                      {index + 1}
+                    </span>
+                    <p className="mt-5 font-display text-lg font-semibold">{step.title}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{step.text}</p>
+                  </div>
+                </Reveal>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {/* Calculadora */}
+        <section className="mx-auto w-full max-w-6xl px-4 pt-24">
+          <Reveal className="mx-auto max-w-2xl text-center">
+            <p className="text-sm font-medium text-primary">Hacé la cuenta</p>
+            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-5xl">
+              ¿Cuánto te cuesta no contestar a tiempo?
+            </h2>
+            <p className="mt-4 text-muted-foreground">
+              Cada mensaje que queda sin respuesta es un cliente que le escribe a otro negocio.
+            </p>
+          </Reveal>
+          <Reveal className="mt-14">
+            <LossCalculator />
+          </Reveal>
         </section>
 
         {/* Precios */}
