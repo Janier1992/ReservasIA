@@ -54,7 +54,7 @@ export const PAYMENT_OPTIONS: PaymentOption[] = [
   {
     id: "monthly_with_installment",
     label: "Mensualidad + cuota de activación",
-    detail: `Para los primeros ${ACTIVATION_INSTALLMENTS} meses: ${formatCop(MONTHLY_PRICE_COP)} + ${formatCop(ACTIVATION_INSTALLMENT_COP)}.`,
+    detail: `Para los primeros ${ACTIVATION_INSTALLMENTS} meses: ${formatCop(MONTHLY_PRICE_COP)} + ${formatCop(ACTIVATION_INSTALLMENT_COP)} + IVA.`,
     amount: MONTHLY_PRICE_COP + ACTIVATION_INSTALLMENT_COP,
     months: 1
   },

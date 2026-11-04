@@ -2,6 +2,8 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/react";
+import { onlyPublicPages } from "@/lib/analytics";
 import { queryClient } from "@/lib/queryClient";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -59,6 +61,7 @@ export default function App() {
             <AuthProvider>
               <OrganizationProvider>
                 <Toaster richColors position="top-right" />
+                <Analytics beforeSend={onlyPublicPages} />
                 <ErrorBoundary title="La aplicación no pudo cargar esta pantalla.">
                   <Suspense fallback={<FullscreenLoader />}>
                     <Routes>
