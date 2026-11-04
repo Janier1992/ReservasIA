@@ -27,6 +27,19 @@ export const ANNUAL_FREE_MONTHS = Math.round((MONTHLY_PRICE_COP * 12 - ANNUAL_PR
 
 export const formatCop = (value: number) => `$${value.toLocaleString("es-CO")}`;
 
+/**
+ * Los precios se publican antes de IVA ("+ IVA"): el negocio paga el valor
+ * más el 19 %. El panel le muestra el total ya calculado para que no tenga
+ * que hacer cuentas.
+ */
+export const VAT_RATE = 0.19;
+export const VAT_PERCENT_LABEL = `${Math.round(VAT_RATE * 100)} %`;
+
+/** Valor con IVA, redondeado al peso. */
+export function withVat(value: number): number {
+  return Math.round(value * (1 + VAT_RATE));
+}
+
 /** Lo que el negocio puede estar pagando cuando reporta un comprobante. */
 export interface PaymentOption {
   id: "monthly_with_installment" | "monthly_with_full_activation" | "monthly" | "annual";
