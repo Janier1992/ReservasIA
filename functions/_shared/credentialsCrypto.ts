@@ -29,7 +29,8 @@ function bytesToBase64(bytes: Uint8Array): string {
 }
 
 async function deriveKey(secret: string): Promise<CryptoKey> {
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
+  // Igual que el server: sin espacios ni saltos de línea sobrantes al pegarla en el panel.
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret.trim()));
   return crypto.subtle.importKey("raw", hash, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
@@ -58,4 +59,20 @@ export async function decryptCredentials(
   const ciphertext = base64ToBytes(value.ct);
   const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
   return JSON.parse(new TextDecoder().decode(decrypted)) as Record<string, unknown>;
+}
+
+/**
+ * Como decryptCredentials, pero devuelve null si se cifraron con otra clave
+ * (p. ej. después de cambiar INTEGRATIONS_ENCRYPTION_KEY): reconectar o
+ * desconectar tiene que funcionar igual, que es justamente como se arregla.
+ */
+export async function tryDecryptCredentials(
+  value: Record<string, unknown> | null | undefined,
+  secret: string
+): Promise<Record<string, unknown> | null> {
+  try {
+    return await decryptCredentials(value, secret);
+  } catch {
+    return null;
+  }
 }

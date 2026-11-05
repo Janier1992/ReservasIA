@@ -1,0 +1,11 @@
+# ReservasIA: solo se indexan las páginas públicas. El panel de cada negocio
+# y los enlaces privados (encuestas, onboarding, soporte) no son para buscadores.
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /soporte
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /o/
+
+Sitemap: https://reservas-ia-app.vercel.app/sitemap.xml
