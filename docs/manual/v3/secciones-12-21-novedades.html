@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>12 a 21. Novedades del panel</title>
+<!--
+  Secciones nuevas del manual de usuario (v3): lo que se agregó al panel y a
+  las páginas públicas. Se imprimen a PDF y build_manual.py las inserta
+  después de la sección 11, con el fondo beige, el encabezado y los números.
+-->
+<link rel="stylesheet" href="manual.css" />
+</head>
+<body>
+
+<!-- 12 -->
+<span class="chip">12. Primeros pasos</span>
+<div class="title-row">
+  <h1>Crear la cuenta y prueba gratis</h1>
+  <span class="pill green">Nuevo</span>
+</div>
+<p>
+  Cualquier negocio puede crear su cuenta solo, desde <span class="ui">Crear cuenta</span>, sin tarjeta de crédito. La prueba gratis dura
+  <strong>14 días</strong>, con todas las funciones; una franja arriba del panel indica cuántos días quedan.
+</p>
+<div class="phones">
+  <figure><img src="capturas/n-registro.jpg" alt="Crear cuenta" /><figcaption>Crear cuenta.</figcaption></figure>
+  <figure><img src="capturas/n-login-ojito.jpg" alt="Iniciar sesión" /><figcaption>Iniciar sesión, con el ojo para ver la contraseña.</figcaption></figure>
+</div>
+<ol class="num">
+  <li>Completá nombre, correo y contraseña, y tocá <span class="ui">Crear cuenta</span>.</li>
+  <li>Confirmá el correo con el código que llega a tu bandeja de entrada.</li>
+  <li>Un <strong>asistente de 10 pasos</strong> te guía para cargar el rubro, los datos del negocio, los horarios, los servicios, los recursos,
+    el agente y los canales. Podés saltar pasos y completarlos después desde el panel.</li>
+</ol>
+<ul class="check">
+  <li><strong>Ver la contraseña:</strong> el ícono del ojo muestra u oculta lo que escribiste, para evitar errores de tipeo.</li>
+  <li><strong>¿Olvidaste tu contraseña?</strong> te manda un código al correo para crear una nueva.</li>
+  <li><strong>Instalar app:</strong> el panel se instala en el celular o el computador como una aplicación, con su ícono propio.</li>
+  <li>Al pie de cada pantalla están la <span class="ui">Política de privacidad</span> y las <span class="ui">Condiciones del servicio</span>.</li>
+</ul>
+
+<!-- 13 -->
+<div class="page-break"></div>
+<span class="chip">13. Reservas</span>
+<div class="title-row">
+  <h1>Novedades en reservas</h1>
+  <span class="pill green">Nuevo</span>
+</div>
+<p>
+  La sección de reservas cambia de nombre según el rubro (<em>Turnos</em> en una barbería, <em>Citas de taller</em> en un taller,
+  <em>Reservas de mesa</em> en un restaurante) y suma estas herramientas:
+</p>
+<h2>Tablero por etapas</h2>
+<p>
+  Además de <span class="ui">Lista</span> y <span class="ui">Calendario</span>, hay una vista <span class="ui">Tablero</span> con una columna por
+  etapa del trabajo (por ejemplo, en un taller: Recibido, Diagnóstico, Cotización enviada, Aprobado). Cada tarjeta se pasa a la etapa
+  siguiente con las flechas.
+</p>
+<figure><img src="capturas/n-tablero-etapas.jpg" alt="Tablero por etapas" /><figcaption>Citas de taller en vista Tablero.</figcaption></figure>
+<h2>Bloqueos de agenda</h2>
+<p>
+  El botón <span class="ui">Bloqueos</span> cierra una franja para vacaciones, almuerzo, festivos o mantenimiento. Se puede bloquear todo el
+  negocio o un solo recurso, por horas o días completos. Ni el agente ni la página pública ofrecen esos horarios.
+</p>
+<figure><img src="capturas/n-bloqueos.jpg" alt="Bloqueos de agenda" /><figcaption>Bloqueos de agenda.</figcaption></figure>
+
+<h2>Acciones sobre cada reserva</h2>
+<table>
+  <tr><th>Acción</th><th>Para qué sirve</th></tr>
+  <tr><td>Completar / No-show / Cancelar</td><td>Cierran la reserva. Completar la suma a las ventas y a los reportes.</td></tr>
+  <tr><td>Confirmar pago</td><td>Aparece cuando la reserva pidió anticipo por Nequi: se revisa el comprobante y se confirma.</td></tr>
+  <tr><td>Cobrar</td><td>Registra el pago del servicio (efectivo, Nequi o tarjeta) y lo descuenta de un plan si el cliente tiene uno.</td></tr>
+  <tr><td>Pedir opinión</td><td>Le envía al cliente una encuesta corta de 1 a 5 estrellas (ver sección 20).</td></tr>
+</table>
+<ul class="check">
+  <li><strong>Reservas que se repiten:</strong> al crear una reserva a mano se puede marcar que se repita cada semana; el panel crea toda la serie de una vez.</li>
+  <li><strong>Anticipos:</strong> si el negocio activa el anticipo por Nequi, la reserva queda <em>Esperando pago</em> hasta que se confirma.</li>
+  <li><strong>Correo de confirmación:</strong> el cliente que deja su correo recibe la confirmación con el logo del negocio y un botón para agregar la cita a Google Calendar.</li>
+</ul>
+
+<!-- 14 -->
+<span class="chip">14. Clientes</span>
+<div class="title-row">
+  <h1>Fichas de clientes según el rubro</h1>
+  <span class="pill green">Nuevo</span>
+</div>
+<p>
+  La ficha de cada cliente guarda lo que importa en cada negocio: los <strong>vehículos</strong> (placa, marca, modelo y año) en un taller, las
+  <strong>mascotas</strong> en una veterinaria o peluquería canina, las <strong>preferencias</strong> en una barbería o un spa, o los datos del
+  <strong>estudiante</strong> en una academia. El agente también los pregunta y los guarda solo.
+</p>
+<figure><img src="capturas/n-ficha-vehiculo.jpg" alt="Ficha de cliente con vehículo" /><figcaption>Ficha de un cliente de taller, con su vehículo y su plan.</figcaption></figure>
+<ul class="check">
+  <li>En la misma ficha se ven y se venden los <strong>planes</strong> del cliente (sección 18).</li>
+  <li>Los <strong>datos de salud</strong> (por ejemplo, alergias en un consultorio) solo se guardan si el cliente dio su autorización, que queda registrada.</li>
+</ul>
+
+<!-- 15 -->
+<span class="chip">15. Catálogo</span>
+<div class="title-row">
+  <h1>Carta, menú del día y horarios por recurso</h1>
+  <span class="pill green">Nuevo</span>
+</div>
+<p>
+  En restaurantes, <span class="ui">Servicios</span> se llama <span class="ui">Carta y servicios</span>. Cada plato tiene sus
+  <strong>días del menú</strong>: la página de pedidos por QR muestra solo lo que se ofrece hoy, y la pestaña <span class="ui">Menú de hoy</span>
+  deja revisarlo de un vistazo.
+</p>
+<figure><img src="capturas/n-carta.jpg" alt="Carta y servicios" /><figcaption>Carta y servicios, con los días del menú y el interruptor de agotado.</figcaption></figure>
+<ul class="check">
+  <li><strong>Agotado hoy:</strong> apaga un plato solo por el día de hoy; mañana vuelve a aparecer.</li>
+  <li><strong>Incluye:</strong> describe lo que trae el plato (por ejemplo, “frijoles, arroz, chicharrón”) y se muestra en la carta.</li>
+  <li><strong>Carga masiva:</strong> sube muchos productos de una vez.</li>
+</ul>
+<h2>Horario propio de cada recurso</h2>
+<p>
+  Cada recurso (un barbero, una silla, una bahía o una mesa) puede tener su propio horario, distinto del horario del negocio. Solo se le asignan
+  reservas dentro de esas franjas; las ausencias puntuales se cargan como bloqueos.
+</p>
+<figure><img src="capturas/n-horario-recurso.jpg" alt="Horario de un recurso" /><figcaption>Horario propio de una silla VIP.</figcaption></figure>
+
+<!-- 16 -->
+<div class="page-break"></div>
+<span class="chip">16. Página pública</span>
+<div class="title-row">
+  <h1>Página de reservas y código QR</h1>
+  <span class="pill green">Nuevo</span>
+</div>
+<p>
+  Cada negocio tiene una <strong>página pública de reservas</strong> donde el cliente reserva solo, sin escribir por chat y sin crear cuenta. Se
+  encuentra en <span class="ui">Inicio</span>, en la tarjeta <span class="ui">Tu página de reservas</span>:
+</p>
+<figure><img src="capturas/n-inicio-qr.jpg" alt="Tu página de reservas" /><figcaption>Tarjeta “Tu página de reservas” en Inicio.</figcaption></figure>
+<ul class="check">
+  <li><span class="ui">Copiar enlace</span> para compartirlo en redes, en WhatsApp o en la biografía de Instagram.</li>
+  <li><span class="ui">Descargar QR</span> para imprimirlo y ponerlo en el mostrador, en las mesas o en la vitrina.</li>
+  <li><span class="ui">Ver página</span> para revisar cómo la ve el cliente.</li>
+</ul>
+<div class="phones">
+  <figure><img src="capturas/n-publica-1.jpg" alt="Elegí el servicio" /><figcaption>1. Elegí el servicio.</figcaption></figure>
+  <figure><img src="capturas/n-publica-2.jpg" alt="Elegí día y hora" /><figcaption>2. Elegí día y hora.</figcaption></figure>
+</div>
+<h2>Cómo reserva el cliente</h2>
+<ol class="num">
+  <li>Elige el servicio. Si no está en la lista, toca <span class="ui">Otro servicio</span> y cuenta qué necesita.</li>
+  <li>Elige el día y la hora entre los horarios libres (ya descuenta reservas, bloqueos y horarios de cada recurso).</li>
+  <li>Deja su nombre, su teléfono y, si quiere, su correo para recibir la confirmación.</li>
+  <li>En <span class="ui">¿Te confirmamos por chat?</span> puede tocar Telegram o WhatsApp: desde ese momento el agente le avisa por ahí y
+    puede reprogramar o cancelar conversando.</li>
+</ol>
+<p class="muted">La reserva aparece al instante en el panel, con el canal “público”, y suena el aviso si las notificaciones están activas.</p>
+
+<!-- 17 -->
+<span class="chip">17. Restaurantes y filas</span>
+<div class="title-row">
+  <h1>Pedidos por QR y Atención en sitio</h1>
+  <span class="pill green">Nuevo</span>
+</div>
+<p>
+  En un restaurante, el mismo QR abre la <strong>carta del día</strong> y el cliente hace su pedido desde el celular, sin descargar nada.
+</p>
+<div class="phones">
+  <figure><img src="capturas/n-pedido-2.jpg" alt="Carta del día" /><figcaption>Carta del día con cantidades.</figcaption></figure>
+  <figure><img src="capturas/n-pedido-4.jpg" alt="Pedido recibido" /><figcaption>Pedido recibido, con su ticket.</figcaption></figure>
+</div>
+<ol class="num">
+  <li>Elige uno o varios productos y la cantidad de cada uno. Los agotados aparecen marcados.</li>
+  <li>Toca <span class="ui">Ver pedido</span>, escribe para quién es (por ejemplo, “Laura” o “Mesa 4”) y confirma con el total.</li>
+  <li>Recibe un <strong>número de ticket</strong> y ve cuántos pedidos tiene adelante.</li>
+  <li>Con <span class="ui">Avisame por Telegram</span> o <span class="ui">Avisame por WhatsApp</span> recibe un mensaje cuando el pedido está listo.</li>
+</ol>
+
+<div class="cards">
+  <div class="card" style="flex:0 0 190pt"><img src="capturas/n-pedido-3.jpg" alt="No está en la carta" style="width:100%;border-radius:6pt" /></div>
+  <div class="card">
+    <h3>¿No está en la carta?</h3>
+    <p>El mesero puede anotar un plato que no está cargado, con lo que lleva y su precio. Si marca
+      <span class="ui">Agregar este plato al menú</span>, queda guardado en la carta con ese precio para los próximos pedidos.</p>
+  </div>
+</div>
+<h2>Atención en sitio</h2>
+<p>
+  La sección <span class="ui">Atención en sitio</span> es el tablero en vivo de la cocina o del mostrador: recibe a quien llega, con o sin
+  reserva, y lo lleva por <strong>En espera → En atención → Listo para entregar</strong>. Cada atención queda guardada en las reservas y en la
+  ficha del cliente.
+</p>
+<figure><img src="capturas/n-sitio-tablero.jpg" alt="Atención en sitio" /><figcaption>Atención en sitio: contadores, registro de llegadas y pedidos listos.</figcaption></figure>
+<ul class="check">
+  <li><span class="ui">Registrar llegada sin reserva</span> agrega a alguien a la fila. Con <span class="ui">Dictar</span> se carga hablando.</li>
+  <li>Al marcar un pedido como <span class="ui">Entregado</span>, sale de la pantalla y se suma a ventas.</li>
+  <li>Si el cliente pidió aviso, le llega solo un mensaje cuando su pedido pasa a “Listo”.</li>
+</ul>
+
+<h2>Ajustes y Modo pantalla</h2>
+<p>
+  <span class="ui">Ajustes</span> vale para todo el equipo: la <strong>alerta de demora</strong> resalta en color y con sonido la tarjeta de
+  quien lleva esperando más de los minutos que elijas. El <span class="ui">Modo pantalla</span> muestra el tablero a pantalla completa, para un
+  televisor de cocina o de sala de espera; ahí se pueden <strong>ocultar precios y totales</strong> y <strong>abreviar los nombres</strong> de los
+  clientes (“Andrea G.”).
+</p>
+<figure><img src="capturas/n-sitio-ajustes.jpg" alt="Ajustes del tablero" /><figcaption>Ajustes del tablero.</figcaption></figure>
+<figure><img src="capturas/n-sitio-pantalla.jpg" alt="Modo pantalla" /><figcaption>Modo pantalla.</figcaption></figure>
+
+<!-- 18 -->
+<div class="page-break"></div>
+<span class="chip">18. Fidelización</span>
+<div class="title-row">
+  <h1>Planes y paquetes</h1>
+  <span class="pill green">Nuevo</span>
+</div>
+<p>
+  En <span class="ui">Planes</span> se arma el catálogo de lo que se vende por adelantado. Se descuentan solos cada vez que se completa una
+  reserva del cliente:
+</p>
+<table>
+  <tr><th>Tipo</th><th>Ejemplo</th><th>Cómo se usa</th></tr>
+  <tr><td>Bono de sesiones</td><td>Bono 5 cortes</td><td>Cada reserva completada descuenta una sesión, hasta agotarlas o hasta su vencimiento.</td></tr>
+  <tr><td>Membresía</td><td>Membresía mensual</td><td>Da derecho a los servicios incluidos mientras esté vigente.</td></tr>
+  <tr><td>Tarjeta de sellos</td><td>8 sellos = 1 corte gratis</td><td>Suma un sello por visita; al completarla aparece <span class="ui">Canjear premio</span>.</td></tr>
+</table>
+<figure><img src="capturas/n-planes.jpg" alt="Planes y paquetes" /><figcaption>Catálogo de planes y planes vendidos.</figcaption></figure>
+<p>Para vender un plan, abrí la ficha del cliente y tocá <span class="ui">Vender plan</span>. Abajo se ven los planes vigentes con su avance.</p>
+
+<!-- 19 -->
+<span class="chip">19. Caja</span>
+<div class="title-row">
+  <h1>Ventas</h1>
+  <span class="pill green">Nuevo</span>
+</div>
+<p>
+  <span class="ui">Ventas</span> muestra qué se vendió en el día y cuánto entró por cada medio de pago: <strong>efectivo</strong>,
+  <strong>Nequi</strong> y <strong>tarjeta</strong>. Suma sola las reservas cobradas y los pedidos entregados; con
+  <span class="ui">Registrar venta</span> se agrega una venta suelta (por ejemplo, un producto de mostrador).
+</p>
+<figure><img src="capturas/n-ventas.jpg" alt="Ventas" /><figcaption>Ventas del día: totales por medio de pago, productos vendidos y movimientos.</figcaption></figure>
+
+<!-- 20 -->
+<span class="chip">20. Clientes que vuelven</span>
+<div class="title-row">
+  <h1>Opiniones y Recuperar clientes</h1>
+  <span class="pill green">Nuevo</span>
+</div>
+<h2>Opiniones</h2>
+<p>
+  Después de cada atención, el cliente puede calificarla de <strong>1 a 5 estrellas</strong> y dejar un comentario. La encuesta se envía sola
+  por el chat (o con <span class="ui">Pedir opinión</span> desde la reserva). El panel muestra el promedio, la distribución y los comentarios.
+</p>
+<figure><img src="capturas/n-opiniones.jpg" alt="Opiniones" /><figcaption>Opiniones de los clientes.</figcaption></figure>
+<p>
+  Si cargás el <strong>enlace de reseñas de Google</strong> del negocio, a los clientes contentos (4 o 5 estrellas) se les invita a dejar la
+  reseña también en Google.
+</p>
+
+<h2>Recuperar clientes</h2>
+<p>
+  Lista a los clientes que <strong>hace tiempo no vuelven</strong> y no tienen nada agendado, empezando por los que más veces vinieron. En
+  <span class="ui">¿Cuándo se considera perdido?</span> se eligen los días sin volver (45 por defecto).
+</p>
+<figure><img src="capturas/n-recuperar.jpg" alt="Recuperar clientes" /><figcaption>Recuperar clientes, con el mensaje sugerido.</figcaption></figure>
+<ul class="check">
+  <li>El <strong>mensaje sugerido</strong> se puede editar; <code>{nombre}</code> y <code>{negocio}</code> se reemplazan solos.</li>
+  <li>El botón <span class="ui">WhatsApp</span> abre el chat con el mensaje listo; <span class="ui">Chat</span> lo envía por el canal donde el cliente ya escribió.</li>
+  <li>Un cliente contactado no vuelve a aparecer hasta que pase de nuevo el plazo.</li>
+</ul>
+
+<!-- 21 -->
+<span class="chip">21. Ajustes</span>
+<div class="title-row">
+  <h1>Configuración avanzada, avisos y reportes</h1>
+  <span class="pill green">Nuevo</span>
+</div>
+<p>En <span class="ui">Configuración</span> se sumaron estas opciones:</p>
+<ul class="check">
+  <li><strong>Logo y eslogan:</strong> aparecen en la página pública, en los pedidos por QR y en los correos de confirmación.</li>
+  <li><strong>Horarios por bloques:</strong> cada día puede tener varias franjas (por ejemplo, 9:00 a 12:00 y 14:00 a 19:00), y se copian de un día a otro.</li>
+  <li><strong>Recordatorio automático:</strong> el agente le recuerda la cita al cliente por el chat donde reservó, con la anticipación que elijas.</li>
+</ul>
+
+<h2>Anticipos por Nequi</h2>
+<p>
+  Si lo activás, el agente puede pedirle al cliente un anticipo por Nequi antes de confirmar la reserva. El cliente manda la foto del
+  comprobante por el mismo chat y alguien del negocio confirma el pago desde el Inbox o desde la reserva: <strong>el agente nunca confirma un pago
+  por su cuenta</strong>.
+</p>
+<figure class="half"><img src="capturas/n-config-nequi.jpg" alt="Pagos con Nequi" /></figure>
+<h2>Suscripción</h2>
+<p>
+  La tarjeta <span class="ui">Suscripción</span> muestra hasta cuándo está activo el servicio. Para renovar, se paga por Nequi y se sube la
+  captura del comprobante; una vez revisado, el servicio se extiende y llega un correo de confirmación.
+</p>
+<figure class="half"><img src="capturas/n-config-suscripcion.jpg" alt="Suscripción" /></figure>
+<h2>Notificaciones push</h2>
+<p>
+  Con <span class="ui">Notificaciones push</span> el celular o el computador avisa con sonido apenas entra una reserva nueva, aunque el panel
+  esté cerrado. En iPhone, primero hay que instalar la app (“Compartir → Agregar a pantalla de inicio”) y abrirla desde ese ícono.
+</p>
+
+<h2>Google Calendar</h2>
+<p>
+  En <span class="ui">Integraciones</span>, la tarjeta de Google Calendar copia cada reserva al calendario del negocio. Al conectar, Google
+  puede mostrar el aviso <em>“Google no verificó esta app”</em>: tocá <span class="ui">Configuración avanzada</span> →
+  <span class="ui">Ir a ReservasIA</span> para continuar. Los clientes que dejaron su correo reciben además la confirmación con el botón
+  <span class="ui">Agregar a Google Calendar</span>.
+</p>
+<h2>Reportes</h2>
+<p>
+  <span class="ui">Reportes</span> resume turnos, ingresos, ticket promedio, cancelaciones y no-shows del período (7, 30 o 90 días, o un año),
+  con el detalle por servicio, por recurso y por canal. El botón <span class="ui">CSV</span> descarga los datos para abrirlos en Excel.
+</p>
+<figure><img src="capturas/n-reportes.jpg" alt="Reportes" /><figcaption>Reportes del período.</figcaption></figure>
+<div class="callout"><strong>El agente se hace a un lado:</strong> si alguien del equipo responde un chat desde el Inbox o desde la app de
+  WhatsApp Business, el agente se pausa 30 minutos en esa conversación para no pisar la respuesta, y después retoma solo.</div>
+
+</body>
+</html>

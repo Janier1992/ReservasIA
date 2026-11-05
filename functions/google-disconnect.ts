@@ -1,5 +1,6 @@
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
 import { google } from "npm:googleapis";
+import { tryDecryptCredentials } from "./_shared/credentialsCrypto.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -32,6 +33,12 @@ export default async function handler(req: Request): Promise<Response> {
   const organizationId = body.organization_id;
   if (!organizationId) return jsonResponse({ error: { code: "VALIDATION_ERROR" } }, 400);
 
+  // Redeploy forzado 2026-10-30 ter (ver ycloud-connect.ts): recoger el secreto actualizado.
+  const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY");
+  if (!encryptionKey) {
+    return jsonResponse({ error: { code: "NOT_CONFIGURED", message: "Falta configurar el cifrado de credenciales en el servidor." } }, 500);
+  }
+
   const { data: membership } = await userClient.database
     .from("organization_members")
     .select("role")
@@ -51,7 +58,9 @@ export default async function handler(req: Request): Promise<Response> {
     .eq("provider", "google_calendar")
     .maybeSingle();
 
-  const accessToken = (integration?.credentials as Record<string, unknown> | undefined)?.access_token as string | undefined;
+  // Ilegibles (otra clave): se desconecta igual, solo que sin poder revocar el token en Google.
+  const credentials = (await tryDecryptCredentials(integration?.credentials as Record<string, unknown> | null, encryptionKey)) ?? {};
+  const accessToken = credentials.access_token as string | undefined;
   if (accessToken) {
     try {
       const oauthClient = new google.auth.OAuth2();

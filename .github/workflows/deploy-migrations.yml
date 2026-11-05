@@ -1,0 +1,46 @@
+name: Deploy database migrations
+
+# Aplica en InsForge las migraciones nuevas de migrations/, sin terminal:
+# Actions → Deploy database migrations → Run workflow. Por defecto solo
+# muestra cuáles se aplicarían; marcar "aplicar" para aplicarlas. Usa los
+# mismos secretos que "Deploy Edge Functions" (INSFORGE_URL e INSFORGE_API_KEY).
+on:
+  workflow_dispatch:
+    inputs:
+      aplicar:
+        description: "Aplicar las migraciones (sin marcar, solo muestra cuáles faltan)"
+        type: boolean
+        default: false
+      desde:
+        description: "Solo si InsForge no tiene historial: primera migración a aplicar (ej. 20261028090000)"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-migrations
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Migraciones en InsForge
+        # inputs.aplicar (no github.event.inputs.aplicar): con el evento crudo,
+        # un booleano tildado en el formulario de "Run workflow" seguía
+        # llegando vacío acá y el script corría siempre en modo "solo
+        # mostrar" (reportado 2026-10-30: dos corridas con el check marcado,
+        # ninguna aplicó nada).
+        env:
+          INSFORGE_URL: ${{ secrets.INSFORGE_URL }}
+          INSFORGE_API_KEY: ${{ secrets.INSFORGE_API_KEY }}
+          APPLY: ${{ inputs.aplicar }}
+          SINCE: ${{ inputs.desde }}
+        run: |
+          set --
+          if [ "$APPLY" = "true" ]; then set -- "$@" --apply; fi
+          if [ -n "$SINCE" ]; then set -- "$@" --since "$SINCE"; fi
+          node scripts/deploy-migrations-api.mjs "$@"

@@ -1,6 +1,7 @@
 import { env } from "../../config/env.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
+import { reportFailure } from "../../lib/alerts.js";
 import type { Reservation } from "../../types/domain.js";
 import { buildReservationEmail, type ReservationEmailKind } from "./reservationEmailTemplate.js";
 
@@ -19,7 +20,9 @@ export async function sendReservationEmail(reservation: Reservation, kind: Reser
       insforgeAdmin.database.from("customers").select("email, name").eq("id", reservation.customer_id).maybeSingle(),
       insforgeAdmin.database
         .from("business_profiles")
-        .select("name, logo_url, tagline, address, phone, email, cancellation_policy")
+        // "*" y no la lista de columnas: address_details y maps_url llegan con la
+        // migración 20261029090000 y, hasta aplicarla, pedirlas por nombre fallaría.
+        .select("*")
         .eq("organization_id", reservation.organization_id)
         .maybeSingle(),
       insforgeAdmin.database.from("organizations").select("name, timezone").eq("id", reservation.organization_id).maybeSingle(),
@@ -35,6 +38,8 @@ export async function sendReservationEmail(reservation: Reservation, kind: Reser
       logo_url: string | null;
       tagline: string | null;
       address: string | null;
+      address_details?: string | null;
+      maps_url?: string | null;
       phone: string | null;
       email: string | null;
       cancellation_policy: string | null;
@@ -49,6 +54,8 @@ export async function sendReservationEmail(reservation: Reservation, kind: Reser
         logoUrl: p?.logo_url ?? null,
         slogan: p?.tagline?.trim() || null,
         address: p?.address ?? null,
+        addressDetails: p?.address_details?.trim() || null,
+        mapsUrl: p?.maps_url ?? null,
         phone: p?.phone ?? null
       },
       cancellationPolicy: p?.cancellation_policy?.trim() || null,
@@ -66,11 +73,13 @@ export async function sendReservationEmail(reservation: Reservation, kind: Reser
     const { error } = await insforgeAdmin.emails.send({ to: c.email, subject, html, replyTo });
     if (error) {
       logger.warn({ reservationId: reservation.id, kind, err: error }, "reservation_email_failed");
+      reportFailure("reservation_email", new Error((error as { message?: string }).message ?? "InsForge no envió el correo"));
       return false;
     }
     return true;
   } catch (err) {
     logger.warn({ reservationId: reservation.id, kind, err }, "reservation_email_failed");
+    reportFailure("reservation_email", err);
     return false;
   }
 }

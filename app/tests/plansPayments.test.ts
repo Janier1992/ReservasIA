@@ -17,13 +17,13 @@ const plan: PackagePlan = {
   is_active: true
 };
 
-describe("plans", () => {
-  it("computes the expiry counting the start day", () => {
+describe("planes", () => {
+  it("calcula el vencimiento contando el día de inicio", () => {
     expect(computeExpiry("2026-09-27", 30)).toBe("2026-10-26");
     expect(computeExpiry("2026-09-27", null)).toBeNull();
   });
 
-  it("copies the catalog plan into the customer's plan", () => {
+  it("copia el plan del catálogo al plan del cliente", () => {
     expect(customerPlanFromCatalog(plan, "org", "c1", "2026-09-27")).toEqual({
       organization_id: "org",
       customer_id: "c1",
@@ -39,7 +39,7 @@ describe("plans", () => {
     expect(customerPlanFromCatalog({ ...plan, kind: "membership" }, "org", "c1", "2026-09-27").sessions_total).toBeNull();
   });
 
-  it("describes the balance for each kind", () => {
+  it("describe el saldo de cada tipo de plan", () => {
     expect(planBalanceText({ kind: "sessions", sessions_total: 5, sessions_used: 2, expires_on: null })).toBe("Quedan 3 de 5");
     expect(planBalanceText({ kind: "stamps", sessions_total: 10, sessions_used: 4, expires_on: null })).toBe("4 de 10 sellos");
     expect(planBalanceText({ kind: "membership", sessions_total: null, sessions_used: 0, expires_on: "2026-10-31" })).toBe("Ilimitado hasta 2026-10-31");
@@ -48,8 +48,8 @@ describe("plans", () => {
   });
 });
 
-describe("payments", () => {
-  it("parses Colombian-style amounts", () => {
+describe("pagos", () => {
+  it("interpreta montos escritos al estilo colombiano", () => {
     expect(parseAmount("35.000")).toBe(35000);
     expect(parseAmount("1.250.000")).toBe(1250000);
     expect(parseAmount("35000,50")).toBe(35000.5);
@@ -57,7 +57,7 @@ describe("payments", () => {
     expect(parseAmount("abc")).toBeNull();
   });
 
-  it("adds up totals by method and currency", () => {
+  it("suma los totales por medio de pago y moneda", () => {
     const payments = [
       { method: "cash" as const, amount: 20000, currency: "COP" },
       { method: "cash" as const, amount: 15000, currency: "COP" },
@@ -69,12 +69,12 @@ describe("payments", () => {
 });
 
 describe("zonedDayRange", () => {
-  it("returns the business day boundaries in UTC", () => {
+  it("devuelve los límites del día del negocio en UTC", () => {
     expect(zonedDayRange("2026-09-27", "America/Bogota")).toEqual({ from: "2026-09-27T05:00:00.000Z", to: "2026-09-28T05:00:00.000Z" });
     expect(zonedDayRange("2026-12-31", "UTC")).toEqual({ from: "2026-12-31T00:00:00.000Z", to: "2027-01-01T00:00:00.000Z" });
   });
 
-  it("handles daylight saving changes", () => {
+  it("tiene en cuenta los cambios de horario de verano", () => {
     // Nueva York adelanta el reloj el 8 de marzo de 2026: ese día dura 23 horas.
     const { from, to } = zonedDayRange("2026-03-08", "America/New_York");
     expect((new Date(to).getTime() - new Date(from).getTime()) / 3_600_000).toBe(23);

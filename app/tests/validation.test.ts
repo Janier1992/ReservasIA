@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { isNonNegativeNumber, isPositiveInteger, isValidEmail } from "@/lib/validation";
+import { isNonNegativeNumber, isPositiveInteger, isValidEmail, isValidMapsUrl } from "@/lib/validation";
 
 describe("isValidEmail", () => {
-  it("accepts well-formed emails", () => {
+  it("acepta correos bien escritos", () => {
     expect(isValidEmail("cliente@negocio.com")).toBe(true);
     expect(isValidEmail("  cliente@negocio.com  ")).toBe(true);
   });
 
-  it("rejects malformed emails", () => {
+  it("rechaza correos mal escritos", () => {
     expect(isValidEmail("no-es-un-email")).toBe(false);
     expect(isValidEmail("falta-arroba.com")).toBe(false);
     expect(isValidEmail("sin-dominio@")).toBe(false);
@@ -16,12 +16,12 @@ describe("isValidEmail", () => {
 });
 
 describe("isNonNegativeNumber", () => {
-  it("accepts zero and positive finite numbers", () => {
+  it("acepta cero y números finitos positivos", () => {
     expect(isNonNegativeNumber(0)).toBe(true);
     expect(isNonNegativeNumber(35000)).toBe(true);
   });
 
-  it("rejects negative numbers and NaN", () => {
+  it("rechaza números negativos y NaN", () => {
     expect(isNonNegativeNumber(-1)).toBe(false);
     expect(isNonNegativeNumber(Number.NaN)).toBe(false);
     expect(isNonNegativeNumber(Number.POSITIVE_INFINITY)).toBe(false);
@@ -29,15 +29,29 @@ describe("isNonNegativeNumber", () => {
 });
 
 describe("isPositiveInteger", () => {
-  it("accepts positive integers", () => {
+  it("acepta enteros positivos", () => {
     expect(isPositiveInteger(1)).toBe(true);
     expect(isPositiveInteger(60)).toBe(true);
   });
 
-  it("rejects zero, negatives, decimals and NaN", () => {
+  it("rechaza cero, negativos, decimales y NaN", () => {
     expect(isPositiveInteger(0)).toBe(false);
     expect(isPositiveInteger(-5)).toBe(false);
     expect(isPositiveInteger(1.5)).toBe(false);
     expect(isPositiveInteger(Number.NaN)).toBe(false);
+  });
+});
+
+describe("isValidMapsUrl", () => {
+  it("acepta el enlace que se copia desde Compartir en Google Maps", () => {
+    expect(isValidMapsUrl("https://maps.app.goo.gl/abc123")).toBe(true);
+    expect(isValidMapsUrl("  https://www.google.com/maps/place/Barber%C3%ADa  ")).toBe(true);
+  });
+
+  it("rechaza lo que no es un enlace https", () => {
+    expect(isValidMapsUrl("maps.app.goo.gl/abc")).toBe(false);
+    expect(isValidMapsUrl("http://maps.app.goo.gl/abc")).toBe(false);
+    expect(isValidMapsUrl("javascript:alert(1)")).toBe(false);
+    expect(isValidMapsUrl(`https://${"a".repeat(500)}.com`)).toBe(false);
   });
 });

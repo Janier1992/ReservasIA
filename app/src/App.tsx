@@ -2,6 +2,8 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/react";
+import { onlyPublicPages } from "@/lib/analytics";
 import { queryClient } from "@/lib/queryClient";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -17,9 +19,11 @@ import { SupportLayout } from "@/components/layout/SupportLayout";
 
 // Cada página se carga en su propio chunk: la primera visita (login) no paga
 // el costo de JS de las ~15 pantallas del dashboard que todavía no visitó.
+const LandingPage = lazy(() => import("@/pages/public/LandingPage").then((m) => ({ default: m.LandingPage })));
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage").then((m) => ({ default: m.LoginPage })));
 const RegisterPage = lazy(() => import("@/pages/auth/RegisterPage").then((m) => ({ default: m.RegisterPage })));
 const ForgotPasswordPage = lazy(() => import("@/pages/auth/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("@/pages/auth/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })));
 const OnboardingWizard = lazy(() => import("@/pages/onboarding/OnboardingWizard").then((m) => ({ default: m.OnboardingWizard })));
 const DashboardHome = lazy(() => import("@/pages/dashboard/DashboardHome").then((m) => ({ default: m.DashboardHome })));
 const InboxPage = lazy(() => import("@/pages/dashboard/InboxPage").then((m) => ({ default: m.InboxPage })));
@@ -57,13 +61,15 @@ export default function App() {
             <AuthProvider>
               <OrganizationProvider>
                 <Toaster richColors position="top-right" />
+                <Analytics beforeSend={onlyPublicPages} />
                 <ErrorBoundary title="La aplicación no pudo cargar esta pantalla.">
                   <Suspense fallback={<FullscreenLoader />}>
                     <Routes>
-                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                      <Route path="/" element={<LandingPage />} />
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/register" element={<RegisterPage />} />
                       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                      <Route path="/reset-password" element={<ResetPasswordPage />} />
                       <Route path="/r/:slug" element={<PublicBookingPage />} />
                       <Route path="/o/:token" element={<SurveyPage />} />
                       <Route path="/privacidad" element={<PrivacyPolicyPage />} />

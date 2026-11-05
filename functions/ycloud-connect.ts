@@ -6,6 +6,7 @@
 // le manda al compute service cada mensaje del cliente y cada mensaje que
 // el negocio escribe desde su app (para pausar al agente).
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
+import { tryDecryptCredentials } from "./_shared/credentialsCrypto.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +19,18 @@ const WEBHOOK_EVENTS = ["whatsapp.inbound_message.received", "whatsapp.smb.messa
 
 function jsonResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
+}
+
+/**
+ * ¿El número que escribió el dueño es este de YCloud? Acepta el número con o
+ * sin código de país: "3242385733" (como se escribe en Colombia) coincide con
+ * "+573242385733". Se exigen al menos 7 dígitos para no confundir números.
+ */
+function samePhone(typed: string, ycloudNumber: string): boolean {
+  const a = typed.replace(/[^\d]/g, "");
+  const b = ycloudNumber.replace(/[^\d]/g, "");
+  if (a.length < 7 || b.length < 7) return a === b;
+  return a === b || b.endsWith(a) || a.endsWith(b);
 }
 
 function normalizePhone(value: string): string {
@@ -66,6 +79,9 @@ export default async function handler(req: Request): Promise<Response> {
     return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "Pegá la API key de YCloud." } }, 400);
   }
 
+  // Solo para leer una conexión anterior que quedó cifrada (ver el guardado más abajo).
+  const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY") ?? "";
+
   // URL pública del compute service (Railway) donde YCloud entrega los mensajes.
   const serverUrl = (Deno.env.get("SERVER_PUBLIC_URL") || body.webhookBaseUrl || "").replace(/\/+$/, "");
   if (!/^https:\/\//.test(serverUrl)) {
@@ -98,7 +114,7 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const wanted = body.phoneNumber ? normalizePhone(body.phoneNumber) : "";
-  const candidates = numbers.filter((n) => n.phoneNumber && (!wanted || normalizePhone(n.phoneNumber) === wanted));
+  const candidates = numbers.filter((n) => n.phoneNumber && (!wanted || samePhone(wanted, n.phoneNumber)));
   if (candidates.length === 0) {
     return jsonResponse(
       {
@@ -142,7 +158,14 @@ export default async function handler(req: Request): Promise<Response> {
     .eq("organization_id", organizationId)
     .eq("provider", "ycloud")
     .maybeSingle();
-  const previousCredentials = previous?.credentials as { api_key?: string; webhook_endpoint_id?: string } | null;
+  // Si las anteriores ya no se pueden leer (se cambió la clave), se reconecta igual: el webhook viejo
+  // queda en YCloud apuntando a credenciales que el server descarta.
+  const previousCredentials = ((encryptionKey
+    ? await tryDecryptCredentials(previous?.credentials as Record<string, unknown> | null, encryptionKey)
+    : null) ?? {}) as {
+    api_key?: string;
+    webhook_endpoint_id?: string;
+  };
   if (previousCredentials?.webhook_endpoint_id && previousCredentials.api_key) {
     try {
       await ycloud(previousCredentials.api_key, `/webhookEndpoints/${previousCredentials.webhook_endpoint_id}`, { method: "DELETE" });
@@ -178,6 +201,10 @@ export default async function handler(req: Request): Promise<Response> {
         organization_id: organizationId,
         provider: "ycloud",
         status: "connected",
+        // Sin cifrar a propósito (2026-10-30), igual que telegram-connect: el server (Railway) no
+        // lograba descifrar lo que cifraba esta función con la clave de InsForge, y el agente no
+        // recibía ni respondía mensajes. El server acepta texto plano (decryptCredentials lo deja
+        // pasar). Volver a cifrar cuando se confirme que Railway lee lo que guarda InsForge.
         credentials: { api_key: apiKey, webhook_secret: endpoint.secret, webhook_endpoint_id: endpoint.id },
         metadata: {
           phone_number: phoneNumber,

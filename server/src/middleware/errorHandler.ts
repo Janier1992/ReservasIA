@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
 import { AppError, ErrorCodes } from "../utils/AppError.js";
 import { logger } from "../lib/logger.js";
+import { reportFailure } from "../lib/alerts.js";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
@@ -22,6 +23,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   }
 
   logger.error({ err, path: req.path, method: req.method }, "unhandled_error");
+  reportFailure("server_error", err);
   res.status(500).json({
     error: { code: ErrorCodes.INTERNAL_ERROR, message: "Ocurrió un error inesperado." }
   });

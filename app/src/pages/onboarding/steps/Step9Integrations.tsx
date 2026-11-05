@@ -23,8 +23,10 @@ export function Step9Integrations({ onNext, onBack }: { onNext: () => void; onBa
         <div className="flex items-center gap-3 rounded-md border border-border p-3">
           <MessageCircle className="h-5 w-5 text-success" />
           <div className="flex-1">
-            <p className="text-sm font-medium">WhatsApp (Twilio) — opcional, con costo</p>
-            <p className="text-xs text-muted-foreground">Conectá tu número para que el agente responda por WhatsApp.</p>
+            <p className="text-sm font-medium">WhatsApp Business (YCloud)</p>
+            <p className="text-xs text-muted-foreground">
+              El agente responde en tu mismo número y vos seguís usando la app de WhatsApp Business en el celular.
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-md border border-border p-3">

@@ -7,7 +7,7 @@ import type { ConversationChannel } from "../../types/domain.js";
 
 /**
  * Lógica compartida de "mensaje entrante" para cualquier canal
- * (WhatsApp/Twilio, Telegram, y los que se agreguen después): identifica
+ * (WhatsApp/YCloud, Telegram, y los que se agreguen después): identifica
  * al cliente, la conversación activa, y persiste el mensaje. El resto del
  * flujo (correr el agente y enviar la respuesta) es específico de cada
  * canal porque cada uno tiene su propia forma de mandar mensajes.
@@ -135,7 +135,7 @@ export async function handleInboundMessage(input: InboundMessageInput): Promise<
     return await persistInboundMessage(input);
   } catch (err) {
     // El claim ya se tomó pero el mensaje no quedó guardado: si no se libera,
-    // una reentrega del mismo mensaje (reintento de Twilio, otro proceso) se
+    // una reentrega del mismo mensaje (reintento del proveedor, otro proceso) se
     // descartaría como duplicado y el mensaje del cliente se perdería.
     await releaseInboundMessageClaim(input);
     throw err;
@@ -184,7 +184,7 @@ async function persistInboundMessage(input: InboundMessageInput): Promise<Inboun
 }
 
 // Un claim solo sirve mientras el mismo mensaje pueda volver a llegar
-// (reintentos de Twilio, otro proceso leyendo el bot): eso pasa en minutos,
+// (reintentos del proveedor del canal, otro proceso leyendo el bot): eso pasa en minutos,
 // así que una semana de retención sobra y evita que la tabla crezca sin fin.
 export const INBOUND_CLAIM_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 

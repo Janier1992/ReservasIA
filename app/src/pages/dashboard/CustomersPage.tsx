@@ -75,7 +75,13 @@ export function CustomersPage() {
   });
 
   async function removeCustomer(customer: Customer) {
-    const { error } = await insforge.database.from("customers").delete().eq("id", customer.id);
+    const ok = window.confirm(
+      `¿Eliminar a ${customer.name || "este cliente"} y todos sus datos? Se borran sus chats, su ficha y sus planes; ` +
+        "sus reservas quedan en la agenda sin su nombre ni sus notas. No se puede deshacer."
+    );
+    if (!ok) return;
+    // erase_customer borra también sus chats y sus datos en reservas y llegadas (Ley 1581).
+    const { error } = await insforge.database.rpc("erase_customer", { p_customer_id: customer.id });
     if (error) {
       toast.error(error.message);
       return;

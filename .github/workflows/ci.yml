@@ -24,7 +24,7 @@ jobs:
       - name: Typecheck
         run: |
           npx tsc --noEmit -p app
-          npx tsc --noEmit -p server
+          npx tsc -p server/tsconfig.scripts.json
       - run: npm test
       # El build del frontend exige estas variables (lib/env.ts); valores de
       # relleno: acá solo se valida que compile, no se despliega.
@@ -36,6 +36,34 @@ jobs:
       # aceptadas con motivo y fecha de revisión en scripts/audit-check.mjs.
       - name: Dependencias sin vulnerabilidades altas
         run: node scripts/audit-check.mjs
+
+  e2e:
+    name: Prueba de punta a punta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: app
+      # La app se compila apuntando a direcciones simuladas: las pruebas
+      # (app/e2e) responden por el servidor y por InsForge, sin datos reales.
+      - run: npm run build -w app
+        env:
+          VITE_API_URL: https://api.e2e.test
+          VITE_INSFORGE_URL: https://insforge.e2e.test
+          VITE_INSFORGE_ANON_KEY: e2e
+      - run: npm run e2e -w app
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: app/test-results
+          retention-days: 7
 
   database:
     name: Migraciones y tests de RLS

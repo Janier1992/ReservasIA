@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>23. WhatsApp Business con YCloud</title>
+<!--
+  Páginas de la sección 23 del manual de usuario (v3). Se imprimen a PDF y se
+  insertan en el manual original con scripts/manual/update-manual.py, que
+  además pone el fondo beige, el encabezado y los números de página.
+-->
+<link rel="stylesheet" href="manual.css" />
+</head>
+<body>
+
+<span class="chip">23. Canal WhatsApp</span>
+<div class="title-row">
+  <h1>WhatsApp Business con YCloud</h1>
+  <span class="pill green">Canal activo</span>
+</div>
+<p>
+  ReservasIA se conecta a WhatsApp a través de <strong>YCloud</strong>, socio oficial de Meta (la empresa dueña de WhatsApp). La gran
+  ventaja es la <strong>coexistencia</strong>: el agente atiende en <strong>el mismo número de WhatsApp Business del negocio</strong>, y el
+  dueño y su equipo <strong>siguen usando la app de WhatsApp Business en el celular</strong> como siempre. Los chats se ven en los dos lados.
+</p>
+<div class="cards">
+  <div class="card"><h3>Tu mismo número</h3><p>No hace falta sacar un número nuevo: los clientes siguen escribiendo al WhatsApp que ya conocen.</p></div>
+  <div class="card"><h3>La app sigue igual</h3><p>Podés responder desde el celular cuando quieras. El agente se hace a un lado para no pisarte.</p></div>
+  <div class="card"><h3>Oficial y seguro</h3><p>Usa la API oficial de Meta, sin herramientas "piratas" que ponen en riesgo el número.</p></div>
+</div>
+<div class="callout"><strong>Todo desde el panel:</strong> la conexión toma unos 15 minutos. Solo se necesita la cuenta de YCloud y su
+  API key; ReservasIA configura sola la recepción de mensajes.</div>
+
+<h2>Antes de empezar</h2>
+<ul class="check">
+  <li>Un número en la <strong>app de WhatsApp Business</strong> (no sirve WhatsApp personal), actualizada a la versión 2.24.17 o más nueva.</li>
+  <li>El <strong>celular de ese número a mano</strong>: vas a escanear un código QR con la app.</li>
+  <li>Una <strong>cuenta de Facebook</strong> para autorizar la conexión con Meta.</li>
+  <li><strong>Saldo en YCloud</strong> para los mensajes que cobra Meta (ver costos más abajo). Para empezar alcanza con poco.</li>
+  <li>Unos <strong>15 a 20 minutos</strong> sin interrupciones, y poder sincronizar el historial dentro de las 24 horas siguientes.</li>
+</ul>
+
+<div class="page-break"></div>
+<h2>Paso 1. Crear la cuenta en YCloud</h2>
+<ol class="num">
+  <li>Entrá a <strong>www.ycloud.com</strong> y creá una cuenta con el correo del negocio.</li>
+  <li>Completá los datos de la empresa. El plan gratuito (<em>Free</em>) sirve para empezar.</li>
+  <li>Recargá saldo en la <strong>Billetera</strong> (botón <span class="ui">Completar</span>) para los mensajes que cobra Meta.</li>
+</ol>
+
+<h2>Paso 2. Conectar tu número en coexistencia</h2>
+<ol class="num">
+  <li>En el inicio de YCloud tocá <span class="ui">Comienza a crear un canal</span>.</li>
+  <li>Cuando pregunte cómo conectar el número, elegí <strong>usar tu app de WhatsApp Business existente</strong> (puede aparecer como
+    “Coexistence” o “Conectar la app de WhatsApp Business”).</li>
+  <li>Iniciá sesión con Facebook, elegí o creá el portafolio comercial del negocio y aceptá los permisos.</li>
+  <li>Cuando aparezca el código QR, escanealo desde la app de <strong>WhatsApp Business</strong> del celular.</li>
+  <li>Aceptá <strong>compartir el historial de chats</strong> en la app. Hacelo enseguida: si no se sincroniza en 24 horas, la conexión se cancela y hay que repetirla.</li>
+</ol>
+<div class="callout warn"><strong>Importante:</strong> no elijas “registrar un número nuevo”. Esa opción saca el número de la app del celular.
+  Tiene que ser la opción de coexistencia. Si un botón de YCloud tiene otro nombre, buscá el equivalente a “conectar la app de WhatsApp Business”.</div>
+
+<h2>Paso 3. Copiar la API key de YCloud</h2>
+<ol class="num">
+  <li>En YCloud abrí el menú de desarrolladores (ícono <code>&lt;/&gt;</code>) → <span class="ui">API Keys</span>.</li>
+  <li>Copiá la API key (o creá una si no hay ninguna).</li>
+</ol>
+<div class="callout"><strong>La API key es secreta:</strong> permite enviar mensajes en nombre del negocio. Pegala solo en ReservasIA y
+  nunca la mandes por chat, correo ni captura de pantalla.</div>
+
+<div class="page-break"></div>
+<h2>Paso 4. Conectar en ReservasIA</h2>
+<ol class="num">
+  <li>En el panel, entrá a <span class="ui">Integraciones</span> → tarjeta <span class="ui">WhatsApp Business (YCloud)</span>.</li>
+  <li>Pegá la clave en <span class="ui">API key de YCloud</span>. Con el ícono del ojo podés revisar que quedó completa.</li>
+  <li>El campo <span class="ui">Número</span> dejalo vacío si tu cuenta de YCloud tiene un solo número; si tiene varios, escribí cuál.</li>
+  <li>Tocá <span class="ui">Conectar WhatsApp</span>. ReservasIA valida la clave, toma el número y configura sola la recepción de
+    mensajes. La tarjeta pasa a <span class="ui">Connected</span> y muestra el número y el nombre del negocio.</li>
+</ol>
+<div class="mock">
+  <div class="head"><b>💬 WhatsApp Business (YCloud)</b><span class="badge">Disconnected</span></div>
+  <div class="desc">Tu agente atiende en tu mismo número de WhatsApp, y vos seguís usando la app de WhatsApp Business en el celular. Si respondés vos desde la app, el agente se pausa 30 minutos en ese chat para no pisarte.</div>
+  <ol>
+    <li>Creá tu cuenta en YCloud.</li>
+    <li>Conectá ahí tu número de WhatsApp Business eligiendo la opción de usarlo también en la app (coexistencia).</li>
+    <li>Copiá tu API key de YCloud (Desarrolladores → API Keys) y pegala acá.</li>
+  </ol>
+  <div class="fields">
+    <div class="field"><span>API key de YCloud</span><div class="input"><i>••••••••••••</i><i>👁</i></div></div>
+    <div class="field"><span>Número (solo si tenés varios en YCloud)</span><div class="input"><i>+57 300 123 4567</i></div></div>
+  </div>
+  <span class="btn">Conectar WhatsApp</span>
+</div>
+<div class="caption">Tarjeta de WhatsApp Business (YCloud) en Integraciones.</div>
+
+<h2>Paso 5. Probar</h2>
+<ol class="num">
+  <li>Desde <strong>otro celular</strong>, escribile “hola” al número del negocio.</li>
+  <li>El agente responde en segundos. La conversación aparece en el <span class="ui">Inbox</span> y también en la app del celular.</li>
+  <li>Respondé vos desde la app y volvé a escribir desde el otro teléfono: el agente no debería contestar durante 30 minutos.</li>
+</ol>
+<div class="callout green"><strong>Listo:</strong> desde ese momento el agente atiende por WhatsApp las 24 horas, igual que en Telegram, y el
+  negocio conserva su número y su app de siempre.</div>
+
+<div class="page-break"></div>
+<h2>Cómo funciona en el día a día</h2>
+<ul class="check">
+  <li><strong>El agente responde solo</strong> los mensajes de texto: consulta disponibilidad, reserva, reprograma y cancela según los permisos de <span class="ui">Agente IA</span>.</li>
+  <li><strong>Si respondés desde el celular</strong>, tu mensaje queda en el Inbox como mensaje del equipo y el agente se pausa 30 minutos en ese chat. Pasado ese tiempo, retoma solo.</li>
+  <li><strong>Lo que respondás desde el Inbox</strong> también sale por el número de WhatsApp del negocio.</li>
+  <li><strong>Fotos, audios y documentos</strong> no los lee el agente: se atienden desde la app del celular.</li>
+  <li>Los <strong>avisos de “pedido listo”</strong> de los pedidos por QR también llegan por WhatsApp.</li>
+  <li>WhatsApp solo deja escribir libremente dentro de las <strong>24 horas</strong> siguientes al último mensaje del cliente. Los <strong>recordatorios de citas por WhatsApp</strong> necesitan plantillas aprobadas por Meta y llegan en una próxima versión; mientras tanto, el cliente recibe la confirmación por correo.</li>
+</ul>
+
+<h2>Cuánto cuesta (referencia para Colombia)</h2>
+<table>
+  <tr><th>Tipo de mensaje</th><th>Costo aproximado</th></tr>
+  <tr><td>Mensajes que te escriben los clientes</td><td>Gratis</td></tr>
+  <tr><td>Respuestas del agente o del equipo a un cliente que escribió</td><td>Las primeras 1.000 al mes por número, gratis; después, unos USD 0,0008 cada una</td></tr>
+  <tr><td>Lo que escribís a mano desde la app del celular</td><td>Gratis</td></tr>
+  <tr><td>Recordatorios y avisos por plantilla</td><td>Unos USD 0,0008 cada uno</td></tr>
+  <tr><td>Promociones (marketing)</td><td>Entre USD 0,0125 y 0,0158 cada uno</td></tr>
+</table>
+<p class="muted">Tarifas de referencia de Meta, que pueden cambiar. YCloud las descuenta de su billetera; revisá también si tu plan de YCloud tiene costo propio.</p>
+
+<h2>Cuidar el número</h2>
+<ul class="check">
+  <li>Meta califica cada número según si los clientes lo <strong>bloquean o reportan</strong>; muchos reportes pueden limitarlo.</li>
+  <li>Escribí solo a quien te escribió, reservó o aceptó recibir mensajes. Nada de bases compradas ni envíos masivos.</li>
+  <li>No conectes el número a extensiones o “WhatsApp Web automatizado”: es la causa más común de bloqueos.</li>
+</ul>
+
+<h2>Si algo no funciona</h2>
+<table>
+  <tr><th>Situación</th><th>Qué revisar</th></tr>
+  <tr><td>El agente no responde por WhatsApp</td><td>Que la tarjeta diga <span class="ui">Connected</span>, que el <span class="ui">Agente activado</span> esté encendido, que haya saldo en YCloud, que el mensaje sea de texto y que nadie del equipo haya respondido ese chat en los últimos 30 minutos.</td></tr>
+  <tr><td>“La API key de YCloud no es válida”</td><td>Copiala de nuevo completa desde YCloud → API Keys.</td></tr>
+  <tr><td>“Tu cuenta de YCloud tiene varios números”</td><td>Escribí en <span class="ui">Número</span> cuál querés conectar.</td></tr>
+  <tr><td>“Ese número ya está conectado en otra cuenta de ReservasIA”</td><td>Un número solo lo puede atender un negocio: desconectalo primero de la otra cuenta.</td></tr>
+  <tr><td>El número dejó de aparecer en YCloud</td><td>Puede que no se haya sincronizado el historial a tiempo. Repetí el Paso 2.</td></tr>
+</table>
+
+<h2>Desconectar</h2>
+<p>En la tarjeta de YCloud tocá <span class="ui">Desconectar</span>. El agente deja de responder por WhatsApp y <strong>el número sigue funcionando
+  normal en la app del celular</strong>.</p>
+
+<span class="chip">24. Confianza</span>
+<h1>Seguridad y privacidad de los datos</h1>
+<p>Un punto habitual de duda para cualquier negocio que va a confiarle sus datos de clientes a una plataforma nueva:</p>
+
+</body>
+</html>

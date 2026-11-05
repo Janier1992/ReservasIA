@@ -6,6 +6,7 @@ import {
   MEDICAL_ADVICE_FALLBACK_REPLY,
   VETERINARY_EMERGENCY_FALLBACK_REPLY
 } from "../src/services/agent/safetyGuardrails.js";
+import { UNVERIFIED_REPLY_FALLBACK } from "../src/services/agent/responseVerifier.js";
 
 // Ejercita runAgentTurn de punta a punta para los guardrails de código de
 // salud/veterinaria (no solo texto del prompt, ver safetyGuardrails.ts):
@@ -16,6 +17,8 @@ let businessType = "barbershop";
 let lastUserMessageContent = "hola";
 let conversationPrivacyNoticeSentAt: string | null = null;
 let customerConsentAt: string | null = null;
+// Lunes a sábado de 9:00 a. m. a 7:00 p. m. (para la revisión de horarios).
+const hours = [1, 2, 3, 4, 5, 6].map((d) => ({ day_of_week: d, opening_time: "09:00:00", closing_time: "19:00:00", is_closed: false }));
 
 vi.mock("../src/services/agent/promptBuilder.js", () => ({
   loadAgentPromptData: async () => ({
@@ -35,7 +38,7 @@ vi.mock("../src/services/agent/promptBuilder.js", () => ({
     businessProfile: {} as never,
     services: [],
     resources: [],
-    hours: [],
+    hours,
     agentRules: [],
     customer: null,
     googleCalendarConnected: false
@@ -119,7 +122,7 @@ function turn(overrides: Partial<{ conversationId: string }> = {}) {
   });
 }
 
-describe("runAgentTurn health/veterinary safety guardrails", () => {
+describe("runAgentTurn: protecciones de salud y veterinaria", () => {
   beforeEach(() => {
     log.length = 0;
     vi.clearAllMocks();
@@ -129,7 +132,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     customerConsentAt = null;
   });
 
-  it("redirects to emergency services WITHOUT calling the model when the customer describes an emergency at a health-niche business", async () => {
+  it("deriva a servicios de emergencia SIN llamar al modelo cuando el cliente describe una emergencia en un negocio de salud", async () => {
     businessType = "veterinary";
     lastUserMessageContent = "mi perro no puede respirar, ayuda";
 
@@ -140,7 +143,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(log).toContain(`persist:assistant:${VETERINARY_EMERGENCY_FALLBACK_REPLY}`);
   });
 
-  it("uses the human emergency message for clinics", async () => {
+  it("usa el mensaje de emergencia para personas en las clínicas", async () => {
     businessType = "clinic";
     lastUserMessageContent = "tengo un dolor muy fuerte en el pecho";
 
@@ -150,7 +153,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
-  it("does NOT trigger the emergency guardrail for a non-health niche (scoped on purpose)", async () => {
+  it("NO activa la protección de emergencias en un rubro que no es de salud (limitado a propósito)", async () => {
     businessType = "barbershop";
     lastUserMessageContent = "no puedo respirar de la risa con este corte, jaja";
     createMock.mockResolvedValueOnce({ choices: [{ message: { content: "¡Qué bueno! ¿Reservamos?", tool_calls: undefined } }] });
@@ -159,9 +162,11 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
 
     expect(createMock).toHaveBeenCalledOnce();
     expect(result.reply).toBe("¡Qué bueno! ¿Reservamos?");
+    // "Creatividad" baja: el agente repite los datos del negocio, no improvisa.
+    expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ temperature: 0.1 }));
   });
 
-  it("blocks a reply that contains dosage/medication instructions and replaces it with a safe fallback", async () => {
+  it("bloquea una respuesta con indicaciones de dosis o medicamentos y la reemplaza por una respuesta segura", async () => {
     businessType = "clinic";
     lastUserMessageContent = "me duele la cabeza, ¿qué me tomo?";
     createMock.mockResolvedValueOnce({
@@ -174,7 +179,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(result.reply).not.toContain("ibuprofeno");
   });
 
-  it("prepends the privacy notice once per conversation for health-niche businesses, and never again after that", async () => {
+  it("antepone el aviso de privacidad una vez por conversación en los negocios de salud, y nunca más después", async () => {
     businessType = "dental";
     lastUserMessageContent = "quiero una cita";
     createMock.mockResolvedValue({ choices: [{ message: { content: "¡Claro! ¿Qué día te viene bien?", tool_calls: undefined } }] });
@@ -189,7 +194,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(log).not.toContain("privacy_notice_marked_sent");
   });
 
-  it("veterinaries get the plain privacy notice (pet data is not personal health data)", async () => {
+  it("las veterinarias reciben el aviso de privacidad simple (los datos de la mascota no son datos de salud de una persona)", async () => {
     businessType = "veterinary";
     lastUserMessageContent = "quiero vacunar a mi gato";
     createMock.mockResolvedValueOnce({ choices: [{ message: { content: "¡Claro!", tool_calls: undefined } }] });
@@ -198,7 +203,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(result.reply).toBe(`${HEALTH_PRIVACY_NOTICE}¡Claro!`);
   });
 
-  it("records the patient's consent when they answer yes after being asked, and lifts the privacy restriction", async () => {
+  it("registra la autorización del paciente cuando responde que sí después de que se le pregunta, y levanta la restricción de privacidad", async () => {
     businessType = "dental";
     conversationPrivacyNoticeSentAt = new Date(Date.now() - 60_000).toISOString();
     lastUserMessageContent = "Sí, autorizo";
@@ -211,7 +216,7 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(systemPrompt).not.toContain("NO autorizó");
   });
 
-  it("without consent, tells the model not to ask for or record the reason for the visit", async () => {
+  it("sin autorización, le indica al modelo que no pregunte ni anote el motivo de la consulta", async () => {
     businessType = "physiotherapy";
     conversationPrivacyNoticeSentAt = new Date(Date.now() - 60_000).toISOString();
     lastUserMessageContent = "quiero una cita el martes";
@@ -222,5 +227,54 @@ describe("runAgentTurn health/veterinary safety guardrails", () => {
     expect(log.some((l) => l.startsWith("consent_saved"))).toBe(false);
     const systemPrompt = (createMock.mock.calls[0][0] as { messages: { content: string }[] }).messages[0].content;
     expect(systemPrompt).toContain("NO autorizó guardar datos de salud");
+  });
+});
+
+describe("runAgentTurn: revisión automática de días, horas y precios", () => {
+  beforeEach(() => {
+    log.length = 0;
+    vi.clearAllMocks();
+    businessType = "barbershop";
+    lastUserMessageContent = "¿a qué hora abren el domingo?";
+  });
+
+  const reply = (content: string) => ({ choices: [{ message: { content, tool_calls: undefined } }] });
+
+  it("si la respuesta trae un horario que no es del negocio, le pide al modelo que la corrija y envía la corregida", async () => {
+    createMock
+      .mockResolvedValueOnce(reply("El domingo atendemos de 9:00 a. m. a 11:00 p. m."))
+      .mockResolvedValueOnce(reply("Los domingos está cerrado. De lunes a sábado atendemos de 9:00 a. m. a 7:00 p. m."));
+
+    const result = await turn();
+
+    expect(result.reply).toBe("Los domingos está cerrado. De lunes a sábado atendemos de 9:00 a. m. a 7:00 p. m.");
+    expect(createMock).toHaveBeenCalledTimes(2);
+    const [{ messages }] = createMock.mock.calls[1] as unknown as [{ messages: { role: string; content: string }[] }];
+    const correction = messages.at(-1)!;
+    expect(correction.role).toBe("system");
+    expect(correction.content).toContain("REVISIÓN AUTOMÁTICA");
+    expect(correction.content).toContain("el domingo el negocio está cerrado");
+    expect(correction.content).toContain("11:00 p. m.");
+    // La respuesta equivocada nunca se guarda ni se envía.
+    expect(log.some((l) => l.includes("11:00 p. m."))).toBe(false);
+  });
+
+  it("si la corregida tampoco cuadra, envía la respuesta segura en vez de un dato inventado", async () => {
+    createMock.mockResolvedValue(reply("El domingo atendemos de 9:00 a. m. a 11:00 p. m."));
+
+    const result = await turn();
+
+    expect(result.reply).toBe(UNVERIFIED_REPLY_FALLBACK);
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(log).toContain(`persist:assistant:${UNVERIFIED_REPLY_FALLBACK}`);
+  });
+
+  it("una respuesta correcta sale en la primera llamada, sin revisión extra", async () => {
+    createMock.mockResolvedValueOnce(reply("El domingo no atendemos; te espero el lunes desde las 9:00 a. m."));
+
+    const result = await turn();
+
+    expect(result.reply).toBe("El domingo no atendemos; te espero el lunes desde las 9:00 a. m.");
+    expect(createMock).toHaveBeenCalledOnce();
   });
 });

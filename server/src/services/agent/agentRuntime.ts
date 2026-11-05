@@ -2,11 +2,13 @@ import type OpenAI from "openai";
 import { openai, OPENAI_MODEL, IS_OPENROUTER } from "../../lib/openai.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logAgentEvent, logger } from "../../lib/logger.js";
+import { reportFailure } from "../../lib/alerts.js";
 import { AGENT_TIMEOUT_MS, MAX_CONVERSATION_HISTORY_MESSAGES, MAX_MESSAGE_LENGTH } from "../../config/env.js";
 import { buildSystemPrompt, loadAgentPromptData } from "./promptBuilder.js";
 import { getToolDefinitionsForAgent } from "./tools.js";
 import { executeTool, type AgentExecutionContext } from "./toolExecutors.js";
-import { MAX_TOOL_ROUNDS } from "./coreRules.js";
+import { AGENT_TEMPERATURE, MAX_TOOL_ROUNDS } from "./coreRules.js";
+import { correctionPrompt, UNVERIFIED_REPLY_FALLBACK, verifyAgentReply } from "./responseVerifier.js";
 import {
   containsMedicalAdvice,
   detectEmergency,
@@ -273,7 +275,9 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
       ? await resolveHealthDataConsent(conversationId, customerId, orderedHistory)
       : true;
 
-  let systemPrompt = buildSystemPrompt(data, new Date());
+  // El mismo instante para las instrucciones y para la revisión de la respuesta.
+  const turnStartedAt = new Date();
+  let systemPrompt = buildSystemPrompt(data, turnStartedAt);
   if (!consentGiven) {
     systemPrompt +=
       "\n\nPRIVACIDAD (obligatorio): este paciente NO autorizó guardar datos de salud. No le preguntes el motivo de consulta ni lo pongas en las notas de crear_reserva. Si lo cuenta igual, no lo repitas ni lo anotes; agendá con los demás datos.";
@@ -297,6 +301,10 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
     customerId
   };
 
+  // La revisión automática de días/horas/precios le pide al modelo una sola
+  // corrección por turno; si la corregida tampoco cuadra, va la respuesta fija.
+  let correctionRequested = false;
+
   for (let round = 1; round <= MAX_TOOL_ROUNDS; round++) {
     const start = Date.now();
     let completion: OpenAI.Chat.Completions.ChatCompletion;
@@ -306,7 +314,7 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
         messages,
         tools: tools.length > 0 ? tools : undefined,
         tool_choice: tools.length > 0 ? "auto" : undefined,
-        temperature: 0.4,
+        temperature: AGENT_TEMPERATURE,
         stop: KNOWN_LEAKED_CONTROL_TOKENS
       };
       if (IS_OPENROUTER) {
@@ -318,8 +326,22 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
     } catch (err) {
       logAgentEvent(logCtx, { scope: "agent", result: "error", durationMs: Date.now() - start, message: "openai_call_failed" });
       logger.error({ ...logCtx, err }, "agent_openai_error");
+      reportFailure("agent_ai", err);
       return { reply: FALLBACK_REPLY, roundsUsed: round };
     }
+
+    // Consumo de cada llamada, para medir el costo real por negocio en los
+    // logs (cachedTokens = parte de las instrucciones cobrada a mitad de precio).
+    logger.info(
+      {
+        ...logCtx,
+        round,
+        promptTokens: completion.usage?.prompt_tokens,
+        cachedTokens: completion.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+        completionTokens: completion.usage?.completion_tokens
+      },
+      "agent_openai_usage"
+    );
 
     const choice = completion.choices[0];
     const responseMessage = choice.message;
@@ -382,6 +404,22 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
 
     let finalReply = stripLeakedControlTokens(responseMessage.content ?? "").slice(0, MAX_MESSAGE_LENGTH);
 
+    // Lo que devolvieron las herramientas en esta conversación (disponibilidad,
+    // anticipos) cuenta como dato válido para la revisión.
+    const toolOutputs = messages.filter((m) => m.role === "tool").map((m) => String(m.content));
+    const issues = verifyAgentReply(finalReply, data, turnStartedAt, toolOutputs);
+    if (issues.length > 0) {
+      logger.warn({ ...logCtx, rejectedReply: finalReply, issues, retried: correctionRequested }, "agent_reply_unverified");
+      if (!correctionRequested && round < MAX_TOOL_ROUNDS) {
+        correctionRequested = true;
+        messages.push({ role: "assistant", content: finalReply });
+        messages.push({ role: "system", content: correctionPrompt(issues) });
+        continue;
+      }
+      reportFailure("agent_unverified_reply", new Error(issues.map((i) => i.kind).join(",")));
+      finalReply = UNVERIFIED_REPLY_FALLBACK;
+    }
+
     if (isHealthNiche(businessType) && containsMedicalAdvice(finalReply)) {
       logAgentEvent(logCtx, { scope: "agent", result: "error", message: "medical_advice_blocked" });
       logger.warn({ ...logCtx, blockedReply: finalReply }, "agent_medical_advice_blocked");
@@ -402,9 +440,9 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
   return { reply: FALLBACK_REPLY, roundsUsed: MAX_TOOL_ROUNDS };
 }
 
-// El webhook de Twilio dispara el turno del agente en segundo plano sin
-// esperarlo (para responderle a Twilio en <15s), así que si el cliente manda
-// dos mensajes seguidos por WhatsApp se pueden disparar dos turnos en
+// El webhook de WhatsApp/Telegram dispara el turno del agente en segundo
+// plano sin esperarlo (para responder rápido al proveedor del canal), así
+// que si el cliente manda dos mensajes seguidos se pueden disparar dos turnos en
 // paralelo para la misma conversación: ambos cargan el historial antes de
 // que el primero guarde su respuesta, y el que responda más rápido le llega
 // al cliente primero, generando respuestas fuera de orden y sin contexto
