@@ -23,9 +23,10 @@ rows = [
  ("Opiniones y Recuperar clientes", "Encuestas y clientes que no vuelven", 1),
  ("Configuración avanzada y reportes", "Nequi, avisos, Google Calendar y CSV", 1),
  ("Cómo se conecta Telegram", "Paso a paso, canal activo hoy", 0),
- ("WhatsApp Business con YCloud", "Paso a paso, con tu mismo número", 1),
+ ("WhatsApp Business con YCloud", "Paso a paso, recordatorios y “Avisame”", 1),
+ ("Presentación, precios y suscripción", "Página pública, planes y pago", 1),
  ("Seguridad y privacidad", "Aislamiento de datos por negocio", 0),
- ("Planes y precios sugeridos", "Comparables de mercado", 0),
+ ("Comparables de mercado", "Referencia usada al fijar precios", 0),
  ("Preguntas frecuentes", "Dudas típicas de un dueño de negocio", 0),
  ("Referencias", "Fuentes citadas en normas APA", 0),
 ]
@@ -38,14 +39,14 @@ head = """<!doctype html>
 <head>
 <meta charset="utf-8" />
 <title>Índice</title>
-<!-- Índice del manual (v3). Lo genera build_index.py; build_manual.py reemplaza la página 2 del original por esta. -->
+<!-- Índice del manual (v4). Lo genera build_index.py; build_manual.py reemplaza la página 2 del original por esta. -->
 <link rel="stylesheet" href="manual.css" />
 <style>
   @page { margin: 38pt 42pt 30pt 42pt; }
   .chip { margin-top: 4pt; }
   .big { font-size: 25pt; font-weight: 800; margin: 2pt 0 6pt; letter-spacing: -0.4pt; }
   .sub { color: var(--muted); font-size: 12pt; margin: 0 0 8pt; }
-  .row { display: flex; align-items: baseline; border-bottom: 1pt dashed #e0d3bd; padding: 3.9pt 0 3.7pt; line-height: 1.2; }
+  .row { display: flex; align-items: baseline; border-bottom: 1pt dashed #e0d3bd; padding: 3.2pt 0 3pt; line-height: 1.2; }
   .row b { color: var(--accent); font-size: 11.5pt; font-weight: 800; width: 34pt; }
   .row .t { font-size: 11.5pt; flex: 1; text-align: left; }
   .row .d { font-size: 9.5pt; color: var(--muted); text-align: right; }

@@ -498,7 +498,7 @@ atiende de dos formas (`TELEGRAM_MODE`):
 
 Cada negocio conecta su propio número de WhatsApp Business en **coexistencia**: sigue usando la app en el
 celular y el agente atiende por la API oficial de Meta, a través de YCloud. El paso a paso para el negocio está en
-la sección 23 del manual de usuario (`docs/manual/`).
+la sección 23 del manual de usuario (`docs/manual/Manual-de-usuario-ReservasIA-v4.pdf`).
 
 1. El negocio crea su cuenta en [ycloud.com](https://www.ycloud.com), conecta ahí su número eligiendo la opción de
    seguir usando la app (coexistencia) y copia su API key (Desarrolladores → API Keys).
