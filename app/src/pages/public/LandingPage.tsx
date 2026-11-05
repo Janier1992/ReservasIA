@@ -29,6 +29,7 @@ import { AgentChatDemo } from "./AgentChatDemo";
 import { PanelMockup } from "./PanelMockup";
 import { Reveal } from "./Reveal";
 import { LossCalculator } from "./LossCalculator";
+import { SALES_WHATSAPP_DISPLAY, salesWhatsappUrl } from "@/lib/contact";
 import {
   ACTIVATION_INSTALLMENTS,
   ACTIVATION_INSTALLMENT_COP,
@@ -177,18 +178,49 @@ const FAQS = [
   {
     q: "¿Qué incluye la mensualidad y qué se cobra aparte?",
     a: "La mensualidad incluye todas las funciones, las actualizaciones y el arreglo de cualquier falla de la app. Aparte, con una tarifa fija por hora, va el soporte personalizado (capacitaciones extra o configuraciones especiales) y las mejoras hechas a la medida de tu negocio: siempre te pasamos la cotización antes y solo pagás si la aprobás."
+  },
+  {
+    q: "¿Tengo una duda antes de empezar, con quién hablo?",
+    a: `Escribinos por WhatsApp al ${SALES_WHATSAPP_DISPLAY} (o tocá el botón "Hablá con nosotros") y te respondemos personalmente.`
   }
 ];
 
 /** Botón fijo abajo en el celular, después de pasar la portada: el llamado a la acción siempre a mano. */
-function MobileStickyCta() {
-  const [visible, setVisible] = useState(false);
+/** true cuando ya se bajó más allá de la portada. */
+function useScrolledPastHero(): boolean {
+  const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
-    const onScroll = () => setVisible(window.scrollY > 700);
+    const onScroll = () => setScrolled(window.scrollY > 700);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+  return scrolled;
+}
+
+/**
+ * Botón flotante para escribirnos por WhatsApp antes de registrarse. En el
+ * celular sube cuando aparece la barra "Empezar gratis" para no taparla.
+ */
+function TalkToUsButton({ raised }: { raised: boolean }) {
+  return (
+    <a
+      href={salesWhatsappUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`Hablá con nosotros por WhatsApp (${SALES_WHATSAPP_DISPLAY})`}
+      className={cn(
+        "fixed right-4 z-30 flex items-center gap-2 rounded-full bg-[#1f9d55] px-4 py-3 text-sm font-medium text-white shadow-lg shadow-black/20 transition-all duration-300 hover:bg-[#1a8a4a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:bottom-6 sm:right-6",
+        raised ? "bottom-24" : "bottom-4"
+      )}
+    >
+      <MessageCircle className="h-5 w-5" aria-hidden />
+      <span className="hidden sm:inline">Hablá con nosotros</span>
+    </a>
+  );
+}
+
+function MobileStickyCta({ visible }: { visible: boolean }) {
   return (
     <div
       className={cn(
@@ -206,6 +238,7 @@ function MobileStickyCta() {
 
 export function LandingPage() {
   const { user } = useAuth();
+  const scrolledPastHero = useScrolledPastHero();
   if (user) return <Navigate to="/dashboard" replace />;
 
   return (
@@ -580,7 +613,8 @@ export function LandingPage() {
         </div>
       </footer>
 
-      <MobileStickyCta />
+      <TalkToUsButton raised={scrolledPastHero} />
+      <MobileStickyCta visible={scrolledPastHero} />
     </div>
   );
 }

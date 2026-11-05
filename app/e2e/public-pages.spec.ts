@@ -59,6 +59,10 @@ test("la dirección principal muestra la presentación de ReservasIA y lleva a c
   await expect(page.getByRole("heading", { level: 1, name: /piloto automático/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "Ingresar" })).toHaveAttribute("href", "/login");
   await expect(page.getByRole("button", { name: "Instalar app" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Hablá con nosotros por WhatsApp/ })).toHaveAttribute(
+    "href",
+    /^https:\/\/wa\.me\/573044769593\?text=/
+  );
   await page.getByRole("link", { name: /Probar gratis 14 días/ }).click();
   await expect(page).toHaveURL(/\/register$/);
 });
