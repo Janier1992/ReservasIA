@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { readIntegrationCredentials } from "../integrations/credentialsCheck.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
 
@@ -75,7 +76,8 @@ export async function loadYCloudIntegration(organizationId: string): Promise<YCl
     .eq("provider", "ycloud")
     .eq("status", "connected")
     .maybeSingle();
-  const credentials = data?.credentials as Partial<YCloudCredentials> | null;
+  const credentials = (readIntegrationCredentials("ycloud", organizationId, data?.credentials as Record<string, unknown> | null) ??
+    {}) as Partial<YCloudCredentials>;
   const metadata = (data?.metadata ?? {}) as Record<string, unknown>;
   const phoneNumber = typeof metadata.phone_number === "string" ? metadata.phone_number : "";
   if (!credentials?.api_key || !credentials.webhook_secret || !phoneNumber) return null;

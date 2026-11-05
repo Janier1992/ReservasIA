@@ -12,6 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { daysLeftLabel, subscriptionState } from "@/lib/subscription";
+import { PAYMENT_OPTIONS, VAT_PERCENT_LABEL, formatCop, paymentOptionNote, withVat, type PaymentOption } from "@/lib/pricing";
+import { cn } from "@/lib/utils";
+import { env } from "@/lib/env";
 import type { SubscriptionPayment } from "@/types/domain";
 
 const STATUS_LABELS: Record<SubscriptionPayment["status"], string> = {
@@ -36,7 +39,9 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
   const { memberships, currentRole } = useOrganization();
   const queryClient = useQueryClient();
   const readOnly = currentRole === "staff";
-  const [amount, setAmount] = useState("");
+  const [optionId, setOptionId] = useState<PaymentOption["id"]>(PAYMENT_OPTIONS[0].id);
+  const selectedOption = PAYMENT_OPTIONS.find((o) => o.id === optionId) ?? PAYMENT_OPTIONS[0];
+  const [amount, setAmount] = useState(String(withVat(PAYMENT_OPTIONS[0].amount)));
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [viewingId, setViewingId] = useState<string | null>(null);
@@ -49,6 +54,11 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
   useEffect(() => {
     if (location.hash === "#suscripcion") cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [location.hash]);
+
+  function chooseOption(option: PaymentOption) {
+    setOptionId(option.id);
+    setAmount(String(withVat(option.amount)));
+  }
 
   const { data: payments = [] } = useQuery({
     queryKey: ["subscription-payments", organizationId],
@@ -80,26 +90,24 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
 
     setSubmitting(true);
     try {
-      // Key con prefijo de organización: la política de storage sólo deja
-      // subir acá si el primer segmento del key es el propio organization_id.
-      const { data: uploadData, error: uploadError } = await insforge.storage
-        .from("subscription-receipts")
-        .upload(`${organizationId}/${crypto.randomUUID()}`, file);
-
-      if (uploadError || !uploadData) {
-        toast.error(uploadError?.message ?? "No se pudo subir el comprobante.");
-        return;
-      }
+      // El comprobante se manda en base64 y lo sube la función con la clave
+      // admin: "subscription-receipts" es un bucket privado y no acepta
+      // escrituras directas del navegador, aunque la cuenta esté suspendida.
+      const buffer = await file.arrayBuffer();
+      let binary = "";
+      for (const byte of new Uint8Array(buffer)) binary += String.fromCharCode(byte);
 
       await functionsClient.post("submit-subscription-payment", {
         organization_id: organizationId,
-        receipt_storage_path: uploadData.key,
+        receipt_base64: btoa(binary),
+        receipt_mime_type: file.type,
         amount: amount ? Number(amount) : undefined,
-        note: note.trim() || undefined
+        // La nota lleva el plan elegido: soporte la ve al confirmar y define cuántos meses se suman.
+        note: [paymentOptionNote(selectedOption), note.trim()].filter(Boolean).join(" · ")
       });
 
       toast.success("Pago reportado. Te avisamos por correo apenas soporte lo confirme.");
-      setAmount("");
+      setAmount(String(withVat(selectedOption.amount)));
       setNote("");
       queryClient.invalidateQueries({ queryKey: ["subscription-payments", organizationId] });
     } catch (err) {
@@ -150,13 +158,52 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
 
           {!readOnly && (
             <div className="space-y-3 rounded-md border border-border p-3">
+              <fieldset className="space-y-2" disabled={submitting}>
+                <legend className="mb-2 text-sm font-medium">1. Elegí qué vas a pagar</legend>
+                {PAYMENT_OPTIONS.map((option) => (
+                  <label
+                    key={option.id}
+                    className={cn(
+                      "flex cursor-pointer items-start justify-between gap-3 rounded-md border p-3 text-sm transition-colors",
+                      option.id === optionId ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                    )}
+                  >
+                    <span className="flex items-start gap-2">
+                      <input
+                        type="radio"
+                        name="payment-option"
+                        className="mt-1 accent-primary"
+                        checked={option.id === optionId}
+                        onChange={() => chooseOption(option)}
+                      />
+                      <span>
+                        <span className="block font-medium">{option.label}</span>
+                        <span className="block text-xs text-muted-foreground">{option.detail}</span>
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className="block font-semibold">{formatCop(withVat(option.amount))}</span>
+                      <span className="block text-xs text-muted-foreground">{formatCop(option.amount)} + IVA</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
               <p className="text-sm text-muted-foreground">
-                Pagá por Nequi y subí acá la captura del comprobante. Una vez que soporte lo confirme, tu servicio se
-                reactiva (o extiende) automáticamente y te llega un correo de confirmación.
+                <span className="font-medium text-foreground">2.</span> Pagá {formatCop(withVat(selectedOption.amount))} (IVA del {VAT_PERCENT_LABEL} incluido) por Nequi
+                {env.SUBSCRIPTION_NEQUI_NUMBER ? (
+                  <>
+                    {" "}al número <strong className="text-foreground">{env.SUBSCRIPTION_NEQUI_NUMBER}</strong>.
+                  </>
+                ) : (
+                  " (si no tenés el número, escribile a soporte y te lo pasamos)."
+                )}{" "}
+                <span className="font-medium text-foreground">3.</span> Subí acá la captura del comprobante. Cuando soporte lo
+                confirme, tu servicio se activa o se extiende {selectedOption.months === 12 ? "12 meses" : "1 mes"} y te llega un
+                correo. No hay cobros automáticos.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Monto pagado (opcional)</Label>
+                  <Label>Monto pagado</Label>
                   <Input
                     type="number"
                     min={0}
@@ -191,7 +238,8 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
                 <div key={p.id} className="flex items-center justify-between gap-3 rounded-md border border-border p-2 text-sm">
                   <div>
                     <span>{new Date(p.created_at).toLocaleDateString("es-CO")}</span>
-                    {p.amount != null && <span className="text-muted-foreground"> — ${p.amount}</span>}
+                    {p.amount != null && <span className="text-muted-foreground"> — {formatCop(Number(p.amount))}</span>}
+                    {p.note && <span className="block text-xs text-muted-foreground">{p.note}</span>}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={STATUS_VARIANTS[p.status]}>{STATUS_LABELS[p.status]}</Badge>

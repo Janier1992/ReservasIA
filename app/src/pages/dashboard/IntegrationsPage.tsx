@@ -172,8 +172,8 @@ export function IntegrationsPage() {
             <Send className="h-5 w-5 text-primary" />
             <CardTitle>Telegram</CardTitle>
           </div>
-          <Badge variant={telegram?.status === "connected" ? "success" : "muted"}>
-            {telegram?.status === "connected" ? "Connected" : "Disconnected"}
+          <Badge variant={telegram?.status === "connected" ? "success" : telegram?.status === "error" ? "destructive" : "muted"}>
+            {telegram?.status === "connected" ? "Connected" : telegram?.status === "error" ? "Reconectar" : "Disconnected"}
           </Badge>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -184,6 +184,7 @@ export function IntegrationsPage() {
             </a>{" "}
             en Telegram y pegá acá el token que te da.
           </CardDescription>
+          {telegram?.status === "error" && <ReconnectNotice />}
           {telegram?.status === "connected" ? (
             <>
               <p className="text-sm text-muted-foreground">Bot: @{String(telegram.metadata?.bot_username ?? "—")}</p>
@@ -210,8 +211,8 @@ export function IntegrationsPage() {
             <MessageCircle className="h-5 w-5 text-success" />
             <CardTitle>WhatsApp Business (YCloud)</CardTitle>
           </div>
-          <Badge variant={ycloud?.status === "connected" ? "success" : "muted"}>
-            {ycloud?.status === "connected" ? "Connected" : "Disconnected"}
+          <Badge variant={ycloud?.status === "connected" ? "success" : ycloud?.status === "error" ? "destructive" : "muted"}>
+            {ycloud?.status === "connected" ? "Connected" : ycloud?.status === "error" ? "Reconectar" : "Disconnected"}
           </Badge>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -219,6 +220,7 @@ export function IntegrationsPage() {
             Tu agente atiende en tu mismo número de WhatsApp, y vos seguís usando la app de WhatsApp Business en el celular. Si respondés
             vos desde la app, el agente se pausa 30 minutos en ese chat para no pisarte.
           </CardDescription>
+          {ycloud?.status === "error" && <ReconnectNotice />}
           {ycloud?.status === "connected" ? (
             <>
               <p className="text-sm text-muted-foreground">
@@ -277,12 +279,24 @@ export function IntegrationsPage() {
             <CalendarDays className="h-5 w-5 text-secondary" />
             <CardTitle>Google Calendar</CardTitle>
           </div>
-          <Badge variant={google?.status === "connected" ? "success" : "muted"}>
-            {google?.status === "connected" ? "Connected" : "Disconnected"}
+          <Badge variant={google?.status === "connected" ? "success" : google?.status === "error" ? "destructive" : "muted"}>
+            {google?.status === "connected" ? "Connected" : google?.status === "error" ? "Reconectar" : "Disconnected"}
           </Badge>
         </CardHeader>
         <CardContent className="space-y-3">
-          {google?.status === "connected" ? (
+          {google?.status === "error" ? (
+            <>
+              <p role="alert" className="text-sm text-destructive">
+                La conexión con Google venció o se revocó, y las reservas nuevas no están llegando a tu calendario. Volvé a
+                conectarla para que todo siga funcionando.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Si vuelve a pasar a los pocos días, la app de Google Cloud está en modo &quot;Prueba&quot;: Google vence la conexión a los 7
+                días. Para que no venza, hay que publicarla (Google Cloud → Pantalla de consentimiento de OAuth).
+              </p>
+              <Button onClick={connectGoogle}>Reconectar Google Calendar</Button>
+            </>
+          ) : google?.status === "connected" ? (
             <>
               <CardDescription>Cuenta conectada: {String(google.metadata?.email ?? "—")}</CardDescription>
               <div className="flex gap-2">
@@ -300,5 +314,15 @@ export function IntegrationsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Telegram o WhatsApp guardados con una clave que el server ya no puede leer: hay que volver a conectar. */
+function ReconnectNotice() {
+  return (
+    <p role="alert" className="text-sm text-destructive">
+      Tu agente no está recibiendo ni enviando mensajes por este canal: la conexión guardada ya no se puede leer. Volvé a
+      conectarlo abajo con el mismo token o API key.
+    </p>
   );
 }

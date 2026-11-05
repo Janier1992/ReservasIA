@@ -1,6 +1,7 @@
 import { env } from "../../config/env.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
+import { reportFailure } from "../../lib/alerts.js";
 import type { Reservation } from "../../types/domain.js";
 import { buildReservationEmail, type ReservationEmailKind } from "./reservationEmailTemplate.js";
 
@@ -72,11 +73,13 @@ export async function sendReservationEmail(reservation: Reservation, kind: Reser
     const { error } = await insforgeAdmin.emails.send({ to: c.email, subject, html, replyTo });
     if (error) {
       logger.warn({ reservationId: reservation.id, kind, err: error }, "reservation_email_failed");
+      reportFailure("reservation_email", new Error((error as { message?: string }).message ?? "InsForge no envió el correo"));
       return false;
     }
     return true;
   } catch (err) {
     logger.warn({ reservationId: reservation.id, kind, err }, "reservation_email_failed");
+    reportFailure("reservation_email", err);
     return false;
   }
 }

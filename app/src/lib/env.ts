@@ -15,5 +15,9 @@ export const env = {
   VAPID_PUBLIC_KEY: import.meta.env.VITE_VAPID_PUBLIC_KEY ?? "",
   // URL del compute service (Railway), sin barra final. Opcional: sin ella
   // la página pública de reservas (/r/:slug) muestra que no está disponible.
-  API_URL: (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "")
+  API_URL: (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, ""),
+  // Número de Nequi donde los negocios pagan la suscripción de ReservasIA
+  // (no es secreto: se muestra en el panel). Opcional: sin él, la tarjeta de
+  // Suscripción pide escribirle a soporte para recibirlo.
+  SUBSCRIPTION_NEQUI_NUMBER: (import.meta.env.VITE_SUBSCRIPTION_NEQUI_NUMBER ?? "").trim()
 };

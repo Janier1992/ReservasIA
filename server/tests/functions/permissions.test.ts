@@ -19,7 +19,8 @@ const ENV: Record<string, string> = {
   GOOGLE_CLIENT_ID: "client-id",
   GOOGLE_REDIRECT_URI: "https://server.test/api/integrations/google/callback",
   OPENAI_API_KEY: "openai-key",
-  GEMINI_API_KEY: "gemini-key"
+  GEMINI_API_KEY: "gemini-key",
+  INTEGRATIONS_ENCRYPTION_KEY: "a-test-encryption-key-with-enough-length"
 };
 
 type Role = "owner" | "admin" | "staff";
@@ -41,7 +42,12 @@ const CASES: FunctionCase[] = [
   { name: "get-receipt-url", method: "GET", allowed: "members", query: { organization_id: ORG, message_id: "msg-1" } },
   { name: "google-disconnect", method: "POST", allowed: "admins", body: { organization_id: ORG } },
   { name: "google-oauth-start", method: "GET", allowed: "admins", query: { organization_id: ORG } },
-  { name: "submit-subscription-payment", method: "POST", allowed: "admins", body: { organization_id: ORG, receipt_storage_path: `${ORG}/r.jpg`, amount: 1 } },
+  {
+    name: "submit-subscription-payment",
+    method: "POST",
+    allowed: "admins",
+    body: { organization_id: ORG, receipt_base64: "aGVsbG8=", receipt_mime_type: "image/jpeg", amount: 1 }
+  },
   { name: "telegram-connect", method: "POST", allowed: "admins", body: { organization_id: ORG, botToken: "123:abc" } },
   { name: "telegram-disconnect", method: "POST", allowed: "admins", body: { organization_id: ORG } },
   { name: "voice-intake", method: "POST", allowed: "members", body: { organization_id: ORG, transcript: "Juan, corte mañana" } },

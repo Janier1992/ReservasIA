@@ -13,6 +13,7 @@ import {
 } from "../customers/customersService.js";
 import { createReservation, cancelReservation, getReservationById, rescheduleReservation } from "../reservations/reservationsService.js";
 import { requiresHealthDataConsent } from "./safetyGuardrails.js";
+import { formatClock, localMoment } from "./scheduleText.js";
 import type { Reservation } from "../../types/domain.js";
 import {
   ToolName,
@@ -50,9 +51,10 @@ function toResult(fn: () => Promise<unknown>): Promise<ToolExecutionResult> {
     });
 }
 
-function sortByProximity(slots: { start: string }[], preferredTime: string | undefined, date: string) {
+function sortByProximity<T extends { start: string }>(slots: T[], preferredTime: string | undefined, date: string, timezone: string): T[] {
   if (!preferredTime) return slots;
-  const target = new Date(`${date}T${preferredTime}:00Z`).getTime();
+  // La hora preferida es la del negocio (la que dice el cliente), no UTC.
+  const target = fromZonedTime(`${date}T${preferredTime}:00`, timezone).getTime();
   return [...slots].sort((a, b) => Math.abs(new Date(a.start).getTime() - target) - Math.abs(new Date(b.start).getTime() - target));
 }
 
@@ -85,8 +87,25 @@ async function executeConsultarDisponibilidad(rawArgs: unknown, ctx: AgentExecut
       resourceId: args.resource_id,
       partySize: args.cantidad_personas
     });
-    const sorted = sortByProximity(slots, args.hora_preferida, args.fecha).slice(0, 8);
-    return { available: sorted.length > 0, slots: sorted, reason: sorted.length === 0 ? reason ?? "Sin cupos disponibles ese día." : undefined, timezone };
+    const sorted = sortByProximity(slots, args.hora_preferida, args.fecha, timezone).slice(0, 8);
+    // Horas ya en la zona del negocio: "hora" es la que va en crear_reserva y
+    // "cuando" es como se le dice al cliente.
+    const localSlots = sorted.map((slot) => {
+      const start = localMoment(slot.start, timezone);
+      return {
+        fecha: start.fecha,
+        hora: start.hora,
+        cuando: start.cuando,
+        hasta: formatClock(localMoment(slot.end, timezone).hora),
+        availableResourceIds: slot.availableResourceIds
+      };
+    });
+    return {
+      available: localSlots.length > 0,
+      slots: localSlots,
+      reason: localSlots.length === 0 ? reason ?? "Sin cupos disponibles ese día." : undefined,
+      zona_horaria: timezone
+    };
   });
 }
 
@@ -153,8 +172,8 @@ async function executeConsultarReservasCliente(rawArgs: unknown, ctx: AgentExecu
     const reservations = await conversationReservations(ctx);
     return reservations.map((r) => ({
       id: r.id,
-      start_at: r.start_at,
-      end_at: r.end_at,
+      ...localMoment(r.start_at, ctx.timezone),
+      hasta: formatClock(localMoment(r.end_at, ctx.timezone).hora),
       status: r.status,
       party_size: r.party_size,
       customer_name: r.customer_name
@@ -233,10 +252,10 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
             source: "whatsapp",
             recurrenceGroupId
           });
-          occurrences.push({ fecha: occReservation.start_at, reservada: true, id: occReservation.id });
+          occurrences.push({ fecha: localMoment(occReservation.start_at, ctx.timezone).cuando, reservada: true, id: occReservation.id });
         } catch (err) {
           occurrences.push({
-            fecha: occStart.toISOString(),
+            fecha: localMoment(occStart.toISOString(), ctx.timezone).cuando,
             reservada: false,
             motivo: err instanceof AppError ? err.message : "No se pudo reservar esa fecha."
           });
@@ -285,8 +304,7 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
       }
       return {
         id: reservation.id,
-        start_at: reservation.start_at,
-        end_at: reservation.end_at,
+        ...localMoment(reservation.start_at, ctx.timezone),
         status: reservation.status,
         payment_status: "awaiting_payment" as const,
         deposit_amount: depositAmount,
@@ -297,8 +315,7 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
 
     return {
       id: reservation.id,
-      start_at: reservation.start_at,
-      end_at: reservation.end_at,
+      ...localMoment(reservation.start_at, ctx.timezone),
       status: reservation.status,
       payment_status: "not_required" as const,
       ...notesWarning
@@ -326,7 +343,7 @@ async function executeReprogramarReserva(rawArgs: unknown, ctx: AgentExecutionCo
     const newEnd = addMinutes(newStart, durationMinutes);
 
     const reservation = await rescheduleReservation(args.reservation_id, newStart, newEnd);
-    return { id: reservation.id, start_at: reservation.start_at, end_at: reservation.end_at, status: reservation.status };
+    return { id: reservation.id, ...localMoment(reservation.start_at, ctx.timezone), status: reservation.status };
   });
 }
 

@@ -52,6 +52,7 @@ const { createCalendarEvent, deleteCalendarEvent, handleGoogleOAuthCallback, upd
   "../src/services/google/googleService.js"
 );
 const { env } = await import("../src/config/env.js");
+const { decryptCredentials } = await import("../src/lib/credentialsCrypto.js");
 
 const CONNECTED = {
   organization_id: "org-1",
@@ -170,11 +171,47 @@ describe("eventos de Google Calendar", () => {
     expect(google.onTokens).toBeTypeOf("function");
     google.onTokens!({ access_token: "nuevo" });
     await Promise.resolve();
-    expect(savedIntegration()).toMatchObject({
-      organization_id: "org-1",
-      status: "connected",
-      credentials: { access_token: "nuevo", refresh_token: "r" }
+    const saved = savedIntegration();
+    expect(saved).toMatchObject({ organization_id: "org-1", status: "connected" });
+    expect(decryptCredentials(saved?.credentials as Record<string, unknown>)).toEqual({ access_token: "nuevo", refresh_token: "r" });
+  });
+});
+
+describe("conexión con Google vencida", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    google.onTokens = null;
+  });
+
+  /** Lo que se guardó con .update en integrations (si se guardó algo). */
+  function integrationUpdate(): Record<string, unknown> | undefined {
+    const calls = insforgeMockInstance.database.from.mock.results
+      .map((r) => r.value as { update: ReturnType<typeof vi.fn> })
+      .flatMap((query) => query.update.mock.calls);
+    return calls.at(-1)?.[0] as Record<string, unknown> | undefined;
+  }
+
+  it("si Google responde invalid_grant, marca la integración para reconectar y no se traga el error", async () => {
+    connectedBusiness();
+    google.insert.mockRejectedValueOnce({ message: "invalid_grant", response: { status: 400, data: { error: "invalid_grant" } } });
+    await expect(createCalendarEvent(reservation())).rejects.toMatchObject({ message: "invalid_grant" });
+    expect(integrationUpdate()).toMatchObject({
+      status: "error",
+      metadata: { email: "negocio@test.local", calendarId: "primary", last_error: "token_expired" }
     });
+  });
+
+  it("un error común de Google (por ejemplo, un corte) no marca la integración", async () => {
+    connectedBusiness();
+    google.insert.mockRejectedValueOnce({ message: "socket hang up", response: { status: 503 } });
+    await expect(createCalendarEvent(reservation())).rejects.toMatchObject({ message: "socket hang up" });
+    expect(integrationUpdate()).toBeUndefined();
+  });
+
+  it("con la integración marcada para reconectar, no vuelve a intentar con Google", async () => {
+    insforgeMockInstance = createInsforgeMock({ integrations: { data: { ...CONNECTED, status: "error" }, error: null } });
+    expect(await createCalendarEvent(reservation())).toBeNull();
+    expect(google.insert).not.toHaveBeenCalled();
   });
 });
 
@@ -194,13 +231,14 @@ describe("conexión con Google (callback de OAuth)", () => {
 
     expect(await handleGoogleOAuthCallback("code-1", state)).toEqual({ organizationId: "org-1" });
     expect(google.getToken).toHaveBeenCalledWith("code-1");
-    expect(savedIntegration()).toMatchObject({
+    const saved = savedIntegration();
+    expect(saved).toMatchObject({
       organization_id: "org-1",
       provider: "google_calendar",
       status: "connected",
-      credentials: { access_token: "a", refresh_token: "r" },
       metadata: { email: "negocio@test.local", calendarId: "primary" }
     });
+    expect(decryptCredentials(saved?.credentials as Record<string, unknown>)).toMatchObject({ access_token: "a", refresh_token: "r" });
   });
 
   it("no conecta nada si el state no viene firmado por el servidor", async () => {

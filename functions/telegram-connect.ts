@@ -81,6 +81,10 @@ export default async function handler(req: Request): Promise<Response> {
         organization_id: organizationId,
         provider: "telegram",
         status: "connected",
+        // Sin cifrar a propósito (2026-10-30): el servidor no lograba descifrar
+        // lo que guardaba esta función y los bots dejaron de responder. El
+        // servidor acepta texto plano (decryptCredentials lo deja pasar);
+        // volver a cifrar cuando se confirme que Railway lee cada fila.
         credentials: { bot_token: botToken },
         metadata: { bot_username: botInfo.username ?? null, bot_first_name: botInfo.first_name ?? null },
         connected_at: new Date().toISOString()

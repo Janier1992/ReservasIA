@@ -37,13 +37,14 @@ describe("datos del negocio en las instrucciones del agente", () => {
       }),
       NOW
     );
-    expect(prompt).toContain("- Domingo: cerrado\n- Lunes: 09:00-12:00, 14:00-19:00");
-    expect(prompt).not.toContain("Martes");
+    expect(prompt).toContain("- Lunes: de 9:00 a. m. a 12:00 m. y de 2:00 p. m. a 7:00 p. m.\n- Martes: cerrado");
+    // Un día sin horario cargado sale como cerrado: el agente no tiene que suponer nada.
+    expect(prompt).toContain("- Domingo: cerrado");
   });
 
   it("avisa cuando el negocio todavía no cargó horarios, servicios ni recursos", () => {
     const prompt = buildSystemPrompt(base, NOW);
-    expect(prompt).toContain("No hay horarios configurados.");
+    expect(prompt).toContain("No hay horarios configurados: no informes horarios");
     expect(prompt).toContain("No hay servicios configurados.");
     expect(prompt).toContain("no utiliza recursos individuales");
   });
@@ -85,7 +86,10 @@ describe("datos del negocio en las instrucciones del agente", () => {
     expect(anonymous).toContain("CLIENTE ACTUAL: aún no identificado.");
 
     const known = buildSystemPrompt(makeData({ customer: { name: "Laura", phone: "+573001112233" } as never }), NOW);
-    expect(known).toContain("CLIENTE ACTUAL: Laura, teléfono +573001112233.");
+    expect(known).toContain("CLIENTE ACTUAL: Laura, teléfono +573001112233, sin correo registrado.");
+
+    const withEmail = buildSystemPrompt(makeData({ customer: { name: "Laura", phone: "+573001112233", email: "laura@test.local" } as never }), NOW);
+    expect(withEmail).toContain("CLIENTE ACTUAL: Laura, teléfono +573001112233, correo registrado laura@test.local.");
   });
 
   it("deja la hora y el cliente al final, para que el resto se reutilice del caché entre mensajes", () => {
@@ -94,12 +98,21 @@ describe("datos del negocio en las instrucciones del agente", () => {
     const fixedPart = first.slice(0, first.indexOf("FECHA Y HORA ACTUAL DEL NEGOCIO"));
     expect(later.startsWith(fixedPart)).toBe(true);
     expect(fixedPart).toContain("REGLAS ADICIONALES DEL NEGOCIO");
-    expect(first.length - fixedPart.length).toBeLessThan(200);
+    // Lo que cambia por mensaje es solo la fecha, el calendario de los próximos días y el cliente.
+    expect(first.slice(fixedPart.length)).toContain("CALENDARIO DE LOS PRÓXIMOS 7 DÍAS");
+    expect(first.length - fixedPart.length).toBeLessThan(1500);
   });
 
-  it("solo pide el correo del cliente para Google Calendar cuando el calendario está conectado", () => {
-    expect(buildSystemPrompt(base, NOW)).toContain("No pidas el email del cliente para esto.");
-    expect(buildSystemPrompt(makeData({ googleCalendarConnected: true }), NOW)).toContain("campo email_cliente");
+  it("ofrece la confirmación por correo esté o no conectado Google Calendar", () => {
+    for (const googleCalendarConnected of [false, true]) {
+      const prompt = buildSystemPrompt(makeData({ googleCalendarConnected }), NOW);
+      expect(prompt).toContain("preguntá amablemente si el cliente quiere recibir la confirmación por correo");
+      expect(prompt).not.toContain("No pidas el email");
+    }
+    expect(buildSystemPrompt(makeData({ googleCalendarConnected: false }), NOW)).toContain(
+      "Google Calendar no está conectado. El correo de confirmación al cliente sale igual"
+    );
+    expect(buildSystemPrompt(makeData({ googleCalendarConnected: true }), NOW)).toContain("Google Calendar está conectado");
   });
 
   it("refleja las capacidades que el negocio apagó", () => {

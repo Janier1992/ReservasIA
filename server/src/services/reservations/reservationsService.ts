@@ -1,5 +1,6 @@
 import { insforgeAdmin } from "../../lib/insforge.js";
 import { logger } from "../../lib/logger.js";
+import { reportFailure } from "../../lib/alerts.js";
 import { AppError, ErrorCodes, mapPostgresErrorMessage } from "../../utils/AppError.js";
 import type { Reservation } from "../../types/domain.js";
 import { createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from "../google/googleService.js";
@@ -59,6 +60,7 @@ export async function announceCreatedReservation(reservation: Reservation): Prom
       { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },
       "google_calendar_sync_failed_on_create"
     );
+    reportFailure("google_calendar", googleError);
   }
 }
 
@@ -73,6 +75,7 @@ export async function announceCancelledReservation(reservation: Reservation): Pr
       { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },
       "google_calendar_sync_failed_on_cancel"
     );
+    reportFailure("google_calendar", googleError);
   }
 }
 
@@ -159,6 +162,7 @@ export async function rescheduleReservation(
         { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },
         "google_calendar_sync_failed_on_reschedule"
       );
+      reportFailure("google_calendar", googleError);
     }
   }
 

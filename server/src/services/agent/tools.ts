@@ -117,7 +117,7 @@ const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCom
           email_cliente: {
             type: "string",
             description:
-              "Email del cliente, OPCIONAL. Si el negocio tiene Google Calendar conectado y el cliente lo proporciona, se le manda la invitación del turno a su propio Google Calendar."
+              "Email del cliente, OPCIONAL. Si lo da, le llega el correo de confirmación de la reserva con un botón para agregarla a su calendario."
           },
           cantidad_personas: { type: "number" },
           service_id: { type: "string" },
