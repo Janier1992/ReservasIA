@@ -106,7 +106,7 @@ describe("datos del negocio en las instrucciones del agente", () => {
   it("ofrece la confirmación por correo esté o no conectado Google Calendar", () => {
     for (const googleCalendarConnected of [false, true]) {
       const prompt = buildSystemPrompt(makeData({ googleCalendarConnected }), NOW);
-      expect(prompt).toContain("preguntá amablemente si el cliente quiere recibir la confirmación por correo");
+      expect(prompt).toContain("preguntá si quiere recibir la confirmación por correo");
       expect(prompt).not.toContain("No pidas el email");
     }
     expect(buildSystemPrompt(makeData({ googleCalendarConnected: false }), NOW)).toContain(
