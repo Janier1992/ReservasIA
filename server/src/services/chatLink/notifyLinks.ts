@@ -40,10 +40,10 @@ export async function loadConnectedChannels(organizationId: string): Promise<Con
     .select("provider, metadata")
     .eq("organization_id", organizationId)
     .eq("status", "connected")
-    .in("provider", ["telegram", "twilio"]);
+    .in("provider", ["telegram", "ycloud"]);
   const rows = (data ?? []) as { provider: string; metadata: Record<string, unknown> | null }[];
   const botUsername = rows.find((r) => r.provider === "telegram")?.metadata?.bot_username;
-  const whatsappNumber = rows.find((r) => r.provider === "twilio")?.metadata?.whatsapp_number;
+  const whatsappNumber = rows.find((r) => r.provider === "ycloud")?.metadata?.phone_number;
   const whatsappDigits = typeof whatsappNumber === "string" ? whatsappNumber.replace(/\D/g, "") : "";
   return { botUsername: typeof botUsername === "string" && botUsername ? botUsername : null, whatsappDigits: whatsappDigits || null };
 }

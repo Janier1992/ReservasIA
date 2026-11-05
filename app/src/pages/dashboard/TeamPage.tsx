@@ -31,7 +31,7 @@ interface InviteRow {
 }
 
 export function TeamPage() {
-  const { currentOrganizationId, currentRole } = useOrganization();
+  const { currentOrganizationId, currentRole, memberships } = useOrganization();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [invite, setInvite] = useState({ email: "", role: "staff" as "admin" | "staff" });
@@ -90,23 +90,43 @@ export function TeamPage() {
       toast.error("El email no tiene un formato válido.");
       return;
     }
+    const inviteEmail = invite.email.trim().toLowerCase();
     try {
       const { data: userResult } = await insforge.auth.getCurrentUser();
       const { error } = await insforge.database.from("organization_invites").insert([
         {
           organization_id: currentOrganizationId,
-          email: invite.email.trim().toLowerCase(),
+          email: inviteEmail,
           role: invite.role,
           invited_by: userResult?.user?.id
         }
       ]);
       if (error) throw error;
-      toast.success("Invitación creada. Pedile a la persona que inicie sesión con ese email y la acepte.");
+      toast.success("Invitación creada. Le avisamos por email.");
       setInvite({ email: "", role: "staff" });
       setDialogOpen(false);
       invalidate();
+      void notifyInvite(inviteEmail);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo crear la invitación.");
+    }
+  }
+
+  /** Mejor esfuerzo: si el email falla (ej. plan sin envío de correo habilitado), la invitación ya quedó creada igual. */
+  async function notifyInvite(inviteEmail: string) {
+    const orgName = memberships.find((m) => m.organization_id === currentOrganizationId)?.organizations.name ?? "tu negocio";
+    const origin = window.location.origin;
+    try {
+      const { error } = await insforge.emails.send({
+        to: inviteEmail,
+        subject: `Te invitaron a unirse a ${orgName} en ReservasIA`,
+        html: `<p>Te invitaron a colaborar en <strong>${orgName}</strong> dentro de ReservasIA.</p>
+          <p>Para aceptar, iniciá sesión o creá una cuenta con este mismo email (<strong>${inviteEmail}</strong>) y vas a ver la invitación apenas entres:</p>
+          <p><a href="${origin}/login">Iniciar sesión</a> &nbsp;·&nbsp; <a href="${origin}/register">Crear cuenta</a></p>`
+      });
+      if (error) console.error("team_invite_email_failed", error);
+    } catch (err) {
+      console.error("team_invite_email_failed", err);
     }
   }
 

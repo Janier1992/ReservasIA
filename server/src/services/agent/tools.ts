@@ -29,10 +29,6 @@ export const consultarDisponibilidadSchema = z.object({
   resource_id: z.string().uuid().optional()
 });
 
-export const obtenerInfoNegocioSchema = z.object({});
-
-export const consultarServiciosSchema = z.object({});
-
 // Sin argumentos a propósito: siempre son las reservas del cliente de la
 // conversación, nunca las de un teléfono que alguien escriba en el chat.
 export const consultarReservasClienteSchema = z.object({});
@@ -121,7 +117,7 @@ const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCom
           email_cliente: {
             type: "string",
             description:
-              "Email del cliente, OPCIONAL. Si el negocio tiene Google Calendar conectado y el cliente lo proporciona, se le manda la invitación del turno a su propio Google Calendar."
+              "Email del cliente, OPCIONAL. Si lo da, le llega el correo de confirmación de la reserva con un botón para agregarla a su calendario."
           },
           cantidad_personas: { type: "number" },
           service_id: { type: "string" },

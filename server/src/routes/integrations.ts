@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { env } from "../config/env.js";
+import { logger } from "../lib/logger.js";
 import { handleGoogleOAuthCallback } from "../services/google/googleService.js";
 
 export const integrationsRouter = Router();
@@ -9,7 +10,7 @@ export const integrationsRouter = Router();
  * service: Google redirige el navegador acá directamente (no hay
  * Authorization header posible). La autenticidad/tenant se garantiza con
  * el `state` firmado por la Edge Function google-oauth-start. El resto de
- * las operaciones de integraciones (conectar/desconectar Twilio y
+ * las operaciones de integraciones (conectar/desconectar canales y
  * Google, generar la URL de consentimiento) vive en Edge Functions,
  * porque el frontend no tiene forma de adjuntar el token de InsForge a
  * este servicio externo (ver PRP).
@@ -26,7 +27,9 @@ integrationsRouter.get("/google/callback", async (req, res) => {
   try {
     await handleGoogleOAuthCallback(code, state);
     res.redirect(`${env.APP_URL}/dashboard/integrations?google=connected`);
-  } catch {
+  } catch (err) {
+    // Solo el mensaje: el error de googleapis puede traer la petición con tokens.
+    logger.warn({ reason: err instanceof Error ? err.message : String(err) }, "google_oauth_callback_failed");
     res.redirect(`${env.APP_URL}/dashboard/integrations?google=error`);
   }
 });

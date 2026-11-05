@@ -1,0 +1,46 @@
+name: Pruebas del agente con el modelo real
+
+# Se corre a mano antes de cambiar las instrucciones, las reglas o el modelo
+# del agente: Actions → "Pruebas del agente con el modelo real" → Run workflow.
+# Manda ~22 preguntas de clientes a negocios de ejemplo (server/scripts/
+# agentEvalScenarios.ts) y revisa días, horas y precios de cada respuesta.
+# Cuesta centavos por corrida. Necesita el secreto OPENROUTER_API_KEY
+# (Settings → Secrets and variables → Actions).
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Modelo de OpenRouter
+        default: openai/gpt-4o-mini
+        required: true
+      runs:
+        description: Repeticiones por escenario (más = más confiable, más costo)
+        default: "1"
+        required: true
+      only:
+        description: Solo los escenarios cuyo id contiene este texto (vacío = todos)
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    name: Escenarios del agente
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Correr la batería
+        run: npm run evals -w server
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAI_BASE_URL: https://openrouter.ai/api/v1
+          OPENAI_MODEL: ${{ inputs.model }}
+          EVAL_RUNS: ${{ inputs.runs }}
+          EVAL_ONLY: ${{ inputs.only }}

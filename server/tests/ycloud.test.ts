@@ -12,8 +12,7 @@ vi.mock("../src/services/agent/agentRuntime.js", async (importOriginal) => ({
 const ORG = "11111111-1111-4111-8111-111111111111";
 const SECRET = "whsec_test";
 
-function freshInsforgeMock() {
-  return createInsforgeMock({
+const freshInsforgeMockResponses: Parameters<typeof createInsforgeMock>[0] = {
     integrations: {
       data: { status: "connected", credentials: { api_key: "key-1", webhook_secret: SECRET }, metadata: { phone_number: "+573000000000" } },
       error: null
@@ -28,7 +27,10 @@ function freshInsforgeMock() {
       { data: { id: "conv-1", organization_id: ORG, customer_id: "cust-1", channel: "whatsapp" }, error: null }
     ],
     messages: { data: null, error: null }
-  });
+};
+
+function freshInsforgeMock() {
+  return createInsforgeMock(freshInsforgeMockResponses);
 }
 
 let insforgeMockInstance = freshInsforgeMock();
@@ -69,14 +71,14 @@ const inboundEvent = {
 describe("verifyYCloudSignature", () => {
   const body = JSON.stringify({ hello: "world" });
 
-  it("accepts a fresh hex or base64 HMAC of '<t>.<body>'", () => {
+  it("acepta un HMAC reciente de '<t>.<body>' en hex o base64", () => {
     const t = Math.floor(Date.now() / 1000);
     const digest = crypto.createHmac("sha256", SECRET).update(`${t}.${body}`).digest();
     expect(verifyYCloudSignature(SECRET, `t=${t},s=${digest.toString("hex")}`, body)).toBe(true);
     expect(verifyYCloudSignature(SECRET, `t=${t},s=${digest.toString("base64")}`, body)).toBe(true);
   });
 
-  it("rejects another secret, a changed body, a stale timestamp or a missing header", () => {
+  it("rechaza otro secreto, un cuerpo alterado, una hora vieja o una cabecera faltante", () => {
     expect(verifyYCloudSignature(SECRET, sign(body, "otro"), body)).toBe(false);
     expect(verifyYCloudSignature(SECRET, sign(body), `${body} `)).toBe(false);
     expect(verifyYCloudSignature(SECRET, sign(body, SECRET, Math.floor(Date.now() / 1000) - 600), body)).toBe(false);
@@ -85,7 +87,7 @@ describe("verifyYCloudSignature", () => {
 });
 
 describe("normalizeWhatsAppPhone", () => {
-  it("always returns +<digits>", () => {
+  it("siempre devuelve +<dígitos>", () => {
     expect(normalizeWhatsAppPhone("573001112233")).toBe("+573001112233");
     expect(normalizeWhatsAppPhone("whatsapp:+57 300 111 2233")).toBe("+573001112233");
   });
@@ -93,7 +95,7 @@ describe("normalizeWhatsAppPhone", () => {
 
 describe("humanTakeoverActive", () => {
   const now = Date.parse("2026-10-23T15:00:00Z");
-  it("pauses the agent while a staff reply is recent, and only then", () => {
+  it("pausa al agente mientras la respuesta del equipo es reciente, y solo entonces", () => {
     const recent = new Date(now - 5 * 60 * 1000).toISOString();
     const old = new Date(now - HUMAN_TAKEOVER_MS - 1000).toISOString();
     expect(humanTakeoverActive([{ role: "staff", created_at: recent }], now)).toBe(true);
@@ -114,7 +116,7 @@ describe("POST /api/webhooks/ycloud/:organizationId", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("rejects a delivery without a valid signature", async () => {
+  it("rechaza un envío sin firma válida", async () => {
     const body = JSON.stringify(inboundEvent);
     const res = await request(createApp())
       .post(`/api/webhooks/ycloud/${ORG}`)
@@ -125,7 +127,7 @@ describe("POST /api/webhooks/ycloud/:organizationId", () => {
     expect(runAgentTurnMock).not.toHaveBeenCalled();
   });
 
-  it("stores the customer's message, runs the agent and replies from the business number", async () => {
+  it("guarda el mensaje del cliente, corre el agente y responde desde el número del negocio", async () => {
     const body = JSON.stringify(inboundEvent);
     const res = await request(createApp())
       .post(`/api/webhooks/ycloud/${ORG}`)
@@ -147,7 +149,38 @@ describe("POST /api/webhooks/ycloud/:organizationId", () => {
     );
   });
 
-  it("records what the business typed in its WhatsApp Business app as a staff message, without running the agent", async () => {
+  it("'Avisame por WhatsApp' de la página de reservas: vincula el chat y confirma la cita, sin pasar por el agente", async () => {
+    const future = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+    insforgeMockInstance = createInsforgeMock({
+      ...freshInsforgeMockResponses,
+      walk_ins: { data: null, error: null },
+      reservations: {
+        data: { id: "res-1", customer_name: "Laura Gómez", status: "confirmed", start_at: future, services: { name: "Corte" }, customers: null },
+        error: null
+      },
+      organizations: { data: { timezone: "America/Bogota" }, error: null },
+      business_profiles: { data: { name: "Barbería El Corte" }, error: null }
+    });
+    // Lo que escribe WhatsApp al tocar el botón: wa.me/<número>?text=Reserva #<código>
+    const body = JSON.stringify({ ...inboundEvent, whatsappInboundMessage: { ...inboundEvent.whatsappInboundMessage, text: { body: "Reserva #ABCDE23456" } } });
+    const res = await request(createApp())
+      .post(`/api/webhooks/ycloud/${ORG}`)
+      .set("Content-Type", "application/json")
+      .set("YCloud-Signature", sign(body))
+      .send(body);
+    expect(res.status).toBe(200);
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(runAgentTurnMock).not.toHaveBeenCalled();
+    const from = insforgeMockInstance.database.from as unknown as { mock: { calls: [string][]; results: { value: Record<string, { mock: { calls: unknown[][] } }> }[] } };
+    const reservationUpdates = from.mock.calls.flatMap(([t], i) => (t === "reservations" ? from.mock.results[i].value.update.mock.calls.map((c) => c[0]) : []));
+    expect(reservationUpdates).toContainEqual({ notify_channel: "whatsapp", notify_identity: "+573001112233" });
+    const sent = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(sent).toMatchObject({ from: "+573000000000", to: "+573001112233", type: "text" });
+    expect(sent.text.body).toMatch(/^¡Hola Laura! Tu reserva de Corte en Barbería El Corte quedó confirmada para el .+ Te recordamos por acá antes de la cita/);
+  });
+
+  it("registra lo que el negocio escribió en su app de WhatsApp Business como mensaje del equipo, sin correr el agente", async () => {
     const body = JSON.stringify({
       id: "evt-2",
       type: "whatsapp.smb.message.echoes",

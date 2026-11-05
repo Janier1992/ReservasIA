@@ -16,17 +16,17 @@ function signState(payload: object, secret: string): string {
 describe("verifyState (conexión con Google)", () => {
   const secret = "un-secreto-de-verdad-123";
 
-  it("accepts a fresh state signed with the server secret", () => {
+  it("acepta un state reciente firmado con el secreto del servidor", () => {
     expect(verifyState(signState({ organizationId: "org-1", ts: Date.now() }, secret), secret)).toEqual({ organizationId: "org-1" });
   });
 
-  it("rejects a state signed with another secret or with a truncated signature", () => {
+  it("rechaza un state firmado con otro secreto o con la firma cortada", () => {
     expect(() => verifyState(signState({ organizationId: "org-1", ts: Date.now() }, "otro"), secret)).toThrow("Estado de OAuth inválido");
     const [encoded] = signState({ organizationId: "org-1", ts: Date.now() }, secret).split(".");
     expect(() => verifyState(`${encoded}.abc`, secret)).toThrow("Estado de OAuth inválido");
   });
 
-  it("refuses to trust the public example secret in production", () => {
+  it("en producción no confía en el secreto de ejemplo público", () => {
     const original = env.NODE_ENV;
     (env as { NODE_ENV: string }).NODE_ENV = "production";
     try {
@@ -39,7 +39,7 @@ describe("verifyState (conexión con Google)", () => {
 });
 
 describe("logger", () => {
-  it("never writes webhook secrets from request headers", async () => {
+  it("nunca escribe en los logs los secretos de webhooks de las cabeceras", async () => {
     const { REDACT_PATHS } = await import("../src/lib/logger.js");
     let out = "";
     const sink = new Writable({

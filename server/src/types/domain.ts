@@ -19,6 +19,10 @@ export interface BusinessProfile {
   logo_url: string | null;
   description: string | null;
   address: string | null;
+  /** Indicaciones para llegar (piso, local, punto de referencia). Opcional hasta aplicar 20261029090000. */
+  address_details?: string | null;
+  /** Enlace de Google Maps/Waze del negocio (https). Opcional hasta aplicar 20261029090000. */
+  maps_url?: string | null;
   phone: string | null;
   email: string | null;
   website: string | null;
@@ -79,6 +83,9 @@ export interface Customer {
   notes: string | null;
   health_data_consent_at?: string | null;
   health_data_consent_source?: string | null;
+  /** Cuándo autorizó el tratamiento de sus datos (casilla de la página de reservas). */
+  data_consent_at?: string | null;
+  data_consent_source?: string | null;
 }
 
 export type ConversationChannel = "whatsapp" | "instagram" | "web" | "telegram" | "facebook";
@@ -132,6 +139,9 @@ export interface Reservation {
   deposit_amount: number | null;
   reminder_sent_at: string | null;
   recurrence_group_id: string | null;
+  /** Cuándo se avisó al cliente de la reserva / de la cancelación (null = pendiente). */
+  created_sync_at?: string | null;
+  cancelled_sync_at?: string | null;
 }
 
 export interface AgentConfig {
@@ -156,7 +166,7 @@ export interface AgentRule {
   enabled: boolean;
 }
 
-export type IntegrationProvider = "twilio" | "google_calendar" | "telegram";
+export type IntegrationProvider = "ycloud" | "google_calendar" | "telegram";
 export type IntegrationStatus = "disconnected" | "connected" | "error";
 
 export interface Integration {

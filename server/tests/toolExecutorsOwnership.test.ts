@@ -60,7 +60,7 @@ describe("el agente solo ve y cambia reservas del cliente de la conversación", 
     ]);
   });
 
-  it("ignores a phone number the customer types and lists only their own and chat-linked reservations", async () => {
+  it("ignora un teléfono que el cliente escriba y lista solo sus reservas y las vinculadas a este chat", async () => {
     const result = await executeTool("consultar_reservas_cliente", { telefono: "+573009999999" }, ctx);
     expect(result.success).toBe(true);
     expect((result.data as { id: string }[]).map((r) => r.id)).toEqual(["res-web", "res-mine"]);
@@ -75,14 +75,14 @@ describe("el agente solo ve y cambia reservas del cliente de la conversación", 
     expect(cancelReservationMock).not.toHaveBeenCalled();
   });
 
-  it("refuses to cancel another customer's reservation of the same business", async () => {
+  it("no cancela la reserva de otro cliente del mismo negocio", async () => {
     getReservationByIdMock.mockResolvedValue(reservation("res-other", "cust-other"));
     const result = await executeTool("cancelar_reserva", { reservation_id: "11111111-1111-4111-8111-111111111111" }, ctx);
     expect(result).toMatchObject({ success: false, error_code: "RESERVATION_NOT_FOUND" });
     expect(cancelReservationMock).not.toHaveBeenCalled();
   });
 
-  it("refuses to reschedule another customer's reservation", async () => {
+  it("no reprograma la reserva de otro cliente", async () => {
     getReservationByIdMock.mockResolvedValue(reservation("res-other", "cust-other"));
     const result = await executeTool(
       "reprogramar_reserva",
@@ -93,7 +93,7 @@ describe("el agente solo ve y cambia reservas del cliente de la conversación", 
     expect(rescheduleReservationMock).not.toHaveBeenCalled();
   });
 
-  it("still cancels the customer's own reservation and one linked to this chat", async () => {
+  it("sí cancela la reserva propia del cliente y una vinculada a este chat", async () => {
     cancelReservationMock.mockImplementation(async (id: string) => ({ id, status: "cancelled" }));
     getReservationByIdMock.mockResolvedValueOnce(reservation("res-mine", "cust-me"));
     expect(await executeTool("cancelar_reserva", { reservation_id: "11111111-1111-4111-8111-111111111111" }, ctx)).toMatchObject({ success: true });

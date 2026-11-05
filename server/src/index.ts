@@ -15,6 +15,9 @@ import {
   startInboundClaimsCleanupScheduler,
   stopInboundClaimsCleanupScheduler
 } from "./services/conversations/inboundClaimsCleanupScheduler.js";
+import { startChatRetentionScheduler, stopChatRetentionScheduler } from "./services/conversations/chatRetentionScheduler.js";
+import { startReservationSyncScheduler, stopReservationSyncScheduler } from "./services/reservations/reservationSyncScheduler.js";
+import { startIntegrationCredentialsCheck, stopIntegrationCredentialsCheck } from "./services/integrations/credentialsCheck.js";
 
 const app = createApp();
 
@@ -43,6 +46,9 @@ const server = app.listen(env.PORT, () => {
   startOrderReadyNotifier();
   startSubscriptionScheduler();
   startInboundClaimsCleanupScheduler();
+  startReservationSyncScheduler();
+  startChatRetentionScheduler();
+  startIntegrationCredentialsCheck();
 });
 
 function shutdown() {
@@ -54,6 +60,9 @@ function shutdown() {
     stopOrderReadyNotifier();
     stopSubscriptionScheduler();
     stopInboundClaimsCleanupScheduler();
+    stopReservationSyncScheduler();
+    stopChatRetentionScheduler();
+    stopIntegrationCredentialsCheck();
   }
   server.close(() => process.exit(0));
 }

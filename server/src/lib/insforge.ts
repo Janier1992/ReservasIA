@@ -8,7 +8,7 @@ import { env } from "../config/env.js";
  * este servicio directamente (InsForge no permite adjuntar el token del
  * usuario a un origen externo); las operaciones que el frontend dispara
  * viven en Edge Functions (ver /functions). Este servicio sólo responde a
- * Twilio y a la redirección de Google OAuth.
+ * los webhooks de Telegram/YCloud y a la redirección de Google OAuth.
  */
 export const insforgeAdmin = createAdminClient({
   baseUrl: env.INSFORGE_URL,

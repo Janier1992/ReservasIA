@@ -12,7 +12,7 @@ vi.mock("../src/lib/insforge.js", () => ({
 const { suspendExpiredSubscriptions } = await import("../src/services/subscription/subscriptionService.js");
 
 describe("suspendExpiredSubscriptions", () => {
-  it("suspends organizations whose subscription already expired", async () => {
+  it("suspende los negocios con la suscripción ya vencida", async () => {
     insforgeMockInstance = createInsforgeMock({
       organizations: { data: [{ id: "org-1" }, { id: "org-2" }], error: null }
     });
@@ -21,7 +21,7 @@ describe("suspendExpiredSubscriptions", () => {
     expect(result).toEqual({ suspended: 2 });
   });
 
-  it("reports zero when nothing is due (no rows matched the filters)", async () => {
+  it("informa cero cuando no hay nada vencido (ninguna fila cumple los filtros)", async () => {
     insforgeMockInstance = createInsforgeMock({
       organizations: { data: [], error: null }
     });
@@ -30,7 +30,7 @@ describe("suspendExpiredSubscriptions", () => {
     expect(result).toEqual({ suspended: 0 });
   });
 
-  it("never throws when the update fails, just reports zero", async () => {
+  it("nunca lanza excepción si falla la actualización, solo informa cero", async () => {
     insforgeMockInstance = createInsforgeMock({
       organizations: { data: null, error: { message: "db down" } }
     });

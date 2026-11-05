@@ -4,6 +4,7 @@
 // integración como desconectada. El número sigue funcionando normal en la
 // app de WhatsApp Business del negocio.
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
+import { tryDecryptCredentials } from "./_shared/credentialsCrypto.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -36,6 +37,12 @@ export default async function handler(req: Request): Promise<Response> {
   const organizationId = body.organization_id;
   if (!organizationId) return jsonResponse({ error: { code: "VALIDATION_ERROR" } }, 400);
 
+  // Redeploy forzado 2026-10-30 ter (ver ycloud-connect.ts): recoger el secreto actualizado.
+  const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY");
+  if (!encryptionKey) {
+    return jsonResponse({ error: { code: "NOT_CONFIGURED", message: "Falta configurar el cifrado de credenciales en el servidor." } }, 500);
+  }
+
   const { data: membership } = await userClient.database
     .from("organization_members")
     .select("role")
@@ -54,7 +61,11 @@ export default async function handler(req: Request): Promise<Response> {
     .eq("organization_id", organizationId)
     .eq("provider", "ycloud")
     .maybeSingle();
-  const credentials = current?.credentials as { api_key?: string; webhook_endpoint_id?: string } | null;
+  // Ilegibles (otra clave): se desconecta igual, solo que sin poder borrar el webhook en YCloud.
+  const credentials = ((await tryDecryptCredentials(current?.credentials as Record<string, unknown> | null, encryptionKey)) ?? {}) as {
+    api_key?: string;
+    webhook_endpoint_id?: string;
+  };
   if (credentials?.api_key && credentials.webhook_endpoint_id) {
     try {
       await fetch(`https://api.ycloud.com/v2/webhookEndpoints/${credentials.webhook_endpoint_id}`, {

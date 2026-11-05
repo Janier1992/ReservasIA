@@ -1,0 +1,31 @@
+-- ============================================================
+-- Fix: el upload de comprobante de pago de suscripción fallaba en
+-- producción con "You do not have permission to write ... in bucket
+-- 'subscription-receipts'" (reportado 2026-10-30 probando el flujo de
+-- reactivación de una cuenta suspendida).
+--
+-- Causa real: storage.objects tenía la RLS policy correcta
+-- (subscription_receipts_owner_insert, ver 20260923120000) pero el rol
+-- "authenticated" NO tenía privilegio de tabla (GRANT) para escribir en
+-- storage.objects — en Postgres, RLS solo restringe FILAS dentro de una
+-- operación ya permitida por GRANT; sin el GRANT, toda escritura se
+-- rechaza sin importar qué diga la policy.
+--
+-- 20260919150000_business-logo-storage.sql ya había otorgado ese GRANT
+-- (aplicada en producción, confirmado con `db migrations list`), y
+-- funcionó: hay 4 logos ya subidos. Pero al revisar producción hoy,
+-- storage.objects solo tiene privilegios para "project_admin" — el GRANT
+-- a "authenticated"/"anon" ya no está. Sospecha (sin confirmar): crear un
+-- bucket nuevo (acá, "subscription-receipts", el 23/9) le resetea a
+-- InsForge los privilegios de storage.objects a su base por defecto.
+--
+-- Esto probablemente también rompió el upload de logo de negocio
+-- (mismo mecanismo, mismo GRANT) desde esa fecha, aunque no se reportó.
+--
+-- Si volvés a ver este mismo error después de crear un bucket nuevo,
+-- volvé a correr este archivo (es idempotente) en vez de investigar de
+-- cero.
+-- ============================================================
+
+grant select on storage.objects to anon, authenticated;
+grant insert, update, delete on storage.objects to authenticated;

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { insforgeAdmin } from "./insforge.js";
 import { logger } from "./logger.js";
+import { reportFailure } from "./alerts.js";
 
 /**
  * Identifica a esta instancia del server frente a las demás (Railway puede
@@ -54,6 +55,7 @@ export function createScheduledJob(name: string, intervalMs: number, run: () => 
       await run();
     } catch (err) {
       logger.error({ err, job: name }, "scheduled_job_failed");
+      reportFailure(`scheduled_job:${name}`, err);
     } finally {
       running = false;
     }

@@ -22,7 +22,7 @@ interfaz es responsiva.
 - [Configurar InsForge (base de datos + auth)](#configurar-insforge-base-de-datos--auth)
 - [Configurar OpenAI (agente de IA)](#configurar-openai-agente-de-ia)
 - [Configurar Telegram (canal recomendado, gratis)](#configurar-telegram-canal-recomendado-gratis)
-- [Configurar WhatsApp / Twilio (opcional, con costo)](#configurar-whatsapp--twilio-opcional-con-costo)
+- [Configurar WhatsApp Business (YCloud)](#configurar-whatsapp-business-ycloud)
 - [Configurar Google Calendar](#configurar-google-calendar)
 - [Moneda y localización](#moneda-y-localización)
 - [PWA — instalación en celular/escritorio](#pwa--instalación-en-celularescritorio)
@@ -56,6 +56,11 @@ conexión de canales — todo antes de llegar al dashboard.
   negocio.
 - Nunca inventa horarios, precios ni servicios: todo lo que dice sale de datos reales (`consultar_disponibilidad`,
   `consultar_servicios`, `obtener_info_negocio`).
+- Revisión automática de cada respuesta antes de enviarla (`responseVerifier.ts`): días que ofrece como abiertos,
+  "hoy"/"mañana" y fechas contra su día de la semana, horas dentro del horario (del negocio o del recurso, o devueltas
+  por una herramienta) y precios de los servicios. Si algo no cuadra, el modelo corrige una vez; si sigue mal, se
+  envía una respuesta segura ("ese detalle te lo confirma el negocio") y llega la alerta `agent_unverified_reply`.
+  La vista previa del panel aplica la misma revisión. "Creatividad" del modelo baja (`AGENT_TEMPERATURE` = 0.1).
 - Pide confirmación explícita del cliente antes de reservar, cancelar o reprogramar.
 - Resuelve `service_id`/`resource_id` reales (nunca los inventa) cuando el negocio tiene catálogo configurado.
 - Si el negocio conectó Google Calendar, ofrece pedirle el email al cliente (opcional) para invitarlo al turno en su
@@ -65,7 +70,9 @@ conexión de canales — todo antes de llegar al dashboard.
 ### Canales de mensajería
 - **Telegram** (recomendado): cada negocio conecta su propio bot (gratis, vía [@BotFather](https://t.me/BotFather)).
   El compute service lo atiende con *long-polling*, sin necesitar dominio ni URL pública.
-- **WhatsApp vía Twilio** (opcional, tiene costo de Twilio/Meta): webhook entrante validado por firma.
+- **WhatsApp Business vía YCloud** (socio oficial de Meta, en coexistencia): el agente atiende en el mismo número
+  del negocio, que sigue usando la app de WhatsApp Business; si alguien del equipo responde, el agente se pausa
+  30 minutos en ese chat. Webhook entrante validado por firma.
 
 ### Reservas
 - Vista de lista con filtro por estado, creación manual desde el dashboard (con selección de servicio/recurso,
@@ -93,7 +100,7 @@ conexión de canales — todo antes de llegar al dashboard.
   diálogo).
 
 ### Integraciones
-- Telegram, WhatsApp (Twilio) y Google Calendar, cada una conectada/desconectada por organización desde
+- Telegram, WhatsApp Business (YCloud) y Google Calendar, cada una conectada/desconectada por organización desde
   `/dashboard/integrations`, con credenciales aisladas por tenant.
 
 ### Equipo
@@ -286,8 +293,8 @@ arquitectura:
 | Dónde | Qué vive ahí | Por qué |
 |---|---|---|
 | **Postgres (migraciones)** | Tablas, RLS, triggers, RPCs (`book_reservation`, `create_organization_with_owner`, `accept_organization_invite`, etc.) | El frontend llama estas RPCs directamente vía `insforge.database.rpc()` — el SDK adjunta el token automáticamente porque es una llamada al propio backend de InsForge. |
-| **`functions/` (Edge Functions, Deno, desplegadas con `@insforge/cli functions deploy`)** | `agent-preview`, `check-availability`, `twilio-connect`, `twilio-disconnect`, `telegram-connect`, `telegram-disconnect`, `ycloud-connect`, `ycloud-disconnect`, `google-oauth-start`, `google-disconnect`, `conversations-reply` | Lógica privilegiada que el **frontend** dispara (necesita el token del usuario + una API key admin para tocar `integrations.credentials`, bloqueada por columna para `authenticated`). |
-| **`server/` (compute service, Node/Express persistente)** | Webhook de Twilio, callback de Google OAuth, el long-polling de cada bot de Telegram conectado, el loop de tool-calling del agente | Twilio y Google llaman directo (no el frontend vía SDK); Telegram no llama a nadie (long-polling saliente), pero igual necesita un proceso persistente corriendo. El agente necesita poder seguir procesando en background — algo que una función serverless de vida corta no garantiza. |
+| **`functions/` (Edge Functions, Deno, desplegadas con `@insforge/cli functions deploy`)** | Las 15 de `functions/`: conectar/desconectar canales (`telegram-*`, `ycloud-*`) y Google, `agent-preview`, `conversations-reply`, `voice-intake`, recibos y pagos de suscripción | Lógica privilegiada que el **frontend** dispara (necesita el token del usuario + una API key admin para tocar `integrations.credentials`, bloqueada por columna para `authenticated`). |
+| **`server/` (compute service, Node/Express persistente)** | Webhooks de WhatsApp (YCloud), callback de Google OAuth, el long-polling de cada bot de Telegram conectado, el loop de tool-calling del agente | YCloud y Google llaman directo (no el frontend vía SDK); Telegram no llama a nadie (long-polling saliente), pero igual necesita un proceso persistente corriendo. El agente necesita poder seguir procesando en background — algo que una función serverless de vida corta no garantiza. |
 
 **Importante para el despliegue**: por esto mismo, `app/` (el frontend) sí se puede desplegar en una plataforma
 serverless/estática como Vercel, pero `server/` (el compute service) necesita un host que mantenga un proceso Node
@@ -298,7 +305,7 @@ necesita estar escuchando todo el tiempo, no solo responder a requests puntuales
 
 - **Frontend** (`app/`): React 18 + TypeScript + Vite + Tailwind CSS + TanStack Query + React Hook Form + Zod +
   Radix UI + `vite-plugin-pwa`.
-- **Compute service** (`server/`): Node + Express + TypeScript, OpenAI SDK (tool-calling), Twilio SDK, `googleapis`.
+- **Compute service** (`server/`): Node + Express + TypeScript, OpenAI SDK (tool-calling), `googleapis`; WhatsApp por la API de YCloud.
 - **Edge Functions** (`functions/`): Deno, desplegadas a InsForge.
 - **Base de datos**: PostgreSQL vía InsForge, con RLS, triggers y RPCs en `migrations/`.
 
@@ -327,7 +334,7 @@ crm-clients-wpp/
 │       └── lib/                  # insforgeClient, functionsClient, queryClient, currency
 ├── server/                       # Compute service: Node + Express + TS
 │   ├── src/
-│   │   ├── routes/               # webhooks (Twilio), integrations (Google callback), health
+│   │   ├── routes/               # webhooks (YCloud, Telegram), integrations (Google callback), public, health
 │   │   ├── services/
 │   │   │   ├── agent/            # promptBuilder, tools, toolExecutors, agentRuntime, coreRules
 │   │   │   ├── availability/     # motor de disponibilidad (horarios, recursos, capacidad)
@@ -335,17 +342,20 @@ crm-clients-wpp/
 │   │   │   ├── customers/        # findOrCreateCustomerByPhone, updateCustomer
 │   │   │   ├── conversations/    # handleInboundMessage: lógica compartida entre canales
 │   │   │   ├── google/           # OAuth callback + Google Calendar (crear/actualizar/borrar eventos)
-│   │   │   ├── twilio/           # WhatsApp
+│   │   │   ├── ycloud/           # WhatsApp Business (coexistencia)
+│   │   │   ├── whatsapp/         # envío de WhatsApp (YCloud)
 │   │   │   └── telegram/         # long-polling multi-tenant (telegramPollingManager)
 │   │   ├── middleware/           # rateLimit, errorHandler
 │   │   ├── config/env.ts         # Validación de variables de entorno
 │   │   └── lib/                  # insforge (admin client), openai, logger
-│   └── tests/                    # vitest: disponibilidad, tools del agente, prompt, webhook, telegram
+│   └── tests/                    # vitest: servicios del server y permisos de las Edge Functions (tests/functions)
 ├── functions/                    # Edge Functions (Deno), invocadas por el frontend vía insforge.functions.invoke()
 ├── migrations/                   # Esquema completo + RLS + RPCs, en orden (npx @insforge/cli db migrations up)
 ├── db-tests/                     # Test de aislamiento multi-tenant (SQL plano, correr con psql)
 ├── scripts/
-│   └── deploy-functions.mjs      # Deploya todas las Edge Functions de una sola vez
+│   ├── deploy-functions.mjs      # Deploya todas las Edge Functions de una sola vez
+│   ├── function-bundle.mjs       # Empaqueta en un archivo las funciones que importan código del repo
+│   └── changed-functions.mjs     # Qué funciones publicar según los archivos que cambiaron en un push
 └── .env.example
 ```
 
@@ -357,7 +367,7 @@ crm-clients-wpp/
 - Una cuenta de [InsForge](https://insforge.dev)
 - Una API key de [OpenAI](https://platform.openai.com) (o cualquier endpoint compatible, ej. OpenRouter, para desarrollo)
 - Un bot de Telegram gratis vía [@BotFather](https://t.me/BotFather) (canal recomendado)
-- Opcional: una cuenta de [Twilio](https://www.twilio.com) con WhatsApp habilitado
+- Opcional: una cuenta de [YCloud](https://www.ycloud.com) con el número de WhatsApp Business del negocio
 - Opcional: un proyecto de [Google Cloud](https://console.cloud.google.com) con la API de Calendar habilitada
 
 ## Instalación
@@ -392,6 +402,23 @@ Completá en `.env`:
 - `VITE_INSFORGE_ANON_KEY`: la `ANON_KEY` obtenida arriba.
 - `INSFORGE_API_KEY`: una API key admin (Project Settings → API Keys en el dashboard de InsForge).
 
+### Ubicación del negocio
+
+En **Configuración → Ubicación** el negocio carga su dirección, indicaciones para llegar (piso, local, punto de
+referencia) y, opcionalmente, el enlace de Google Maps que copia desde **Compartir** (solo `https://`). Sin enlace se
+usa una búsqueda de Google Maps con la dirección (`server/src/utils/location.ts`). El agente comparte la dirección y
+el enlace cuando el cliente pregunta cómo llegar y al confirmar una reserva; la página de reservas muestra "Cómo
+llegar" y el correo de confirmación, "Ver ubicación en el mapa". Las indicaciones y el enlace necesitan la migración
+`20261029090000_business-location.sql`; antes de aplicarla, Configuración solo muestra la dirección.
+
+### Recuperar contraseña
+
+La pantalla `/forgot-password` funciona con los dos métodos de recuperación de InsForge (Authentication en el
+dashboard): con **código**, la persona lo escribe en la misma pantalla; con **enlace**, el correo lleva a
+`/reset-password`, donde elige la contraseña nueva. Para el enlace, agregá `https://<tu-dominio>/reset-password` a
+las URLs de redirección permitidas de InsForge. El correo lo manda InsForge: si no llega, revisá ahí los envíos y el
+límite de correos del plan (los correos de reservas usan el mismo servicio). Se puede reenviar cada 60 segundos.
+
 ### Datos demo
 
 `migrations/20260830121700_seed-demo-data.sql` crea 3 organizaciones demo completas (restaurante, barbería, salón
@@ -411,15 +438,23 @@ o una por una:
 npx @insforge/cli functions deploy <slug> --file functions/<slug>.ts
 ```
 
-Sin terminal: el workflow de GitHub Actions **Deploy Edge Functions** publica solo las funciones que cambian en cada
-push a `main`, y se puede correr a mano (Actions → Deploy Edge Functions → Run workflow, con los nombres separados
+InsForge recibe un solo archivo por función. Las que importan código del repo (`agent-preview`, que usa las
+instrucciones del agente real de `server/src/services/agent/systemPrompt.ts`, y las que usan `functions/_shared/`,
+como el cifrado de credenciales) se empaquetan antes con esbuild (`scripts/function-bundle.mjs`) en los dos scripts
+de despliegue; no las publiques con el comando de una por una. `functions/_shared/` es código compartido, no una
+función.
+
+Sin terminal: el workflow de GitHub Actions **Deploy Edge Functions** publica en cada push a `main` solo las
+funciones afectadas por lo que cambió en todo el push (aunque traiga varios commits): `scripts/changed-functions.mjs`
+mira de qué archivos depende cada función (su propio `.ts`, `functions/_shared/` o código del server que importa).
+También se puede correr a mano (Actions → Deploy Edge Functions → Run workflow, con los nombres separados
 por espacio o vacío para todas). Usa los secretos del repositorio `INSFORGE_URL` e `INSFORGE_API_KEY` (los mismos
 valores que el compute service en Railway) y llama a la API de InsForge con `scripts/deploy-functions-api.mjs`.
 
 Cada función necesita estos secretos en InsForge (`npx @insforge/cli secrets add <KEY> <VALUE>`): `INSFORGE_BASE_URL`
 y `API_KEY` (reservados, ya provistos por InsForge), más `OPENAI_API_KEY`, `OPENAI_MODEL`, `GOOGLE_CLIENT_ID`,
-`GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` y `OAUTH_STATE_SECRET` (este último con el mismo valor que en el
-`.env` del compute service).
+`GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `OAUTH_STATE_SECRET` e `INTEGRATIONS_ENCRYPTION_KEY` (estos dos
+últimos con el mismo valor que en el `.env` del compute service).
 
 ---
 
@@ -457,14 +492,27 @@ atiende de dos formas (`TELEGRAM_MODE`):
 
 ---
 
-## Configurar WhatsApp / Twilio (opcional, con costo)
+## Configurar WhatsApp Business (YCloud)
 
-1. Creá una cuenta en [twilio.com](https://www.twilio.com) y activá el WhatsApp Sandbox (o un número aprobado).
-2. Configurá el webhook entrante en **Messaging → WhatsApp Sender → "When a message comes in"** apuntando al
-   **compute service**: `https://<tu-dominio-del-compute-service>/api/webhooks/twilio/whatsapp`.
-3. Desde `/dashboard/integrations`, conectá WhatsApp con el Account SID, el Auth Token y el número
-   (`whatsapp:+1415...`).
-4. En producción, dejá `TWILIO_VALIDATE_SIGNATURE=true` para validar la cabecera `X-Twilio-Signature`.
+Cada negocio conecta su propio número de WhatsApp Business en **coexistencia**: sigue usando la app en el
+celular y el agente atiende por la API oficial de Meta, a través de YCloud. El paso a paso para el negocio está en
+la sección 23 del manual de usuario (`docs/manual/`).
+
+1. El negocio crea su cuenta en [ycloud.com](https://www.ycloud.com), conecta ahí su número eligiendo la opción de
+   seguir usando la app (coexistencia) y copia su API key (Desarrolladores → API Keys).
+2. En `/dashboard/integrations` → **WhatsApp Business (YCloud)** pega la API key. La Edge Function
+   `ycloud-connect` valida la clave, toma el número y registra en YCloud el webhook
+   `https://<compute-service>/api/webhooks/ycloud/<organization_id>` con su propio secreto.
+3. El compute service verifica la firma `YCloud-Signature` de cada evento (HMAC-SHA256, 5 minutos de tolerancia),
+   responde al cliente con el agente y pausa al agente 30 minutos cuando el negocio escribe desde la app.
+4. La dirección pública del compute service sale de `SERVER_PUBLIC_URL` (secreto de las Edge Functions en InsForge)
+   o, si no está, de `VITE_API_URL` del frontend.
+5. **Recordatorios**: Meta solo deja escribirle primero al cliente con una plantilla aprobada. La primera vez que
+   hay un recordatorio por mandar, el compute service crea en la cuenta de YCloud del negocio la plantilla de
+   utilidad `reservasia_recordatorio_reserva` (español) y espera a que Meta la apruebe (suele tardar de minutos a
+   unas horas); mientras tanto el recordatorio se salta y se reintenta cada 10 minutos. El estado queda en
+   `integrations.metadata.reminder_template` y en los logs (`ycloud_reminder_template_*`). Meta cobra cada
+   plantilla enviada según su tarifa para el país. Por Telegram el recordatorio sale como mensaje normal, gratis.
 
 ---
 
@@ -578,7 +626,7 @@ npm run dev
 ```
 
 Levanta en paralelo:
-- Compute service en `http://localhost:3011` (webhook de Twilio, callback de Google, poller de Telegram)
+- Compute service en `http://localhost:3011` (webhooks de WhatsApp, callback de Google, poller de Telegram)
 - Frontend en `http://localhost:5173`
 
 Las Edge Functions no tienen modo "dev local": se prueban desplegándolas a InsForge e invocándolas desde la app.
@@ -589,8 +637,21 @@ Las Edge Functions no tienen modo "dev local": se prueban desplegándolas a InsF
 npm test
 ```
 
-Corre la suite de `server` (vitest: motor de disponibilidad, reglas y herramientas del agente, prompt builder,
-webhook de Twilio, procesamiento de Telegram — con InsForge mockeado, no requiere proyecto real) y de `app`.
+- **`server`** (vitest, con InsForge simulado, sin proyecto real): motor de disponibilidad, agente y sus
+  herramientas, canales (Telegram, YCloud), reservas y avisos, página pública, y en `server/tests/functions` los
+  **permisos de las 16 Edge Functions** (sin sesión, de otro negocio, staff donde solo puede dueño/admin).
+- **`app`** (vitest): lógica del frontend y cabeceras de seguridad de `vercel.json`.
+
+### Prueba de punta a punta (navegador real)
+
+```bash
+VITE_API_URL=https://api.e2e.test VITE_INSFORGE_URL=https://insforge.e2e.test VITE_INSFORGE_ANON_KEY=e2e \
+  npm run build -w app && npm run e2e -w app
+```
+
+Playwright corre la app compilada en Chromium con el servidor y InsForge simulados (`app/e2e/fixtures.ts`):
+reserva en la página pública (con la casilla de autorización), pedido por QR e inicio de sesión. La primera vez:
+`npx playwright install chromium` dentro de `app/`.
 
 ### Tests de base de datos (migraciones + RLS)
 
@@ -613,7 +674,20 @@ Sobre un Postgres **vacío** (nunca un proyecto InsForge real: crea roles, esque
 ### CI
 
 `.github/workflows/ci.yml` corre en cada push a `main` y en cada pull request: lint, typecheck, tests, build,
-`npm audit` (falla con vulnerabilidades altas) y los tests de base de datos de arriba contra un Postgres 16.
+`npm audit` (falla con vulnerabilidades altas, salvo las aceptadas en `scripts/audit-check.mjs`), la prueba de punta
+a punta y los tests de base de datos de arriba contra un Postgres 16. Además corren CodeQL (`codeql.yml`) y la
+búsqueda de claves (`secret-scan.yml`, gitleaks).
+
+### Pruebas del agente con el modelo real
+
+Los tests de arriba usan un modelo simulado. Antes de cambiar las instrucciones, las reglas o el modelo del agente,
+corré la batería contra el modelo real: Actions → **Pruebas del agente con el modelo real** → Run workflow (necesita
+el secreto `OPENROUTER_API_KEY`). Manda ~22 preguntas de clientes a tres negocios de ejemplo (barbería, restaurante
+de fin de semana, odontología con festivo; `server/scripts/agentEvalScenarios.ts`), con las mismas instrucciones,
+herramientas y temperatura que producción, y revisa cada respuesta **original** (antes de la corrección automática)
+con `responseVerifier.ts` y con lo que cada escenario exige o prohíbe. El informe queda en el resumen de la corrida.
+Localmente: `OPENAI_API_KEY=... OPENAI_BASE_URL=https://openrouter.ai/api/v1 npm run evals -w server`
+(`EVAL_RUNS` repite cada escenario; `EVAL_ONLY` filtra por id). Cuesta centavos por corrida.
 
 ## Build y producción
 
@@ -627,12 +701,13 @@ npm run build
   Vercel** para esta parte (tareas programadas y, en modo `polling`, el poller de Telegram). Alternativas con nivel
   gratuito: Railway, Render, Fly.io; o `npx @insforge/cli compute deploy`; o un VPS con PM2.
 - **Escalar a varias instancias**: las tareas programadas (recordatorios, encuestas, avisos de "listo",
-  vencimientos, limpieza, registro de webhooks) toman un turno en la base (`acquire_scheduler_lease`) y cada vuelta
+  vencimientos, limpieza, registro de webhooks, avisos de lo hecho en el panel) toman un turno en la base (`acquire_scheduler_lease`) y cada vuelta
   corre en una sola instancia. Con `TELEGRAM_MODE=webhook` el server se puede replicar sin duplicar nada.
 - **Edge Functions**: `npx @insforge/cli functions deploy <slug> --file functions/<slug>.ts` por cada una, o
   `node scripts/deploy-functions.mjs` para todas.
-- **Base de datos**: aplicar migraciones nuevas con `npx @insforge/cli db migrations up --all`.
-- Activar HTTPS en el dominio del compute service (requerido por Twilio y por el redirect URI de Google OAuth).
+- **Base de datos**: aplicar migraciones nuevas con `npx @insforge/cli db migrations up --all`, o sin terminal desde
+  GitHub: Actions → **Deploy database migrations** → Run workflow (sin marcar "aplicar" solo muestra las pendientes).
+- Activar HTTPS en el dominio del compute service (requerido por los webhooks de YCloud y por el redirect URI de Google OAuth).
 - Configurar todas las variables de `.env.example` como variables de entorno del proveedor elegido.
 
 ---
@@ -643,14 +718,18 @@ npm run build
 - [x] Multi-tenant con `organizations` + `organization_members` + roles `owner/admin/staff`.
 - [x] RLS activo en todas las tablas tenant-aware, con funciones helper `SECURITY DEFINER`
       (`SET search_path = pg_catalog, public, pg_temp`) para evitar recursión.
-- [x] GRANT explícito + REVOKE de columna (`integrations.credentials`).
+- [x] GRANT explícito + REVOKE de columna (`integrations.credentials`), cifrada además a nivel de aplicación
+      (AES-256-GCM) antes de guardarse.
 - [x] Prevención de doble reserva con `EXCLUDE` constraint + locks de asesoría.
 - [x] `book_reservation` valida que el servicio/recurso pertenezcan a la organización que reserva (aislamiento
       multi-tenant también a nivel de datos referenciados, no sólo de filas propias).
 - [x] Agente con tool-calling multi-ronda, confirmación explícita antes de reservar, IDs de servicio/recurso
       siempre resueltos contra el catálogo real (nunca inventados).
 - [x] Telegram por organización vía long-polling (sin URL pública) — canal recomendado por costo cero.
-- [x] WhatsApp/Twilio con routing multi-organización por número y validación de firma configurable.
+- [x] WhatsApp Business por YCloud (coexistencia) con webhook por organización, firma verificada y pausa del
+      agente cuando responde el equipo.
+- [x] Datos personales (Ley 1581): autorización en la página pública, borrado completo de clientes y retención de
+      chats de un año.
 - [x] Google Calendar por organización (OAuth propio del negocio) + invitación al cliente como asistente del
       evento cuando da su email.
 - [x] Onboarding de 10 pasos, aceptación de invitaciones de equipo.
@@ -659,17 +738,53 @@ npm run build
 - [x] Moneda configurable por negocio (COP por defecto).
 - [x] PWA instalable, responsiva en mobile y desktop.
 - [x] Notificaciones push (Web Push + VAPID) al negocio cuando el agente confirma una reserva nueva.
-- [x] Logging estructurado sin secretos, rate limiting, protección de costos de IA, validaciones con Zod.
+- [x] Logging estructurado sin secretos, rate limiting en la API pública, validaciones con Zod. Costos de IA acotados
+      por respuesta (rondas de herramientas, historial y largo del mensaje limitados, con timeout).
+
+## Monitoreo y alertas
+
+- **Disponibilidad**: `GET /api/health` del compute service responde 200 mientras el server está vivo. Conviene un
+  monitor externo gratuito (por ejemplo UptimeRobot, cada 5 minutos) que avise si deja de responder.
+- **Fallas repetidas** (`server/src/lib/alerts.ts`): si el mismo tipo de falla pasa 5 veces en 10 minutos, se
+  manda un correo a `ALERT_EMAIL` (variable de Railway; varios correos separados por coma), como mucho uno por
+  hora por tipo. Tipos: el agente no pudo consultar a la IA (`agent_ai`), mensajes de WhatsApp/Telegram que no se
+  pudieron procesar (`channel_message`), una tarea programada que falla (`scheduled_job:<nombre>`), errores 500
+  del server (`server_error`), correos de reserva que InsForge no envió (`reservation_email`) y eventos de Google
+  Calendar que fallan (`google_calendar`). Si Google responde que la conexión de un negocio venció
+  (`invalid_grant`), la integración queda en estado `error`, Integraciones le pide reconectar y la alerta
+  `google_connection_expired` sale a la primera. El correo nunca lleva datos de clientes, solo el tipo de falla y el mensaje técnico.
+  Sin `ALERT_EMAIL` la alerta queda en el log como `alert_triggered`. Usa la misma cuota de correos de InsForge.
 
 ## Simplificaciones conocidas / próximos pasos
 
-- **`check-availability` duplicado**: la Edge Function y el servicio interno del compute service implementan el
-  mismo algoritmo por separado (Deno y Node) en vez de compartir una única fuente de verdad en SQL.
-- **Invitaciones de equipo sin email automático**: "invitar" crea un registro en `organization_invites` que la
-  persona debe aceptar manualmente iniciando sesión con ese email — no se envía un email de invitación automático.
-- **Tests de RLS**: escritos en `db-tests/tenant-isolation.sql` pero deben ejecutarse manualmente contra un
-  proyecto InsForge real antes de un primer despliegue a producción.
-- **Google Login / Magic Link**: activables desde la configuración de Auth de InsForge sin cambios de código más
-  allá de agregar los botones de UI (`insforge.auth.signInWithOAuth`).
-- **Bundle del frontend**: el chunk principal supera los 500kB tras minificar; dividirlo con `manualChunks` o
-  `import()` dinámico mejoraría el tiempo de carga inicial en conexiones móviles lentas.
+- **Sin límite de mensajes por conversación (decisión del negocio)**: el agente responde todo lo que el cliente
+  escriba, sin tope por conversación. Es deliberado: no agregar un límite sin acordarlo con el negocio.
+  Lo que sí hay es un **límite de velocidad** contra ráfagas anormales (`server/src/services/agent/agentRateLimit.ts`):
+  hasta 10 turnos del agente por minuto por cliente y 120 por minuto por negocio. Un mensaje frenado igual queda
+  guardado (se ve en la Bandeja y el agente lo lee en el siguiente turno), y el cliente recibe una sola vez el aviso
+  de que le responden en un minuto. Vive en memoria del server (alcanza con una sola instancia, como hoy).
+
+Con esto se cierran los últimos pendientes técnicos que quedaban documentados en esta sección; lo único que sigue
+en esta lista es la decisión deliberada de arriba (no un pendiente real). Resuelto más recientemente: las
+credenciales de integraciones (`integrations.credentials`: tokens de Google, API keys de YCloud, bot tokens de
+Telegram) ahora se cifran a nivel de aplicación (AES-256-GCM, clave derivada de `INTEGRATIONS_ENCRYPTION_KEY`) antes
+de guardarse, además del permiso de columna que ya tenían — tanto el compute service (Node) como las Edge Functions
+que conectan/desconectan cada canal (Deno) cifran y descifran con la misma clave, así que cualquiera de los dos
+lados puede leer lo que escribió el otro; las filas que ya estaban conectadas antes de este cambio se migraron con
+`server/scripts/backfillEncryptIntegrationCredentials.ts` (idempotente: tolera texto plano y cifrado ya existente,
+así que es seguro volver a correrlo).
+
+Resuelto desde la última revisión de esta lista: se retiró por completo la integración anterior con Twilio (código,
+Edge Functions `twilio-connect`/`twilio-disconnect`, variables de entorno, UI y textos legales) — WhatsApp funciona
+exclusivamente por YCloud. De paso se corrigieron dos lugares que, desde que existe YCloud, habían quedado
+reconociendo solo "twilio" como canal de WhatsApp conectado y por eso nunca mostraban el estado real: el panel de
+soporte (lista y detalle de negocio) y los enlaces "Avisame por WhatsApp" de pedidos/reservas (`notifyLinks.ts`); se eliminó la Edge Function `check-availability` (quedó huérfana
+cuando la página pública de reservas pasó a pedirle disponibilidad al compute service — `/businesses/:slug/availability`
+— y ya había quedado desactualizada: no conocía ni el horario por recurso ni los bloqueos de agenda, los dos
+agregados más recientes al motor de disponibilidad real en `server/src/services/availability/availabilityService.ts`);
+política de seguridad de contenido pasada a modo bloqueo
+(`Content-Security-Policy` en `app/vercel.json`, tras auditar que no hay scripts/estilos/iframes que la violen);
+invitaciones de equipo ahora avisan por email (`insforge.emails.send`, mejor esfuerzo — si el plan no tiene envío
+de correo habilitado, la invitación igual se crea); login con Google/GitHub y con código por email (sin
+contraseña) agregados en `/login` y `/register`; bundle del frontend ya dividido por rutas y por vendor
+(`React.lazy` + `manualChunks` en `vite.config.ts`), ningún chunk pasa los 500kB.

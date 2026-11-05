@@ -46,7 +46,7 @@ export function PrivacyPolicyPage() {
           Telegram o la página pública del negocio.
         </li>
         <li>
-          <strong>Integraciones:</strong> las credenciales que el negocio conecta (Google Calendar, YCloud, Twilio, Telegram), que se
+          <strong>Integraciones:</strong> las credenciales que el negocio conecta (Google Calendar, YCloud, Telegram), que se
           guardan protegidas y solo las usa el servidor; el panel del negocio no las muestra.
         </li>
         <li>
@@ -89,7 +89,7 @@ export function PrivacyPolicyPage() {
       <p>Usamos proveedores que tratan datos por cuenta nuestra, solo para prestar el servicio:</p>
       <ul>
         <li>Alojamiento y base de datos: InsForge, Railway y Vercel.</li>
-        <li>Mensajería: Meta (WhatsApp) a través de YCloud o Twilio, y Telegram, según lo que conecte el negocio.</li>
+        <li>Mensajería: Meta (WhatsApp) a través de YCloud, y Telegram, según lo que conecte el negocio.</li>
         <li>
           Inteligencia artificial: proveedores de modelos de lenguaje (como OpenAI o Google Gemini) procesan los mensajes para generar
           las respuestas del agente.
@@ -104,8 +104,10 @@ export function PrivacyPolicyPage() {
       <h2>6. Conservación y seguridad</h2>
       <p>
         Conservamos los datos mientras la cuenta del negocio esté activa o mientras sean necesarios para las finalidades descritas y
-        para cumplir obligaciones legales. Aplicamos medidas como cifrado en tránsito, control de acceso por negocio y credenciales
-        protegidas. Ningún sistema es completamente infalible, pero trabajamos para proteger la información.
+        para cumplir obligaciones legales. Los mensajes de las conversaciones con el agente se borran automáticamente al año. Cuando
+        un negocio elimina a un cliente, se borran también sus conversaciones y sus datos en las reservas, que quedan en la agenda
+        sin nombre ni notas. Aplicamos medidas como cifrado en tránsito, control de acceso por negocio y credenciales protegidas.
+        Ningún sistema es completamente infalible, pero trabajamos para proteger la información.
       </p>
 
       <h2>7. Tus derechos</h2>
