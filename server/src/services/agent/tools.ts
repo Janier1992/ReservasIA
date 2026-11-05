@@ -9,7 +9,8 @@ export const ToolName = {
   ConsultarReservasCliente: "consultar_reservas_cliente",
   CrearReserva: "crear_reserva",
   CancelarReserva: "cancelar_reserva",
-  ReprogramarReserva: "reprogramar_reserva"
+  ReprogramarReserva: "reprogramar_reserva",
+  GuardarEmailCliente: "guardar_email_cliente"
 } as const;
 
 export type ToolNameType = (typeof ToolName)[keyof typeof ToolName];
@@ -38,7 +39,11 @@ export const crearReservaSchema = z.object({
   hora: z.string().regex(/^\d{2}:\d{2}$/, "hora debe tener formato HH:mm"),
   nombre_cliente: z.string().min(1).max(200),
   telefono_cliente: z.string().min(5).max(30),
-  email_cliente: z.string().email().max(200).optional(),
+  // Sin .email() a propósito: un correo mal escrito ("ana@gmail.com." o con un
+  // espacio) no puede tumbar la reserva entera. Se normaliza y valida en el
+  // ejecutor con normalizeEmail; si no sirve, la reserva se crea igual y el
+  // agente recibe el aviso para pedirlo de nuevo.
+  email_cliente: z.string().max(200).optional(),
   cantidad_personas: z.number().int().positive().max(100).optional(),
   service_id: z.string().uuid().optional(),
   resource_id: z.string().uuid().optional(),
@@ -46,6 +51,29 @@ export const crearReservaSchema = z.object({
   metodo_pago: z.enum(["anticipado", "en_sitio"]).optional(),
   repetir_semanas: z.number().int().min(2).max(12).optional()
 });
+
+export const guardarEmailClienteSchema = z.object({
+  email: z.string().min(3).max(200)
+});
+
+const emailSchema = z.string().email().max(200);
+
+/**
+ * Deja un correo dictado por chat listo para guardar: sin espacios, en
+ * minúsculas, sin "mailto:", sin <> ni la puntuación que se pega al final de
+ * una frase ("es ana@gmail.com."). Devuelve null si igual no es un correo.
+ */
+export function normalizeEmail(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw
+    .trim()
+    .replace(/^mailto:/i, "")
+    .replace(/[<>"'\s]/g, "")
+    .replace(/[.,;:!?)\]]+$/, "")
+    .replace(/^[([]+/, "")
+    .toLowerCase();
+  return emailSchema.safeParse(cleaned).success ? cleaned : null;
+}
 
 export const cancelarReservaSchema = z.object({
   reservation_id: z.string().uuid()
@@ -155,6 +183,19 @@ const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCom
       }
     }
   },
+  [ToolName.GuardarEmailCliente]: {
+    type: "function",
+    function: {
+      name: ToolName.GuardarEmailCliente,
+      description:
+        "Guarda el correo del cliente de esta conversación y le manda la confirmación de sus próximas reservas a ese correo. Usala cuando el cliente da o corrige su email DESPUÉS de que la reserva ya se creó, o cuando crear_reserva avisó que el email no era válido y el cliente lo escribió de nuevo.",
+      parameters: {
+        type: "object",
+        properties: { email: { type: "string", description: "Email del cliente tal como lo escribió." } },
+        required: ["email"]
+      }
+    }
+  },
   [ToolName.ReprogramarReserva]: {
     type: "function",
     function: {
@@ -215,6 +256,7 @@ export function getToolDefinitionsForAgent(
   if (!options?.previewMode) {
     if (agentConfig.cancellation_enabled) names.push(ToolName.CancelarReserva);
     if (agentConfig.rescheduling_enabled) names.push(ToolName.ReprogramarReserva);
+    names.push(ToolName.GuardarEmailCliente);
   }
   const tools = names.map((n) => ALL_TOOL_DEFINITIONS[n]);
   if (bookingEnabled) {

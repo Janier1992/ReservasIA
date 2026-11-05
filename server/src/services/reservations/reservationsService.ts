@@ -64,6 +64,29 @@ export async function announceCreatedReservation(reservation: Reservation): Prom
   }
 }
 
+/**
+ * El cliente dio (o corrigió) su correo después de que la reserva ya se creó:
+ * le manda la confirmación a ese correo. Si el correo del negocio no sale
+ * (por ejemplo, InsForge no tiene envío habilitado), lo agrega como invitado
+ * al evento de Google Calendar para que Google le mande la invitación.
+ * Devuelve true si salió por alguno de los dos caminos.
+ */
+export async function announceReservationToNewEmail(reservation: Reservation): Promise<boolean> {
+  if (await sendReservationEmail(reservation, "confirmed")) return true;
+  if (!reservation.google_event_id) return false;
+  try {
+    await updateCalendarEvent(reservation, { notifyCustomer: true });
+    return true;
+  } catch (googleError) {
+    logger.warn(
+      { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },
+      "google_calendar_sync_failed_on_new_email"
+    );
+    reportFailure("google_calendar", googleError);
+    return false;
+  }
+}
+
 /** Correo de cancelación al cliente y baja del evento en Google Calendar. */
 export async function announceCancelledReservation(reservation: Reservation): Promise<void> {
   const emailed = await sendReservationEmail(reservation, "cancelled");

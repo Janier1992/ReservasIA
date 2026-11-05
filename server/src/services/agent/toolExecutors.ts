@@ -11,7 +11,13 @@ import {
   getCustomerActiveReservations,
   getLinkedActiveReservations
 } from "../customers/customersService.js";
-import { createReservation, cancelReservation, getReservationById, rescheduleReservation } from "../reservations/reservationsService.js";
+import {
+  announceReservationToNewEmail,
+  createReservation,
+  cancelReservation,
+  getReservationById,
+  rescheduleReservation
+} from "../reservations/reservationsService.js";
 import { requiresHealthDataConsent } from "./safetyGuardrails.js";
 import { formatClock, localMoment } from "./scheduleText.js";
 import type { Reservation } from "../../types/domain.js";
@@ -22,6 +28,8 @@ import {
   consultarDisponibilidadSchema,
   consultarReservasClienteSchema,
   crearReservaSchema,
+  guardarEmailClienteSchema,
+  normalizeEmail,
   reprogramarReservaSchema
 } from "./tools.js";
 
@@ -216,14 +224,25 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
     // teléfono que el cliente tipeó en el chat, que en Telegram es un
     // número real distinto del identificador sintético de la conversación
     // y crearía un cliente duplicado, desconectado del Inbox.
+    // Un correo mal escrito no frena la reserva: se crea sin él y el agente
+    // recibe el aviso para pedirlo de nuevo (y guardarlo con guardar_email_cliente).
+    const email = normalizeEmail(args.email_cliente) ?? undefined;
+    const emailWarning =
+      args.email_cliente?.trim() && !email
+        ? {
+            email_no_guardado: `"${args.email_cliente.trim()}" no es un correo válido; la reserva se creó sin correo. Pedile al cliente que lo escriba de nuevo y guardalo con guardar_email_cliente.`
+          }
+        : {};
+
     const customer = ctx.customerId
-      ? await ensureCustomerDetails(ctx.organizationId, ctx.customerId, args.nombre_cliente, args.email_cliente)
-      : await findOrCreateCustomerByPhone(ctx.organizationId, args.telefono_cliente, args.nombre_cliente, args.email_cliente);
+      ? await ensureCustomerDetails(ctx.organizationId, ctx.customerId, args.nombre_cliente, email)
+      : await findOrCreateCustomerByPhone(ctx.organizationId, args.telefono_cliente, args.nombre_cliente, email);
 
     const { notes, dropped: notesDropped } = await allowedNotes(ctx.organizationId, customer, args.notas);
-    const notesWarning = notesDropped
-      ? { notas_no_guardadas: "El paciente no autorizó guardar datos de salud; la reserva se creó sin notas." }
-      : {};
+    const notesWarning = {
+      ...(notesDropped ? { notas_no_guardadas: "El paciente no autorizó guardar datos de salud; la reserva se creó sin notas." } : {}),
+      ...emailWarning
+    };
 
     // "Repetir semanas" (clases fijas de academias/gimnasios): cada semana es
     // una reserva independiente que pasa por las mismas validaciones de
@@ -347,6 +366,36 @@ async function executeReprogramarReserva(rawArgs: unknown, ctx: AgentExecutionCo
   });
 }
 
+/**
+ * El cliente da o corrige su correo en cualquier momento de la charla: se
+ * guarda en su ficha y se le manda la confirmación de sus próximas reservas.
+ */
+async function executeGuardarEmailCliente(rawArgs: unknown, ctx: AgentExecutionContext) {
+  const args = guardarEmailClienteSchema.parse(rawArgs);
+  return toResult(async () => {
+    const email = normalizeEmail(args.email);
+    if (!email) {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, `"${args.email.trim()}" no es un correo válido. Pedile al cliente que lo escriba de nuevo.`, 400);
+    }
+    const customer = ctx.customerId
+      ? await ensureCustomerDetails(ctx.organizationId, ctx.customerId, undefined, email)
+      : await findOrCreateCustomerByPhone(ctx.organizationId, ctx.customerPhone, undefined, email);
+
+    const now = Date.now();
+    const upcoming = (await conversationReservations({ ...ctx, customerId: customer.id }))
+      .filter((r) => new Date(r.start_at).getTime() > now)
+      .slice(0, MAX_RESERVATIONS_TO_ANNOUNCE);
+    let notified = 0;
+    for (const reservation of upcoming) {
+      if (await announceReservationToNewEmail(reservation)) notified += 1;
+    }
+    return { email_guardado: email, reservas_confirmadas_por_correo: notified };
+  });
+}
+
+/** Tope de reservas a las que se manda la confirmación al guardar un correo nuevo. */
+const MAX_RESERVATIONS_TO_ANNOUNCE = 3;
+
 const EXECUTORS: Record<ToolNameType, (args: unknown, ctx: AgentExecutionContext) => Promise<ToolExecutionResult>> = {
   [ToolName.ConsultarDisponibilidad]: executeConsultarDisponibilidad,
   [ToolName.ObtenerInfoNegocio]: executeObtenerInfoNegocio,
@@ -354,7 +403,8 @@ const EXECUTORS: Record<ToolNameType, (args: unknown, ctx: AgentExecutionContext
   [ToolName.ConsultarReservasCliente]: executeConsultarReservasCliente,
   [ToolName.CrearReserva]: executeCrearReserva,
   [ToolName.CancelarReserva]: executeCancelarReserva,
-  [ToolName.ReprogramarReserva]: executeReprogramarReserva
+  [ToolName.ReprogramarReserva]: executeReprogramarReserva,
+  [ToolName.GuardarEmailCliente]: executeGuardarEmailCliente
 };
 
 export async function executeTool(
