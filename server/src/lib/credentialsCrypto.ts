@@ -35,7 +35,19 @@ function deriveKey(): Buffer {
   if (isDeployed() && env.INTEGRATIONS_ENCRYPTION_KEY === DEFAULT_INTEGRATIONS_ENCRYPTION_KEY) {
     throw new Error("Falta configurar INTEGRATIONS_ENCRYPTION_KEY en el servidor.");
   }
-  return crypto.createHash("sha256").update(env.INTEGRATIONS_ENCRYPTION_KEY, "utf-8").digest();
+  // Sin espacios ni saltos de línea al principio o al final: pegar la clave en
+  // el panel de Railway o de InsForge a veces los agrega, y con uno solo de
+  // más los dos lados derivan claves distintas.
+  return crypto.createHash("sha256").update(env.INTEGRATIONS_ENCRYPTION_KEY.trim(), "utf-8").digest();
+}
+
+/**
+ * Huella corta de la clave (no la clave): sirve para comparar en los logs si
+ * el server y las Edge Functions están usando la misma. Si no coinciden, lo
+ * que cifra uno el otro no lo puede leer.
+ */
+export function credentialsKeyFingerprint(): string {
+  return crypto.createHash("sha256").update(deriveKey()).digest("hex").slice(0, 8);
 }
 
 /** `{}` (integración desconectada) se deja tal cual: no hay nada que proteger. */
@@ -67,4 +79,17 @@ export function decryptCredentials(value: Record<string, unknown> | null | undef
   decipher.setAuthTag(tag);
   const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
   return JSON.parse(plaintext.toString("utf-8")) as Record<string, unknown>;
+}
+
+/**
+ * Como decryptCredentials, pero devuelve null en vez de fallar cuando las
+ * credenciales se cifraron con otra clave (o están dañadas). Así una
+ * integración ilegible no tira abajo a las demás.
+ */
+export function tryDecryptCredentials(value: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  try {
+    return decryptCredentials(value);
+  } catch {
+    return null;
+  }
 }

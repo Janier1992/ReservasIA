@@ -50,6 +50,49 @@ export default {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "Inter", "system-ui", "sans-serif"]
+      },
+      keyframes: {
+        "message-in": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" }
+        },
+        // Página de presentación: tarjetas que flotan, manchas de color que se mueven y avisos que aparecen.
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" }
+        },
+        blob: {
+          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
+          "33%": { transform: "translate(40px, -30px) scale(1.1)" },
+          "66%": { transform: "translate(-30px, 20px) scale(0.95)" }
+        },
+        "bar-grow": {
+          from: { transform: "scaleY(0)" },
+          to: { transform: "scaleY(1)" }
+        },
+        "bar-grow-x": {
+          from: { transform: "scaleX(0)" },
+          to: { transform: "scaleX(1)" }
+        },
+        // Cinta de rubros que se desplaza sin fin (el contenido va duplicado).
+        marquee: {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(-50%)" }
+        },
+        "toast-in": {
+          "0%": { opacity: "0", transform: "translateY(12px) scale(0.96)" },
+          "12%, 88%": { opacity: "1", transform: "translateY(0) scale(1)" },
+          "100%": { opacity: "0", transform: "translateY(-6px) scale(0.98)" }
+        }
+      },
+      animation: {
+        "message-in": "message-in 300ms ease-out",
+        float: "float 6s ease-in-out infinite",
+        blob: "blob 18s ease-in-out infinite",
+        "toast-in": "toast-in 4s ease-in-out infinite",
+        "bar-grow": "bar-grow 900ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        "bar-grow-x": "bar-grow-x 900ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        marquee: "marquee 40s linear infinite"
       }
     }
   },

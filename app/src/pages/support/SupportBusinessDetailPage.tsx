@@ -20,6 +20,7 @@ import { businessTypeLabel } from "@/lib/businessTypes";
 import { OPTIONAL_MODULES, isModuleEnabled, toggleModule, type ModuleKey } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 import type { AgentConfig, BusinessProfile, Conversation, Organization, Reservation, SubscriptionPayment, SupportNote } from "@/types/domain";
+import { formatCop, monthsFromPaymentNote } from "@/lib/pricing";
 
 const ORG_STATUS_LABEL: Record<Organization["status"], string> = {
   active: "Activo",
@@ -231,11 +232,13 @@ export function SupportBusinessDetailPage() {
     navigate("/soporte", { replace: true });
   }
 
-  async function reviewPayment(paymentId: string, action: "confirm" | "reject") {
+  async function reviewPayment(paymentId: string, action: "confirm" | "reject", months: 1 | 12 = 1) {
     setReviewingPaymentId(paymentId);
     try {
-      await functionsClient.post("confirm-subscription-payment", { payment_id: paymentId, action });
-      toast.success(action === "confirm" ? "Pago confirmado: el negocio quedó activo." : "Pago rechazado.");
+      await functionsClient.post("confirm-subscription-payment", { payment_id: paymentId, action, months });
+      toast.success(
+        action === "confirm" ? `Pago confirmado: el negocio quedó activo (${months === 12 ? "12 meses" : "1 mes"} más).` : "Pago rechazado."
+      );
       refetchPayments();
       refetchOrg();
       queryClient.invalidateQueries({ queryKey: ["support-businesses"] });
@@ -468,7 +471,7 @@ export function SupportBusinessDetailPage() {
               <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 text-sm">
                 <div>
                   <span>{new Date(p.created_at).toLocaleString()}</span>
-                  {p.amount != null && <span className="text-muted-foreground"> — ${p.amount}</span>}
+                  {p.amount != null && <span className="text-muted-foreground"> — {formatCop(Number(p.amount))}</span>}
                   {p.note && <span className="text-muted-foreground"> · {p.note}</span>}
                 </div>
                 <div className="flex items-center gap-2">
@@ -481,9 +484,9 @@ export function SupportBusinessDetailPage() {
                       <Button
                         size="sm"
                         disabled={reviewingPaymentId === p.id}
-                        onClick={() => reviewPayment(p.id, "confirm")}
+                        onClick={() => reviewPayment(p.id, "confirm", monthsFromPaymentNote(p.note))}
                       >
-                        Confirmar
+                        Confirmar ({monthsFromPaymentNote(p.note) === 12 ? "12 meses" : "1 mes"})
                       </Button>
                       <Button
                         variant="destructive"

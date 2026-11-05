@@ -25,7 +25,6 @@ describe("funciones a publicar en cada push", () => {
     expect(await affected("functions/_shared/credentialsCrypto.ts")).toEqual([
       "conversations-reply",
       "google-disconnect",
-      "telegram-connect",
       "ycloud-connect",
       "ycloud-disconnect"
     ]);
