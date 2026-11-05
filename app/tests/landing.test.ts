@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { estimateMonthlyLoss, salesToCoverPlan } from "@/pages/public/LossCalculator";
 import { onlyPublicPages } from "@/lib/analytics";
+import { salesWhatsappUrl } from "@/lib/contact";
 
 describe("calculadora de la página de presentación", () => {
   it("estima la pérdida del mes con los valores del visitante", () => {
@@ -27,5 +28,11 @@ describe("medición de visitas", () => {
     for (const path of ["/dashboard", "/dashboard/customers/1234", "/soporte/negocios/abc", "/r/barberia-el-corte"]) {
       expect(onlyPublicPages(event(`https://reservas-ia-app.vercel.app${path}`))).toBeNull();
     }
+  });
+});
+
+describe("contacto comercial", () => {
+  it("abre WhatsApp con el número completo (57) y un mensaje ya escrito", () => {
+    expect(salesWhatsappUrl).toMatch(/^https:\/\/wa\.me\/573044769593\?text=Hola/);
   });
 });
