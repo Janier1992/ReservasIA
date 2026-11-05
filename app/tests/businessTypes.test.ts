@@ -3,7 +3,7 @@ import { BUSINESS_TYPES, businessTypeLabel, getBusinessType } from "@/lib/busine
 
 const NEW_NICHES = ["dental", "veterinary", "physiotherapy", "auto_repair", "car_wash", "academy"];
 
-describe("business type catalog", () => {
+describe("catálogo de rubros", () => {
   it("incluye cada rubro nuevo con servicios sugeridos para el alta", () => {
     for (const value of NEW_NICHES) {
       const type = BUSINESS_TYPES.find((t) => t.value === value);

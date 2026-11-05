@@ -34,7 +34,7 @@ const NOW = new Date("2026-10-04T12:00:00Z");
 beforeEach(() => useDb({}));
 
 describe("códigos de reserva desde WhatsApp", () => {
-  it("reads 'Reserva #<código>' as well as 'Pedido #<código>'", () => {
+  it("lee 'Reserva #<código>' además de 'Pedido #<código>'", () => {
     expect(extractOrderCode("Reserva #abcde23456")).toBe("ABCDE23456");
     expect(extractOrderCode("Hola, Reserva # ABCDE23456 gracias")).toBe("ABCDE23456");
     expect(extractOrderCode("quiero hacer una reserva para mañana")).toBeNull();
@@ -51,7 +51,7 @@ describe("createReservationChatLink", () => {
   });
 
   it("ofrece WhatsApp con un mensaje 'Reserva #'", async () => {
-    useDb({ integrations: ok([{ provider: "twilio", metadata: { whatsapp_number: "whatsapp:+57 300 555 1234" } }]), reservations: ok(null) });
+    useDb({ integrations: ok([{ provider: "ycloud", metadata: { phone_number: "whatsapp:+57 300 555 1234" } }]), reservations: ok(null) });
     const links = await createReservationChatLink("org-1", "res-1");
     expect(links.whatsappUrl).toMatch(/^https:\/\/wa\.me\/573005551234\?text=Reserva%20%23[A-Z2-9]{10}$/);
   });
@@ -110,7 +110,7 @@ describe("linkReservationByCode", () => {
 });
 
 describe("buildReservationLinkedText", () => {
-  it("works without names", () => {
+  it("funciona sin nombres", () => {
     expect(buildReservationLinkedText(null, null, "", "2026-10-10T15:00:00Z", "America/Bogota")).toMatch(/^¡Hola! Tu reserva quedó confirmada para el sábado 10 de octubre/);
   });
 });

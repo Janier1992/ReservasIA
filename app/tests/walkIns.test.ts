@@ -116,7 +116,7 @@ describe("formatTicket", () => {
   });
 });
 
-describe("board density", () => {
+describe("densidad del tablero", () => {
   it("achica las tarjetas a medida que llegan más atenciones", () => {
     expect(boardDensity(0)).toBe("comfortable");
     expect(boardDensity(6)).toBe("comfortable");

@@ -7,6 +7,7 @@ import { createReservation } from "../reservations/reservationsService.js";
 import { requiresHealthDataConsent } from "../agent/safetyGuardrails.js";
 import { createReservationChatLink } from "../chatLink/reservationLink.js";
 import { isOnMenu, isSoldOut, localDateIn, weekdayIn } from "./menuDays.js";
+import { businessMapsUrl } from "../../utils/location.js";
 
 /**
  * Página pública de reservas (/r/:slug): lo que ve y puede hacer alguien
@@ -39,6 +40,10 @@ export interface PublicBusiness {
   name: string;
   description: string | null;
   address: string | null;
+  /** Indicaciones para llegar (piso, local, punto de referencia). */
+  addressDetails: string | null;
+  /** Enlace "cómo llegar": el que cargó el negocio o una búsqueda con la dirección. */
+  mapsUrl: string | null;
   phone: string | null;
   logoUrl: string | null;
   maxBookingDays: number;
@@ -68,7 +73,9 @@ export async function getPublicBusiness(slug: string, now = new Date()): Promise
   const [{ data: profile }, { data: services, error: servicesError }] = await Promise.all([
     insforgeAdmin.database
       .from("business_profiles")
-      .select("name, description, address, phone, logo_url, max_booking_days")
+      // "*" y no la lista de columnas: address_details y maps_url llegan con la
+      // migración 20261029090000 y, hasta aplicarla, pedirlas por nombre fallaría.
+      .select("*")
       .eq("organization_id", org.id)
       .maybeSingle(),
     insforgeAdmin.database
@@ -97,6 +104,8 @@ export async function getPublicBusiness(slug: string, now = new Date()): Promise
     name: profile.name,
     description: profile.description ?? null,
     address: profile.address ?? null,
+    addressDetails: profile.address_details?.trim() || null,
+    mapsUrl: businessMapsUrl(profile),
     phone: profile.phone ?? null,
     logoUrl: profile.logo_url ?? null,
     maxBookingDays: profile.max_booking_days ?? 30,

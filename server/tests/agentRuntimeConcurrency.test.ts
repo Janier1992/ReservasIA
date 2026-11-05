@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 // Reproduce el bug reportado por el cliente: dos mensajes seguidos por
 // WhatsApp disparan dos turnos del agente en paralelo para la misma
 // conversación (webhooks.ts no espera runAgentTurn antes de responder al
-// webhook de Twilio). Sin serializar por conversationId, el turno más
+// webhook). Sin serializar por conversationId, el turno más
 // rápido persiste su respuesta antes que el turno más lento, aunque haya
 // arrancado después — el cliente recibe las respuestas fuera de orden.
 const log: string[] = [];
@@ -66,7 +66,7 @@ vi.mock("../src/lib/openai.js", () => ({
 
 const { runAgentTurn } = await import("../src/services/agent/agentRuntime.js");
 
-describe("runAgentTurn concurrency", () => {
+describe("runAgentTurn: turnos simultáneos", () => {
   beforeEach(() => {
     log.length = 0;
     vi.clearAllMocks();
@@ -146,7 +146,7 @@ describe("runAgentTurn concurrency", () => {
   });
 });
 
-describe("runAgentTurn organization status", () => {
+describe("runAgentTurn: estado del negocio", () => {
   beforeEach(() => {
     log.length = 0;
     vi.clearAllMocks();
@@ -188,7 +188,7 @@ describe("runAgentTurn organization status", () => {
   });
 });
 
-describe("runAgentTurn output sanitization", () => {
+describe("runAgentTurn: limpieza de la respuesta", () => {
   beforeEach(() => {
     log.length = 0;
     vi.clearAllMocks();

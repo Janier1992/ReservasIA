@@ -1,4 +1,5 @@
 import { logger } from "../../lib/logger.js";
+import { reportFailure } from "../../lib/alerts.js";
 import {
   deleteTelegramWebhook,
   getTelegramUpdates,
@@ -24,7 +25,7 @@ interface ActivePoller {
  * conecta su bot se atiende con su propio loop de long-polling
  * (getUpdates). Esto permite correr el compute service detrás de NAT/
  * localhost sin pagar hosting con dominio público — a diferencia de
- * Twilio/Google, que sí lo necesitan para sus callbacks.
+ * YCloud/Google, que sí lo necesitan para sus callbacks.
  *
  * Cada bot corre su propio loop independiente; un refresh periódico detecta
  * organizaciones que conectaron o desconectaron Telegram y arranca/para
@@ -96,6 +97,7 @@ async function runPollLoop(organizationId: string, botToken: string, signal: Abo
           await processUpdate(organizationId, botToken, update);
         } catch (err) {
           logger.error({ organizationId, updateId: update.update_id, err }, "telegram_update_processing_failed");
+          reportFailure("channel_message", err);
         }
       }
     } catch (err) {

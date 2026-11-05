@@ -21,7 +21,7 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-describe("business themes", () => {
+describe("temas de color por rubro", () => {
   it("tiene un tema para cada tipo de negocio del catálogo de alta", () => {
     for (const type of BUSINESS_TYPES) {
       expect(getBusinessTheme(type.value).businessType, type.value).toBe(type.value);

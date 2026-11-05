@@ -70,7 +70,7 @@ describe("containsMedicalAdvice", () => {
   });
 });
 
-describe("health data consent", () => {
+describe("autorización de datos de salud", () => {
   it("aplica solo a los rubros de salud humana", () => {
     for (const t of ["dental", "clinic", "physiotherapy"]) expect(requiresHealthDataConsent(t)).toBe(true);
     for (const t of ["veterinary", "barbershop", "restaurant"]) expect(requiresHealthDataConsent(t)).toBe(false);

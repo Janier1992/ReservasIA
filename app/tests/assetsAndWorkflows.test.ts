@@ -4,7 +4,7 @@ import { adjacentStage, boardReservations, currentStage, fillNotifyMessage, getW
 import { upcomingDates } from "@/lib/publicBookingUtils";
 import { BUSINESS_TYPES } from "@/lib/businessTypes";
 
-describe("asset definitions", () => {
+describe("definiciones de activos por rubro", () => {
   it("asigna vehículos a talleres y lavaderos, mascotas a veterinarias y nada a los rubros de salud", () => {
     expect(getAssetDefinition("auto_repair")?.type).toBe("vehicle");
     expect(getAssetDefinition("car_wash")?.type).toBe("vehicle");
@@ -30,7 +30,7 @@ describe("asset definitions", () => {
   });
 });
 
-describe("workflows", () => {
+describe("flujos de trabajo", () => {
   const garage = getWorkflow("auto_repair")!;
 
   it("trata una reserva sin etapa como la primera etapa y la mueve entre etapas", () => {

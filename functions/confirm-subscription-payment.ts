@@ -15,7 +15,11 @@ function jsonResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
 }
 
+// Un mes de servicio = 30 días. El plan anual suma 12 de esos meses (360
+// días) — soporte elige cuántos meses confirma según el plan que reportó el
+// negocio (ver PAYMENT_OPTIONS en app/src/lib/pricing.ts).
 const SUBSCRIPTION_PERIOD_DAYS = 30;
+const ALLOWED_MONTHS = new Set([1, 12]);
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -36,7 +40,7 @@ export default async function handler(req: Request): Promise<Response> {
     .maybeSingle();
   if (!staffRow?.active) return jsonResponse({ error: { code: "FORBIDDEN" } }, 403);
 
-  let body: { payment_id?: string; action?: "confirm" | "reject" };
+  let body: { payment_id?: string; action?: "confirm" | "reject"; months?: number };
   try {
     body = await req.json();
   } catch {
@@ -46,6 +50,10 @@ export default async function handler(req: Request): Promise<Response> {
   const { payment_id: paymentId, action } = body;
   if (!paymentId || (action !== "confirm" && action !== "reject")) {
     return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "payment_id y action ('confirm'|'reject') son requeridos." } }, 400);
+  }
+  const months = body.months ?? 1;
+  if (!ALLOWED_MONTHS.has(months)) {
+    return jsonResponse({ error: { code: "VALIDATION_ERROR", message: "months debe ser 1 o 12." } }, 400);
   }
 
   const admin = createAdminClient({ baseUrl, apiKey: Deno.env.get("API_KEY")! });
@@ -83,7 +91,7 @@ export default async function handler(req: Request): Promise<Response> {
     const currentExpiry = org?.subscription_expires_at ? new Date(org.subscription_expires_at) : null;
     const base = currentExpiry && currentExpiry > new Date() ? currentExpiry : new Date();
     const extended = new Date(base);
-    extended.setDate(extended.getDate() + SUBSCRIPTION_PERIOD_DAYS);
+    extended.setDate(extended.getDate() + SUBSCRIPTION_PERIOD_DAYS * months);
     newExpiresAt = extended.toISOString();
 
     const { error: orgUpdateError } = await admin.database

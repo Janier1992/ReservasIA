@@ -39,7 +39,7 @@ describe("parseServiceRows", () => {
   });
 });
 
-describe("Excel round trip", () => {
+describe("ida y vuelta por Excel", () => {
   it("vuelve a leer la plantilla descargable con las librerías nuevas de Excel", async () => {
     const buffer = await writeXlsxFile(
       [TEMPLATE_HEADERS, ["Corte de cabello", 30, 35000, "COP"], ["Manicura", 45, 40000, "COP"]],

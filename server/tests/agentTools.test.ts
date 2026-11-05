@@ -15,8 +15,8 @@ const baseAgentConfig: AgentConfig = {
   rescheduling_enabled: true
 };
 
-describe("agent tool argument validation", () => {
-  it("rejects consultar_disponibilidad without fecha", () => {
+describe("validación de los datos que manda el modelo a las herramientas", () => {
+  it("rechaza consultar_disponibilidad sin fecha", () => {
     expect(() => consultarDisponibilidadSchema.parse({})).toThrow();
   });
 
@@ -24,7 +24,7 @@ describe("agent tool argument validation", () => {
     expect(() => consultarDisponibilidadSchema.parse({ fecha: "2026-09-07" })).not.toThrow();
   });
 
-  it("rejects crear_reserva missing required customer data", () => {
+  it("rechaza crear_reserva si faltan datos obligatorios del cliente", () => {
     expect(() => crearReservaSchema.parse({ fecha: "2026-09-07", hora: "10:00" })).toThrow();
   });
 
@@ -75,7 +75,7 @@ describe("agent tool argument validation", () => {
     ).not.toThrow();
   });
 
-  it("rejects repetir_semanas below 2 or above 12", () => {
+  it("rechaza repetir_semanas menor a 2 o mayor a 12", () => {
     const base = { fecha: "2026-09-07", hora: "10:00", nombre_cliente: "Camila", telefono_cliente: "+573001112233" };
     expect(() => crearReservaSchema.parse({ ...base, repetir_semanas: 1 })).toThrow();
     expect(() => crearReservaSchema.parse({ ...base, repetir_semanas: 13 })).toThrow();

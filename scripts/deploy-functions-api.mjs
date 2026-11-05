@@ -7,10 +7,9 @@
 // Uso: INSFORGE_URL=... INSFORGE_API_KEY=... node scripts/deploy-functions-api.mjs [slug ...]
 // Sin slugs despliega todas. Las que importan código del repo se publican
 // empaquetadas (ver function-bundle.mjs).
-import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { functionCode } from "./function-bundle.mjs";
+import { functionCode, listFunctions } from "./function-bundle.mjs";
 
 const baseUrl = (process.env.INSFORGE_URL ?? "").replace(/\/+$/, "");
 const apiKey = process.env.INSFORGE_API_KEY ?? "";
@@ -20,9 +19,7 @@ if (!baseUrl || !apiKey) {
 }
 
 const functionsDir = path.join(path.dirname(path.dirname(fileURLToPath(import.meta.url))), "functions");
-const available = readdirSync(functionsDir)
-  .filter((f) => f.endsWith(".ts"))
-  .map((f) => f.replace(/\.ts$/, ""));
+const available = listFunctions(functionsDir);
 const requested = process.argv.slice(2).filter(Boolean);
 const unknown = requested.filter((slug) => !available.includes(slug));
 if (unknown.length > 0) {

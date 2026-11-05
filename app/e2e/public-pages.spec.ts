@@ -6,6 +6,7 @@ test("un cliente reserva en la página pública, y solo después de autorizar el
   await page.goto(`/r/${BARBERSHOP.slug}`);
 
   await expect(page.getByRole("heading", { name: BARBERSHOP.name })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Cómo llegar" })).toHaveAttribute("href", BARBERSHOP.mapsUrl);
   await page.getByText("Corte clásico").click();
   await page.getByRole("button", { name: /10:00/ }).first().click();
   await page.getByLabel(/Nombre/).fill("Laura Gómez");
@@ -20,6 +21,7 @@ test("un cliente reserva en la página pública, y solo después de autorizar el
   await page.getByRole("button", { name: "Confirmar reserva" }).click();
 
   await expect(page.getByRole("heading", { name: /¡Listo, Laura!/ })).toBeVisible();
+  await expect(page.getByText("(Local 3)")).toBeVisible();
   expect(sent.bookings).toEqual([
     expect.objectContaining({ serviceId: "svc-corte", name: "Laura Gómez", phone: "300 111 2233", dataConsent: true })
   ]);
@@ -47,4 +49,20 @@ test("la página de inicio de sesión carga con los enlaces de privacidad y cond
   await expect(page.getByRole("heading", { name: "Iniciar sesión" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Política de privacidad/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Condiciones del servicio/ })).toBeVisible();
+});
+
+test("la dirección principal muestra la presentación de ReservasIA y lleva a crear la cuenta", async ({ page }) => {
+  await mockBackend(page);
+  await page.goto("/");
+
+  await expect(page).toHaveTitle(/ReservasIA/);
+  await expect(page.getByRole("heading", { level: 1, name: /piloto automático/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ingresar" })).toHaveAttribute("href", "/login");
+  await expect(page.getByRole("button", { name: "Instalar app" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Hablá con nosotros por WhatsApp/ })).toHaveAttribute(
+    "href",
+    /^https:\/\/wa\.me\/573044769593\?text=/
+  );
+  await page.getByRole("link", { name: /Probar gratis 14 días/ }).click();
+  await expect(page).toHaveURL(/\/register$/);
 });

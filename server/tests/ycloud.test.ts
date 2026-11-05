@@ -12,8 +12,7 @@ vi.mock("../src/services/agent/agentRuntime.js", async (importOriginal) => ({
 const ORG = "11111111-1111-4111-8111-111111111111";
 const SECRET = "whsec_test";
 
-function freshInsforgeMock() {
-  return createInsforgeMock({
+const freshInsforgeMockResponses: Parameters<typeof createInsforgeMock>[0] = {
     integrations: {
       data: { status: "connected", credentials: { api_key: "key-1", webhook_secret: SECRET }, metadata: { phone_number: "+573000000000" } },
       error: null
@@ -28,7 +27,10 @@ function freshInsforgeMock() {
       { data: { id: "conv-1", organization_id: ORG, customer_id: "cust-1", channel: "whatsapp" }, error: null }
     ],
     messages: { data: null, error: null }
-  });
+};
+
+function freshInsforgeMock() {
+  return createInsforgeMock(freshInsforgeMockResponses);
 }
 
 let insforgeMockInstance = freshInsforgeMock();
@@ -85,7 +87,7 @@ describe("verifyYCloudSignature", () => {
 });
 
 describe("normalizeWhatsAppPhone", () => {
-  it("always returns +<digits>", () => {
+  it("siempre devuelve +<dígitos>", () => {
     expect(normalizeWhatsAppPhone("573001112233")).toBe("+573001112233");
     expect(normalizeWhatsAppPhone("whatsapp:+57 300 111 2233")).toBe("+573001112233");
   });
@@ -145,6 +147,37 @@ describe("POST /api/webhooks/ycloud/:organizationId", () => {
     await vi.waitFor(() =>
       expect(insertedInto("inbound_message_claims")).toEqual(expect.arrayContaining([expect.objectContaining({ external_message_id: "wamid.OUT1" })]))
     );
+  });
+
+  it("'Avisame por WhatsApp' de la página de reservas: vincula el chat y confirma la cita, sin pasar por el agente", async () => {
+    const future = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+    insforgeMockInstance = createInsforgeMock({
+      ...freshInsforgeMockResponses,
+      walk_ins: { data: null, error: null },
+      reservations: {
+        data: { id: "res-1", customer_name: "Laura Gómez", status: "confirmed", start_at: future, services: { name: "Corte" }, customers: null },
+        error: null
+      },
+      organizations: { data: { timezone: "America/Bogota" }, error: null },
+      business_profiles: { data: { name: "Barbería El Corte" }, error: null }
+    });
+    // Lo que escribe WhatsApp al tocar el botón: wa.me/<número>?text=Reserva #<código>
+    const body = JSON.stringify({ ...inboundEvent, whatsappInboundMessage: { ...inboundEvent.whatsappInboundMessage, text: { body: "Reserva #ABCDE23456" } } });
+    const res = await request(createApp())
+      .post(`/api/webhooks/ycloud/${ORG}`)
+      .set("Content-Type", "application/json")
+      .set("YCloud-Signature", sign(body))
+      .send(body);
+    expect(res.status).toBe(200);
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(runAgentTurnMock).not.toHaveBeenCalled();
+    const from = insforgeMockInstance.database.from as unknown as { mock: { calls: [string][]; results: { value: Record<string, { mock: { calls: unknown[][] } }> }[] } };
+    const reservationUpdates = from.mock.calls.flatMap(([t], i) => (t === "reservations" ? from.mock.results[i].value.update.mock.calls.map((c) => c[0]) : []));
+    expect(reservationUpdates).toContainEqual({ notify_channel: "whatsapp", notify_identity: "+573001112233" });
+    const sent = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(sent).toMatchObject({ from: "+573000000000", to: "+573001112233", type: "text" });
+    expect(sent.text.body).toMatch(/^¡Hola Laura! Tu reserva de Corte en Barbería El Corte quedó confirmada para el .+ Te recordamos por acá antes de la cita/);
   });
 
   it("registra lo que el negocio escribió en su app de WhatsApp Business como mensaje del equipo, sin correr el agente", async () => {

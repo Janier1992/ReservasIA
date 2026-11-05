@@ -1,10 +1,10 @@
 // Edge Function: conversations-reply
 // Respuesta manual de un miembro del staff desde el Inbox (punto 32 del
 // prompt maestro). Inserta el mensaje y, si la conversación es de
-// WhatsApp, lo envía por la API de Twilio usando las credenciales
+// WhatsApp, lo envía por la API de YCloud usando las credenciales
 // guardadas (columna integrations.credentials, sólo accesible vía admin).
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
-import twilio from "npm:twilio";
+import { decryptCredentials } from "./_shared/credentialsCrypto.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -76,7 +76,6 @@ export default async function handler(req: Request): Promise<Response> {
   const customerPhone = (conversation as { customers?: { phone?: string } | null }).customers?.phone;
   if (conversation.channel === "whatsapp" && customerPhone) {
     const admin = createAdminClient({ baseUrl, apiKey: Deno.env.get("API_KEY")! });
-    // WhatsApp por YCloud (el número propio del negocio) tiene prioridad sobre Twilio.
     const { data: ycloud } = await admin.database
       .from("integrations")
       .select("credentials, metadata, status")
@@ -85,7 +84,11 @@ export default async function handler(req: Request): Promise<Response> {
       .maybeSingle();
     if (ycloud?.status === "connected") {
       try {
-        const apiKey = (ycloud.credentials as { api_key: string }).api_key;
+        // Redeploy forzado 2026-10-30 ter (ver ycloud-connect.ts): recoger el secreto actualizado.
+        const encryptionKey = Deno.env.get("INTEGRATIONS_ENCRYPTION_KEY");
+        if (!encryptionKey) throw new Error("Falta configurar INTEGRATIONS_ENCRYPTION_KEY.");
+        const credentials = await decryptCredentials(ycloud.credentials as Record<string, unknown> | null, encryptionKey);
+        const apiKey = credentials.api_key as string;
         const fromNumber = (ycloud.metadata as Record<string, unknown>).phone_number as string;
         const to = `+${customerPhone.replace(/[^\d]/g, "")}`;
         const res = await fetch("https://api.ycloud.com/v2/whatsapp/messages/sendDirectly", {
@@ -96,26 +99,6 @@ export default async function handler(req: Request): Promise<Response> {
         if (!res.ok) console.error("conversations_reply_ycloud_send_failed", res.status, await res.text());
       } catch (err) {
         console.error("conversations_reply_ycloud_send_failed", err);
-      }
-      return jsonResponse(message, 201);
-    }
-
-    const { data: integration } = await admin.database
-      .from("integrations")
-      .select("credentials, metadata, status")
-      .eq("organization_id", organizationId)
-      .eq("provider", "twilio")
-      .maybeSingle();
-
-    if (integration?.status === "connected") {
-      try {
-        const credentials = integration.credentials as { account_sid: string; auth_token: string };
-        const fromNumber = (integration.metadata as Record<string, unknown>).whatsapp_number as string;
-        const twilioClient = twilio(credentials.account_sid, credentials.auth_token);
-        const toAddress = customerPhone.startsWith("whatsapp:") ? customerPhone : `whatsapp:${customerPhone}`;
-        await twilioClient.messages.create({ from: fromNumber, to: toAddress, body: content });
-      } catch (err) {
-        console.error("conversations_reply_twilio_send_failed", err);
       }
     }
   }

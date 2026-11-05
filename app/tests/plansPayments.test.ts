@@ -17,7 +17,7 @@ const plan: PackagePlan = {
   is_active: true
 };
 
-describe("plans", () => {
+describe("planes", () => {
   it("calcula el vencimiento contando el día de inicio", () => {
     expect(computeExpiry("2026-09-27", 30)).toBe("2026-10-26");
     expect(computeExpiry("2026-09-27", null)).toBeNull();
@@ -48,8 +48,8 @@ describe("plans", () => {
   });
 });
 
-describe("payments", () => {
-  it("parses Colombian-style amounts", () => {
+describe("pagos", () => {
+  it("interpreta montos escritos al estilo colombiano", () => {
     expect(parseAmount("35.000")).toBe(35000);
     expect(parseAmount("1.250.000")).toBe(1250000);
     expect(parseAmount("35000,50")).toBe(35000.5);
@@ -74,7 +74,7 @@ describe("zonedDayRange", () => {
     expect(zonedDayRange("2026-12-31", "UTC")).toEqual({ from: "2026-12-31T00:00:00.000Z", to: "2027-01-01T00:00:00.000Z" });
   });
 
-  it("handles daylight saving changes", () => {
+  it("tiene en cuenta los cambios de horario de verano", () => {
     // Nueva York adelanta el reloj el 8 de marzo de 2026: ese día dura 23 horas.
     const { from, to } = zonedDayRange("2026-03-08", "America/New_York");
     expect((new Date(to).getTime() - new Date(from).getTime()) / 3_600_000).toBe(23);

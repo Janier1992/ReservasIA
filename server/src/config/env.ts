@@ -4,6 +4,9 @@ import { z } from "zod";
 /** Valor de ejemplo (público en el repositorio): en producción no sirve para firmar nada. */
 export const DEFAULT_OAUTH_STATE_SECRET = "change-me-in-production";
 
+/** Valor de ejemplo (público en el repositorio): en producción no sirve para cifrar nada real. */
+export const DEFAULT_INTEGRATIONS_ENCRYPTION_KEY = "change-me-in-production-integrations-key";
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3001),
@@ -14,15 +17,6 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_MODEL: z.string().min(1).default("gpt-4o"),
   OPENAI_BASE_URL: z.string().optional().default(""),
-
-  TWILIO_ACCOUNT_SID: z.string().optional().default(""),
-  TWILIO_AUTH_TOKEN: z.string().optional().default(""),
-  TWILIO_WHATSAPP_NUMBER: z.string().optional().default(""),
-  TWILIO_VALIDATE_SIGNATURE: z
-    .string()
-    .optional()
-    .default("true")
-    .transform((v) => v !== "false"),
 
   GOOGLE_CLIENT_ID: z.string().optional().default(""),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
@@ -38,6 +32,16 @@ const envSchema = z.object({
   DEFAULT_TIMEZONE: z.string().default("America/Bogota"),
 
   OAUTH_STATE_SECRET: z.string().min(8).default(DEFAULT_OAUTH_STATE_SECRET),
+
+  // Cifra integrations.credentials antes de guardarlo (AES-256-GCM). Debe
+  // configurarse IDÉNTICO como secreto de InsForge (INTEGRATIONS_ENCRYPTION_KEY)
+  // para que las Edge Functions que conectan/desconectan canales (que también
+  // leen y escriben esa columna) cifren y descifren con la misma clave.
+  INTEGRATIONS_ENCRYPTION_KEY: z.string().min(8).default(DEFAULT_INTEGRATIONS_ENCRYPTION_KEY),
+
+  // Correo (o varios, separados por coma) que recibe las alertas cuando algo
+  // empieza a fallar seguido (ver lib/alerts.ts). Vacío = solo quedan en el log.
+  ALERT_EMAIL: z.string().optional().default(""),
 
   // "true" en el .env LOCAL: no arranca el poller de Telegram ni los
   // schedulers. Si no, un server local con las credenciales de producción

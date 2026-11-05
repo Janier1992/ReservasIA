@@ -4,16 +4,16 @@
 // Las que importan código del repo se publican empaquetadas (ver
 // function-bundle.mjs), desde un archivo temporal.
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { functionCode } from "./function-bundle.mjs";
+import { functionCode, listFunctions } from "./function-bundle.mjs";
 
 const rootDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const functionsDir = path.join(rootDir, "functions");
 
-const files = readdirSync(functionsDir).filter((f) => f.endsWith(".ts"));
+const files = listFunctions(functionsDir).map((slug) => `${slug}.ts`);
 
 if (files.length === 0) {
   console.log("No hay funciones en functions/.");

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseQuantity, salesByProduct } from "@/lib/payments";
 
-describe("sales", () => {
+describe("ventas", () => {
   it("acepta cantidades enteras de 1 a 999", () => {
     expect(parseQuantity("2")).toBe(2);
     expect(parseQuantity(" 10 ")).toBe(10);

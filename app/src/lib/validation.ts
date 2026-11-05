@@ -17,3 +17,15 @@ export function isNonNegativeNumber(value: number): boolean {
 export function isPositiveInteger(value: number): boolean {
   return Number.isInteger(value) && value > 0;
 }
+
+/** Enlace de mapa del negocio: solo https y de largo razonable (la base exige lo mismo). */
+export function isValidMapsUrl(value: string): boolean {
+  const url = value.trim();
+  if (!url.startsWith("https://") || url.length > 500) return false;
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}

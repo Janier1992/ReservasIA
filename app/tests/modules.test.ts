@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isModuleEnabled, toggleModule } from "@/lib/modules";
 
-describe("modules", () => {
+describe("módulos", () => {
   it("trata todos los módulos como activos cuando no se apagó ninguno", () => {
     expect(isModuleEnabled([], "inbox")).toBe(true);
     expect(isModuleEnabled(null, "team")).toBe(true);

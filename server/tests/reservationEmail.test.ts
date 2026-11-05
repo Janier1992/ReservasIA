@@ -25,7 +25,7 @@ const base = {
   notes: null
 };
 
-describe("reservation email template", () => {
+describe("plantilla del correo de reserva", () => {
   it("muestra la marca del negocio, los datos en su zona horaria y un botón de Google Calendar", () => {
     const { subject, html } = buildReservationEmail(base);
     expect(subject).toBe("Tu reserva está confirmada · Antojitos Fast Food · lun 28 de sep, 2:00 p. m.");
@@ -97,7 +97,7 @@ describe("sendReservationEmail", () => {
     expect(sent.subject).toMatch(/^Tu reserva está confirmada · Antojitos Fast Food/);
   });
 
-  it("skips customers without email so Google can invite them instead", async () => {
+  it("omite a los clientes sin correo para que los invite Google", async () => {
     useDb({ email: null, name: "Jhanier" });
     expect(await sendReservationEmail(reservation, "confirmed")).toBe(false);
     expect(db.emails.send).not.toHaveBeenCalled();
