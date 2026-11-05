@@ -1,0 +1,48 @@
+name: Backup database
+
+# Copia de seguridad semanal de la base de InsForge (el plan gratis no hace
+# copias automáticas). Exporta esquema y datos, los cifra con la frase del
+# secreto BACKUP_PASSPHRASE y guarda el archivo .rbk como artefacto de esta
+# corrida durante 90 días (el máximo de GitHub): siempre hay ~12 copias.
+#
+# Se descarga desde Actions → Backup database → la corrida → Artifacts, y se
+# descifra en tu computador con scripts/decrypt-backup.mjs (ver README).
+# A mano: Actions → Backup database → Run workflow.
+on:
+  schedule:
+    # Domingos 08:17 UTC = 3:17 a. m. en Colombia, con poco movimiento.
+    - cron: "17 8 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-database
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Exportar y cifrar la base
+        id: backup
+        env:
+          INSFORGE_URL: ${{ secrets.INSFORGE_URL }}
+          INSFORGE_API_KEY: ${{ secrets.INSFORGE_API_KEY }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          name="reservasia-$(date -u +%Y-%m-%d)"
+          node scripts/backup-database.mjs "$name.rbk"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.backup.outputs.name }}
+          path: ${{ steps.backup.outputs.name }}.rbk
+          retention-days: 90
+          if-no-files-found: error
