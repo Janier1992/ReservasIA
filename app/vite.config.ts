@@ -37,7 +37,10 @@ export default defineConfig({
         // abra instantáneo/offline como shell. No se agrega runtime caching:
         // los datos del negocio (reservas, conversaciones) van siempre a
         // InsForge/compute service por red, nunca deben servirse desde cache.
-        globPatterns: ["**/*.{js,css,html,svg,png,ico}"]
+        globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
+        // La imagen para compartir el enlace solo la piden WhatsApp, Google y
+        // las redes: no tiene sentido que cada celular la descargue al instalar.
+        globIgnores: ["og-image.png"]
       },
       devOptions: {
         enabled: false
