@@ -32,7 +32,7 @@ jobs:
           # Historia completa: un push puede traer varios commits y hay que
           # comparar contra el estado anterior al push, no solo el último commit.
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
