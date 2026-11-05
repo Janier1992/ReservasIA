@@ -31,6 +31,8 @@ interfaz es responsiva.
 - [Tests](#tests)
 - [Build y producción](#build-y-producción)
 - [Checklist de arquitectura](#checklist-de-arquitectura)
+- [Monitoreo y alertas](#monitoreo-y-alertas)
+- [Copias de seguridad](#copias-de-seguridad)
 - [Simplificaciones conocidas / próximos pasos](#simplificaciones-conocidas--próximos-pasos)
 
 ---
@@ -754,6 +756,35 @@ npm run build
   (`invalid_grant`), la integración queda en estado `error`, Integraciones le pide reconectar y la alerta
   `google_connection_expired` sale a la primera. El correo nunca lleva datos de clientes, solo el tipo de falla y el mensaje técnico.
   Sin `ALERT_EMAIL` la alerta queda en el log como `alert_triggered`. Usa la misma cuota de correos de InsForge.
+
+## Copias de seguridad
+
+El plan gratis de InsForge no hace copias automáticas (solo permite una manual, desde **Database → Backup &
+Restore**). Para no depender de eso, el workflow **Backup database** (`.github/workflows/backup-database.yml`) corre
+todos los domingos a las 3:17 a. m. (hora de Colombia):
+
+1. Exporta esquema y datos de la base con la API de InsForge (`scripts/backup-database.mjs`), la misma que usa
+   `insforge db export`.
+2. Cifra el resultado con AES-256-GCM y una frase que solo conocés vos (`scripts/backup-crypto.mjs`). El
+   repositorio es público y cualquier cuenta de GitHub puede bajar los artefactos, así que **sin el secreto
+   `BACKUP_PASSPHRASE` el workflow falla en vez de guardar una copia legible**.
+3. Guarda el archivo `reservasia-AAAA-MM-DD.rbk` como artefacto de la corrida durante 90 días (unas 12 copias).
+
+**Configurar (una vez):** en GitHub → Settings → Secrets and variables → Actions, crear `BACKUP_PASSPHRASE` con una
+frase larga (16+ caracteres) que guardes también en tu gestor de contraseñas: **sin esa frase las copias no se
+pueden abrir**. Usa los mismos `INSFORGE_URL` e `INSFORGE_API_KEY` que los otros workflows. Para probarlo:
+Actions → Backup database → Run workflow.
+
+**Restaurar:**
+
+1. Actions → Backup database → la corrida de la fecha → *Artifacts* → descargar y descomprimir el `.zip`.
+2. En tu computador: `node scripts/decrypt-backup.mjs reservasia-AAAA-MM-DD.rbk copia.sql` (te pide la frase).
+3. Antes de tocar nada, crear en InsForge una copia manual del estado actual. Después cargar `copia.sql` con
+   `npx @insforge/cli db import copia.sql` o pegarlo en el editor SQL de InsForge. El SQL tiene datos de clientes:
+   borralo cuando termines.
+
+Qué **no** incluye: los archivos de Storage (fotos de comprobantes, logos) y las cuentas de inicio de sesión, que
+InsForge guarda aparte de las tablas del proyecto.
 
 ## Simplificaciones conocidas / próximos pasos
 
