@@ -528,12 +528,16 @@ invitación por correo — si acepta, le queda guardado en su propio calendario.
 2. Configurá la pantalla de consentimiento OAuth (tipo **Externo**), agregando los scopes
    `.../auth/calendar.events` y `.../auth/userinfo.email`, y tu email como usuario de prueba (modo "Testing").
 3. Creá credenciales **OAuth 2.0 Client ID** de tipo "Aplicación web".
-4. Agregá como **URI de redirección autorizado** la URL del **compute service** (Google redirige ahí, no a
-   InsForge ni al frontend):
+4. Agregá como **URI de redirección autorizado** la dirección del callback:
    ```text
-   http://localhost:3011/api/integrations/google/callback   # desarrollo
-   https://<tu-dominio-del-compute-service>/api/integrations/google/callback   # producción
+   http://localhost:3011/api/integrations/google/callback                    # desarrollo (directo al compute service)
+   https://reservas-ia-app.vercel.app/api/integrations/google/callback       # producción
    ```
+   En producción Google vuelve por el **dominio del frontend**, no por el de Railway: `app/vercel.json` reenvía
+   esa ruta al compute service. Así, para la verificación de la app en Google, hay un solo dominio que demostrar
+   como propio (`reservas-ia-app.vercel.app`, verificado en Search Console con la misma cuenta dueña del proyecto
+   de Google Cloud) y en **Branding → Authorized domains** alcanza con ese. Si cambia el dominio del compute
+   service, hay que actualizar el destino del reenvío en `app/vercel.json`.
 5. Completá `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `GOOGLE_REDIRECT_URI` en `.env` **y** como secretos de
    InsForge.
 6. Desde `/dashboard/integrations`, cada organización conecta su **propia** cuenta de Google (tokens guardados por

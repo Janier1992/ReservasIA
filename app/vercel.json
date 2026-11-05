@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/integrations/google/callback",
+      "destination": "https://server-production-546e.up.railway.app/api/integrations/google/callback"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
