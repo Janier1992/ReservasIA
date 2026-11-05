@@ -7,15 +7,21 @@ Conserva las páginas originales (diseño y textos) y:
     (secciones-12-21-novedades.html), con lo que se sumó al panel;
   - reemplaza la sección de WhatsApp con Twilio por la 23, WhatsApp Business con
     YCloud (seccion-23-whatsapp-ycloud.html);
-  - renumera las secciones originales 12 a 17 como 22 a 27 y corrige las
-    menciones a Twilio y la versión.
+  - inserta después de la 23 la sección 24, página de presentación, precios y
+    suscripción (seccion-24-presentacion-y-precios.html), que termina con el
+    comienzo de la 25 (seguridad);
+  - renumera las secciones originales 12 y 15 a 17 como 22 y 26 a 28 y corrige
+    las menciones a Twilio y la versión;
+  - la 26 deja de llamarse "Planes y precios sugeridos" (son comparables de
+    mercado; los precios vigentes están en la 24).
 
 Uso (necesita PyMuPDF y la fuente Inter instalada), desde docs/manual/v3:
     1. Imprimir cada HTML a PDF con Chrome sin encabezados, por ejemplo:
        chrome --headless --no-pdf-header-footer --print-to-pdf=indice.pdf indice.html
-       (igual con secciones-12-21-novedades.html y seccion-23-whatsapp-ycloud.html)
+       (igual con secciones-12-21-novedades.html, seccion-23-whatsapp-ycloud.html y
+       seccion-24-presentacion-y-precios.html)
     2. python build_manual.py manual-base-v2.pdf indice.pdf secciones-12-21-novedades.pdf \
-           seccion-23-whatsapp-ycloud.pdf ../Manual-de-usuario-ReservasIA-v3.pdf
+           seccion-23-whatsapp-ycloud.pdf seccion-24-presentacion-y-precios.pdf ../Manual-de-usuario-ReservasIA-v4.pdf
 """
 
 import sys
@@ -52,7 +58,7 @@ SCREENSHOTS = {
 }
 
 # Etiquetas de sección del original que cambian de número: (página, número viejo, nuevo).
-RENUMBERED_CHIPS = [(21, "12.", "22."), (23, "15.", "25."), (24, "16.", "26."), (25, "17.", "27.")]
+RENUMBERED_CHIPS = [(21, "12.", "22."), (23, "15.", "26."), (24, "16.", "27."), (25, "17.", "28.")]
 
 CSS = """
 @font-face { font-family: Inter; src: url(Inter-Regular.otf); }
@@ -104,7 +110,7 @@ def patch_original(base: pymupdf.Document) -> None:
     replace_text(
         cover,
         pymupdf.Rect(150, r.y0 - 1, 462, r.y1 + 12),
-        f'<p style="text-align:center;font-size:12.5pt;color:{muted}">Versión del documento: octubre 2026 · v3</p>',
+        f'<p style="text-align:center;font-size:12.5pt;color:{muted}">Versión del documento: noviembre 2026 · v4</p>',
         # Solo la línea de texto: la portada tiene un degradado y un parche más grande se notaría.
         erase=pymupdf.Rect(r.x0 - 1, r.y0, r.x1 + 1, r.y1 + 0.5),
     )
@@ -130,6 +136,21 @@ def patch_original(base: pymupdf.Document) -> None:
         "negocio (el token de Telegram o la API key de YCloud de un negocio nunca son visibles ni accesibles para otro).</p>",
     )
 
+    (title,) = security.search_for("Planes y precios sugeridos")
+    replace_text(
+        security,
+        pymupdf.Rect(title.x0 - 1, title.y0 - 2, 570.7, title.y1 + 4),
+        f'<p style="font-size:{title.height * 0.72:.1f}pt;font-weight:800;color:{ink}"><b>Comparables de mercado</b></p>',
+    )
+    intro = security.search_for("Referencia para definir precios de lanzamiento")[0]
+    intro_end = security.search_for("de reservas y de agentes de IA para negocios chicos.")[0]
+    replace_text(
+        security,
+        pymupdf.Rect(42, intro.y0 - 1, 570.7, intro_end.y1 + 6),
+        f'<p style="font-size:12.5pt;line-height:18.7pt;color:{muted};text-align:justify">Referencia de mercado que se usó al fijar los '
+        "precios. Los planes sugeridos de abajo quedan como antecedente: los precios vigentes de ReservasIA están en la sección 24.</p>",
+    )
+
     plans = base[24]
     (r,) = plans.search_for("Canal WhatsApp (Twilio)")
     replace_text(
@@ -141,7 +162,7 @@ def patch_original(base: pymupdf.Document) -> None:
     references = base[25]
     line = references.search_for("de la sección 15.")[0]
     (old,) = references.search_for("15.", clip=line)
-    retype(references, old, "25.", "Inter-Regular.otf", 10.5, muted, fill=rgb("#f5f0e3"))
+    retype(references, old, "26.", "Inter-Regular.otf", 10.5, muted, fill=rgb("#f5f0e3"))
 
     for page_index, old_label, new_label in RENUMBERED_CHIPS:
         page = base[page_index]
@@ -185,10 +206,10 @@ def with_background(path: str) -> pymupdf.Document:
     return doc
 
 
-def main(base_path: str, index_path: str, news_path: str, whatsapp_path: str, out_path: str) -> None:
+def main(base_path: str, index_path: str, news_path: str, whatsapp_path: str, landing_path: str, out_path: str) -> None:
     base = pymupdf.open(base_path)
     patch_original(base)
-    index, news, whatsapp = (with_background(p) for p in (index_path, news_path, whatsapp_path))
+    index, news, whatsapp, landing = (with_background(p) for p in (index_path, news_path, whatsapp_path, landing_path))
 
     out = pymupdf.open()
     new_pages = set()
@@ -206,17 +227,18 @@ def main(base_path: str, index_path: str, news_path: str, whatsapp_path: str, ou
     add(news, is_new=True)
     add(base, TELEGRAM_PAGE, TELEGRAM_PAGE)
     add(whatsapp, is_new=True)
+    add(landing, is_new=True)
     add(base, OLD_WHATSAPP_PAGE + 1)
 
     for i in range(1, out.page_count):
         if i in new_pages or i >= LAST_PAGE_SECTION_11 + 1:
             stamp_header(out[i], i + 1, with_title=i in new_pages)
 
-    out.set_metadata({**base.metadata, "title": "ReservasIA: manual de usuario (v3)"})
+    out.set_metadata({**base.metadata, "title": "ReservasIA: manual de usuario (v4)"})
     out.subset_fonts()
     out.save(out_path, garbage=4, deflate=True, deflate_images=True, deflate_fonts=True, use_objstms=1)
     print(f"{out_path}: {out.page_count} páginas")
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:6])
+    main(*sys.argv[1:7])

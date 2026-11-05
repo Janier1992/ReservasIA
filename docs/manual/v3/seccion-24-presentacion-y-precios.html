@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>24. Página de presentación, precios y suscripción</title>
+<!--
+  Sección 24 del manual de usuario (v4). Se imprime a PDF y build_manual.py la
+  inserta después de la 23, con el fondo beige, el encabezado y el número de página.
+-->
+<link rel="stylesheet" href="manual.css" />
+<style>
+  figure.wide img { width: 74%; }
+  .phones figure { width: 100pt; }
+  .price-cards { display: flex; gap: 10pt; margin: 8pt 0 10pt; break-inside: avoid; }
+  .price-cards .card b.big { display: block; font-size: 17pt; color: var(--ink); margin: 2pt 0; }
+  .price-cards .card.main { border: 2pt solid var(--accent); }
+</style>
+</head>
+<body>
+
+<span class="chip">24. Presentación y precios</span>
+<div class="title-row">
+  <h1>La página de presentación de ReservasIA</h1>
+  <span class="pill green">Nuevo</span>
+</div>
+<p>
+  La dirección principal, <strong>reservas-ia-app.vercel.app</strong>, es la página que encuentra quien busca ReservasIA en Google o recibe
+  el enlace por WhatsApp. Explica el producto, muestra los precios y lleva a crear la cuenta. Si ya iniciaste sesión, te lleva directo a tu panel.
+</p>
+<figure class="wide">
+  <img src="capturas/l-portada.jpg" alt="Portada de la página de presentación" />
+  <figcaption>Portada: el mensaje principal, la prueba gratis y el panel de ejemplo.</figcaption>
+</figure>
+
+<h2>Qué muestra</h2>
+<ul class="check">
+  <li><strong>Panel de ejemplo interactivo:</strong> cambia solo de módulo cada pocos segundos (inicio, conversaciones, reservas, atención en
+    sitio, carta, clientes, caja, reportes y agente). El visitante puede tocar un módulo para verlo con calma.</li>
+  <li><strong>Los rubros y los módulos</strong> del producto, y una conversación de ejemplo en la que el agente agenda una cita.</li>
+  <li><strong>“Funcionando en 3 pasos”:</strong> crear la cuenta, cargar servicios y horarios, y conectar WhatsApp o Telegram.</li>
+  <li><strong>Calculadora “¿Cuánto te cuesta no contestar a tiempo?”:</strong> el visitante pone cuántos mensajes recibe, cuántos no alcanza a
+    responder y cuánto vale una venta, y ve cuánto se le puede estar yendo al mes y cuántas ventas pagan la mensualidad.</li>
+  <li><strong>Precios claros</strong> y <strong>preguntas frecuentes</strong> (prueba, activación, permanencia, pagos, costo de WhatsApp).</li>
+  <li><strong>Botón “Hablá con nosotros”:</strong> abre un chat de WhatsApp con ReservasIA con un mensaje ya escrito, para resolver dudas antes de registrarse.</li>
+  <li><strong>Instalar app:</strong> agrega ReservasIA a la pantalla del celular o del computador.</li>
+</ul>
+
+<figure class="wide">
+  <img src="capturas/l-pasos.jpg" alt="Sección Funcionando en 3 pasos" />
+  <figcaption>“Funcionando en 3 pasos”.</figcaption>
+</figure>
+<figure class="wide">
+  <img src="capturas/l-calculadora.jpg" alt="Calculadora de pérdidas" />
+  <figcaption>La calculadora: los valores los pone el visitante y el resultado se presenta como estimación.</figcaption>
+</figure>
+<div class="phones">
+  <figure><img src="capturas/l-movil-portada.jpg" alt="Portada en el celular" /><figcaption>En el celular.</figcaption></figure>
+  <figure><img src="capturas/l-movil-boton.jpg" alt="Botones fijos en el celular" /><figcaption>Botón verde de WhatsApp y “Empezar gratis”.</figcaption></figure>
+</div>
+
+<span class="chip">24. Presentación y precios</span>
+<h1>Planes y precios</h1>
+<p>Todos los precios están en pesos colombianos y son <strong>más IVA (19 %)</strong>. Los dos planes incluyen todo: el agente con IA en WhatsApp
+  y Telegram, el panel completo con los módulos del rubro, la página de reservas y pedidos con QR, los recordatorios automáticos, usuarios para
+  todo el equipo y las actualizaciones y arreglos de fallas.</p>
+<div class="price-cards">
+  <div class="card"><h3>Prueba gratis</h3><b class="big">14 días</b><p>Todo incluido, sin tarjeta. Si no seguís, no pagás nada.</p></div>
+  <div class="card"><h3>Plan mensual</h3><b class="big">$150.000 + IVA</b><p>Por mes, sin permanencia. Más una activación de $390.000 + IVA, una sola vez, o en 3 cuotas de $130.000 + IVA con las primeras mensualidades.</p></div>
+  <div class="card main"><h3>Plan anual</h3><b class="big">$1.500.000 + IVA</b><p>Por 12 meses (equivale a $125.000 al mes). Sin activación: 2 meses gratis.</p></div>
+</div>
+<table>
+  <tr><th>Qué se paga</th><th>Sin IVA</th><th>Total con IVA</th></tr>
+  <tr><td>Mensualidad + cuota de activación (meses 1 a 3)</td><td>$280.000</td><td>$333.200</td></tr>
+  <tr><td>Mensualidad + activación completa</td><td>$540.000</td><td>$642.600</td></tr>
+  <tr><td>Mensualidad (desde el mes 4, o con la activación ya paga)</td><td>$150.000</td><td>$178.500</td></tr>
+  <tr><td>Plan anual</td><td>$1.500.000</td><td>$1.785.000</td></tr>
+</table>
+<ul class="check">
+  <li><strong>Activación:</strong> cubre la puesta en marcha: cargar los servicios o la carta y los horarios, conectar WhatsApp o Telegram y dejar el agente configurado.</li>
+  <li><strong>Sin cobros automáticos:</strong> cada pago lo hace el negocio desde el panel. Si no paga, la cuenta queda en pausa con los datos guardados.</li>
+  <li><strong>WhatsApp:</strong> lo que cobren Meta y YCloud por los mensajes se paga en la cuenta de YCloud del negocio (sección 23). Telegram no tiene costo.</li>
+  <li><strong>Mejoras a la medida y soporte personalizado:</strong> tarifa fija por hora, siempre con cotización antes.</li>
+</ul>
+<figure class="wide">
+  <img src="capturas/l-precios.jpg" alt="Sección de precios" />
+  <figcaption>Así se ven los precios en la página de presentación.</figcaption>
+</figure>
+
+<span class="chip">24. Presentación y precios</span>
+<h1>Pagar la suscripción desde el panel</h1>
+<p>El pago se hace desde <span class="ui">Configuración → Suscripción</span> (solo el dueño o un administrador). La misma tarjeta aparece
+  cuando la prueba gratis está por terminar o si el servicio quedó en pausa.</p>
+<ol class="num">
+  <li><strong>Elegí qué vas a pagar.</strong> Cada opción muestra el total con IVA en grande y el valor sin IVA debajo; al elegirla, el monto se completa solo.</li>
+  <li><strong>Pagá por Nequi</strong> el total que indica la tarjeta, al número de Nequi que aparece ahí mismo.</li>
+  <li><strong>Subí la captura del comprobante</strong> (una imagen de hasta 5 MB). Si querés, agregá una nota.</li>
+  <li>Soporte revisa el pago y lo confirma. El servicio se activa o se extiende <strong>1 mes</strong> (plan mensual) o <strong>12 meses</strong>
+    (plan anual), y llega un correo de confirmación.</li>
+</ol>
+<div class="mock">
+  <div class="head"><b>💳 Suscripción</b></div>
+  <div class="desc"><b>1. Elegí qué vas a pagar</b></div>
+  <table style="margin:4pt 0 6pt;font-size:9pt">
+    <tr><td>◉ Mensualidad + cuota de activación<br /><span class="muted">Para los primeros 3 meses: $150.000 + $130.000 + IVA.</span></td><td style="text-align:right"><b>$333.200</b><br /><span class="muted">$280.000 + IVA</span></td></tr>
+    <tr><td>○ Mensualidad + activación completa</td><td style="text-align:right"><b>$642.600</b></td></tr>
+    <tr><td>○ Mensualidad</td><td style="text-align:right"><b>$178.500</b></td></tr>
+    <tr><td>○ Plan anual<br /><span class="muted">12 meses de servicio, sin activación (2 meses gratis).</span></td><td style="text-align:right"><b>$1.785.000</b></td></tr>
+  </table>
+  <div class="desc"><b>2.</b> Pagá $333.200 (IVA del 19 % incluido) por Nequi al número que muestra la tarjeta. <b>3.</b> Subí acá la captura del comprobante.</div>
+  <span class="btn">Seleccionar archivo</span>
+</div>
+<div class="caption">La tarjeta Suscripción con las opciones de pago.</div>
+<div class="callout green"><strong>No hay cobros automáticos:</strong> nada se descuenta solo. Si el pago no se confirma antes del vencimiento,
+  el negocio queda en pausa con todos sus datos y se reactiva apenas se confirma el pago.</div>
+
+<h2>Compartir el enlace</h2>
+<p>Cuando se comparte <strong>reservas-ia-app.vercel.app</strong> por WhatsApp, Facebook, LinkedIn o Telegram, aparece sola una vista previa con el
+  logo, el título y una conversación de ejemplo. No hace falta adjuntar ninguna imagen.</p>
+
+<span class="chip">25. Confianza</span>
+<h1>Seguridad y privacidad de los datos</h1>
+<p>Un punto habitual de duda para cualquier negocio que va a confiarle sus datos de clientes a una plataforma nueva:</p>
+
+</body>
+</html>
