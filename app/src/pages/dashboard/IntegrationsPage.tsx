@@ -60,6 +60,11 @@ export function IntegrationsPage() {
     if (googleParam === "connected") {
       toast.success("Google Calendar conectado.");
       invalidate();
+    } else if (googleParam === "missing_scope") {
+      toast.error(
+        "Google no dio permiso sobre el calendario. Volvé a conectar y, en la pantalla de Google, tildá la casilla para ver y editar los eventos de tu calendario.",
+        { duration: 12000 }
+      );
     } else if (googleParam === "error") {
       toast.error("No se pudo conectar Google Calendar. Intentá de nuevo.");
     }

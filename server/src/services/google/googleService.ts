@@ -85,10 +85,24 @@ async function persistCredentials(
   );
 }
 
+const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+/** Mensaje del error del callback cuando el negocio no autorizó el calendario. */
+export const GOOGLE_MISSING_SCOPE = "google_missing_calendar_scope";
+
+export function hasCalendarScope(scope: string | null | undefined): boolean {
+  return (scope ?? "").split(/\s+/).some((s) => s === CALENDAR_SCOPE || s === "https://www.googleapis.com/auth/calendar");
+}
+
 export async function handleGoogleOAuthCallback(code: string, state: string): Promise<{ organizationId: string }> {
   const { organizationId } = verifyState(state);
   const client = newOAuthClient();
   const { tokens } = await client.getToken(code);
+  // Google deja destildar el permiso del calendario en la pantalla de
+  // consentimiento. Sin él la conexión "anda" pero cada evento falla con
+  // 403 insufficientPermissions, y el cliente se queda sin la invitación.
+  if (!hasCalendarScope(tokens.scope)) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, GOOGLE_MISSING_SCOPE, 400);
+  }
   client.setCredentials(tokens);
 
   const oauth2 = google.oauth2({ auth: client, version: "v2" });
@@ -137,13 +151,20 @@ export function isGoogleConnectionExpired(err: unknown): boolean {
   return e?.response?.data?.error === "invalid_grant" || /invalid_grant/.test(e?.message ?? "");
 }
 
+/** La conexión existe pero sin permiso sobre el calendario: también hay que reconectar, tildando el permiso. */
+export function isGoogleScopeInsufficient(err: unknown): boolean {
+  const e = err as { message?: string };
+  return /insufficient authentication scopes|ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficientPermissions/i.test(e?.message ?? "") ||
+    /ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficientPermissions/.test(JSON.stringify((err as { response?: { data?: unknown } })?.response?.data ?? ""));
+}
+
 /**
  * Deja la integración en "error" (la página de Integraciones pide
  * reconectar) y deja de intentar con Google hasta que el negocio la
  * reconecte: getAuthorizedClient solo usa integraciones "connected".
  * El agente tampoco ofrece ya la invitación al calendario mientras tanto.
  */
-async function markGoogleNeedsReconnect(organizationId: string): Promise<void> {
+async function markGoogleNeedsReconnect(organizationId: string, reason: "token_expired" | "missing_calendar_scope"): Promise<void> {
   const { data } = await insforgeAdmin.database
     .from("integrations")
     .select("metadata")
@@ -153,12 +174,12 @@ async function markGoogleNeedsReconnect(organizationId: string): Promise<void> {
   const metadata = (data?.metadata ?? {}) as Record<string, unknown>;
   const { error } = await insforgeAdmin.database
     .from("integrations")
-    .update({ status: "error", metadata: { ...metadata, last_error: "token_expired", last_error_at: new Date().toISOString() } })
+    .update({ status: "error", metadata: { ...metadata, last_error: reason, last_error_at: new Date().toISOString() } })
     .eq("organization_id", organizationId)
     .eq("provider", "google_calendar");
   if (error) logger.warn({ organizationId, err: error }, "google_mark_needs_reconnect_failed");
-  else logger.warn({ organizationId }, "google_connection_expired_needs_reconnect");
-  reportCriticalFailure("google_connection_expired", new Error(`Negocio ${organizationId}: Google respondió invalid_grant`));
+  else logger.warn({ organizationId, reason }, "google_connection_expired_needs_reconnect");
+  reportCriticalFailure("google_connection_expired", new Error(`Negocio ${organizationId}: Google Calendar necesita reconectarse (${reason})`));
 }
 
 /** Corre una llamada a Google Calendar; si la conexión venció, lo deja registrado antes de propagar el error. */
@@ -166,7 +187,8 @@ async function withExpiredConnectionCheck<T>(organizationId: string, call: () =>
   try {
     return await call();
   } catch (err) {
-    if (isGoogleConnectionExpired(err)) await markGoogleNeedsReconnect(organizationId);
+    if (isGoogleConnectionExpired(err)) await markGoogleNeedsReconnect(organizationId, "token_expired");
+    else if (isGoogleScopeInsufficient(err)) await markGoogleNeedsReconnect(organizationId, "missing_calendar_scope");
     throw err;
   }
 }
