@@ -19,40 +19,76 @@ export type ToolNameType = (typeof ToolName)[keyof typeof ToolName];
 // Esquemas de validación de argumentos (punto 45: validar tool arguments)
 // ------------------------------------------------------------------
 
+/** Algunos modelos mandan null en los campos opcionales que no usan: se toman como ausentes. */
+const optional = <T extends z.ZodTypeAny>(schema: T) => z.preprocess((v) => (v === null ? undefined : v), schema.optional());
+
+/**
+ * Los modelos no siempre respetan el formato exacto ("9:00", "15:00:00",
+ * "3:30 pm", "2026-11-07T15:00"). Se normaliza antes de validar para que un
+ * detalle de formato no deje al cliente sin su reserva.
+ */
+export function normalizeDate(v: unknown): unknown {
+  if (typeof v !== "string") return v;
+  const match = v.trim().match(/^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/);
+  return match ? match[1] : v.trim();
+}
+
+export function normalizeTime(v: unknown): unknown {
+  if (typeof v !== "string") return v;
+  const raw = v.trim().toLowerCase();
+  const match = raw.match(/^(\d{1,2})(?:[:.h](\d{2}))?(?::\d{2})?\s*(?:([ap])\.?\s*m\.?)?$/);
+  if (!match) return v.trim();
+  let hour = Number(match[1]);
+  const minute = match[2] ?? "00";
+  if (match[3] === "p" && hour < 12) hour += 12;
+  if (match[3] === "a" && hour === 12) hour = 0;
+  if (!match[2] && !match[3]) return v.trim(); // "15" solo es ambiguo: que el modelo lo aclare
+  if (hour > 23 || Number(minute) > 59) return v.trim();
+  return `${String(hour).padStart(2, "0")}:${minute}`;
+}
+
+/** Un número que llega como texto ("2") se toma como número. */
+function toNumber(v: unknown): unknown {
+  return typeof v === "string" && /^\s*\d+\s*$/.test(v) ? Number(v) : v;
+}
+
+const dateField = (name: string) => z.preprocess(normalizeDate, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, `${name} debe tener formato YYYY-MM-DD`));
+const timeField = (name: string) => z.preprocess(normalizeTime, z.string().regex(/^\d{2}:\d{2}$/, `${name} debe tener formato HH:mm (24 horas)`));
+const countField = (max: number, min = 1) => optional(z.preprocess(toNumber, z.number().int().min(min).max(max)));
+const uuidField = (name: string) =>
+  optional(z.string().uuid(`${name} debe ser el id exacto que devolvió consultar_servicios (no el nombre)`));
+
 export const consultarDisponibilidadSchema = z.object({
-  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "fecha debe tener formato YYYY-MM-DD"),
-  hora_preferida: z
-    .string()
-    .regex(/^\d{2}:\d{2}$/, "hora_preferida debe tener formato HH:mm")
-    .optional(),
-  cantidad_personas: z.number().int().positive().max(100).optional(),
-  service_id: z.string().uuid().optional(),
-  resource_id: z.string().uuid().optional()
+  fecha: dateField("fecha"),
+  hora_preferida: optional(timeField("hora_preferida")),
+  cantidad_personas: countField(100),
+  service_id: uuidField("service_id"),
+  resource_id: uuidField("resource_id")
 });
 
 // Sin argumentos a propósito: siempre son las reservas del cliente de la
 // conversación, nunca las de un teléfono que alguien escriba en el chat.
 export const consultarReservasClienteSchema = z.object({});
 
-/** Algunos modelos mandan null en los campos opcionales que no usan: se toman como ausentes. */
-const optional = <T extends z.ZodTypeAny>(schema: T) => z.preprocess((v) => (v === null ? undefined : v), schema.optional());
-
 export const crearReservaSchema = z.object({
-  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "fecha debe tener formato YYYY-MM-DD"),
-  hora: z.string().regex(/^\d{2}:\d{2}$/, "hora debe tener formato HH:mm"),
-  nombre_cliente: z.string().min(1).max(200),
-  telefono_cliente: z.string().min(5).max(30),
+  fecha: dateField("fecha"),
+  hora: timeField("hora"),
+  nombre_cliente: z.string().trim().min(1, "nombre_cliente es obligatorio: pedíselo al cliente").max(200),
+  // En WhatsApp/Telegram el cliente ya está identificado por la conversación y
+  // este dato no se usa; en Telegram ni siquiera hay número. Exigirlo hacía que
+  // la reserva fallara si el modelo lo mandaba vacío.
+  telefono_cliente: optional(z.string().max(30)),
   // Sin .email() a propósito: un correo mal escrito ("ana@gmail.com." o con un
   // espacio) no puede tumbar la reserva entera. Se normaliza y valida en el
   // ejecutor con normalizeEmail; si no sirve, la reserva se crea igual y el
   // agente recibe el aviso para pedirlo de nuevo.
   email_cliente: optional(z.string().max(200)),
-  cantidad_personas: optional(z.number().int().positive().max(100)),
-  service_id: optional(z.string().uuid()),
-  resource_id: optional(z.string().uuid()),
+  cantidad_personas: countField(100),
+  service_id: uuidField("service_id"),
+  resource_id: uuidField("resource_id"),
   notas: optional(z.string().max(1000)),
   metodo_pago: optional(z.enum(["anticipado", "en_sitio"])),
-  repetir_semanas: optional(z.number().int().min(2).max(12))
+  repetir_semanas: countField(12, 2)
 });
 
 export const guardarEmailClienteSchema = z.object({
@@ -79,13 +115,13 @@ export function normalizeEmail(raw: string | null | undefined): string | null {
 }
 
 export const cancelarReservaSchema = z.object({
-  reservation_id: z.string().uuid()
+  reservation_id: z.string().uuid("reservation_id debe ser el id que devolvió consultar_reservas_cliente")
 });
 
 export const reprogramarReservaSchema = z.object({
-  reservation_id: z.string().uuid(),
-  nueva_fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "nueva_fecha debe tener formato YYYY-MM-DD"),
-  nueva_hora: z.string().regex(/^\d{2}:\d{2}$/, "nueva_hora debe tener formato HH:mm")
+  reservation_id: z.string().uuid("reservation_id debe ser el id que devolvió consultar_reservas_cliente"),
+  nueva_fecha: dateField("nueva_fecha"),
+  nueva_hora: timeField("nueva_hora")
 });
 
 const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCompletionTool> = {
@@ -144,7 +180,10 @@ const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCom
           fecha: { type: "string", description: "Fecha concreta YYYY-MM-DD." },
           hora: { type: "string", description: "Hora concreta HH:mm." },
           nombre_cliente: { type: "string" },
-          telefono_cliente: { type: "string" },
+          telefono_cliente: {
+            type: "string",
+            description: "Opcional: el cliente de la conversación ya está identificado. No se lo pidas solo para esto."
+          },
           email_cliente: {
             type: "string",
             description:
@@ -170,7 +209,7 @@ const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCom
               "SOLO si el cliente pidió explícitamente reservar el mismo horario todas las semanas (ej. una clase fija). Cantidad total de semanas a reservar, incluyendo la primera (mínimo 2, máximo 12). Si alguna semana no tiene cupo, esa fecha se informa como no reservada en el resultado; las demás sí quedan reservadas."
           }
         },
-        required: ["fecha", "hora", "nombre_cliente", "telefono_cliente"]
+        required: ["fecha", "hora", "nombre_cliente"]
       }
     }
   },

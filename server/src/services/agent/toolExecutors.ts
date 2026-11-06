@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { addMinutes, addWeeks, differenceInMinutes } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
 import { insforgeAdmin } from "../../lib/insforge.js";
+import { z } from "zod";
 import { logger } from "../../lib/logger.js";
 import { AppError, ErrorCodes } from "../../utils/AppError.js";
 import { getAvailableSlots } from "../availability/availabilityService.js";
@@ -236,7 +237,7 @@ async function executeCrearReserva(rawArgs: unknown, ctx: AgentExecutionContext)
 
     const customer = ctx.customerId
       ? await ensureCustomerDetails(ctx.organizationId, ctx.customerId, args.nombre_cliente, email)
-      : await findOrCreateCustomerByPhone(ctx.organizationId, args.telefono_cliente, args.nombre_cliente, email);
+      : await findOrCreateCustomerByPhone(ctx.organizationId, args.telefono_cliente || ctx.customerPhone, args.nombre_cliente, email);
 
     const { notes, dropped: notesDropped } = await allowedNotes(ctx.organizationId, customer, args.notas);
     const notesWarning = {
@@ -419,8 +420,19 @@ export async function executeTool(
   try {
     return await executor(rawArgs, ctx);
   } catch (err) {
-    if (err instanceof Error && err.name === "ZodError") {
-      return { success: false, error_code: "VALIDATION_ERROR", message: "Argumentos inválidos para la herramienta." };
+    if (err instanceof z.ZodError) {
+      // El detalle va al modelo para que corrija y reintente solo; sin él,
+      // terminaba diciéndole al cliente que contactara al negocio.
+      const problems = err.issues.map((issue) => `${issue.path.join(".") || "argumentos"}: ${issue.message}`);
+      logger.warn(
+        { organizationId: ctx.organizationId, conversationId: ctx.conversationId, tool: name, fields: err.issues.map((i) => i.path.join(".")) },
+        "agent_tool_invalid_args"
+      );
+      return {
+        success: false,
+        error_code: "VALIDATION_ERROR",
+        message: `Argumentos inválidos: ${problems.join("; ")}. Corregilos y volvé a llamar la herramienta en esta misma respuesta; no le digas al cliente que hubo un error ni que contacte al negocio.`
+      };
     }
     throw err;
   }
