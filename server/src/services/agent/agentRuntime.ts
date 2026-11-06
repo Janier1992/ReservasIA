@@ -380,7 +380,9 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
             scope: "agent",
             tool: toolCall.function.name,
             durationMs: Date.now() - toolStart,
-            result: result.success ? "success" : "error"
+            result: result.success ? "success" : "error",
+            // Solo el código (p. ej. VALIDATION_ERROR, SLOT_UNAVAILABLE): el mensaje puede traer datos del cliente.
+            ...(result.success ? {} : { message: result.error_code ?? "unknown" })
           });
 
           return { toolCall, result };

@@ -30,7 +30,7 @@ export const CORE_AGENT_RULES = `REGLAS DE RESERVAS (OBLIGATORIAS, NO NEGOCIABLE
 19. Utilizá el idioma configurado por el negocio.
 20. Si el negocio utiliza español rioplatense, utilizá "vos", "querés", "podés", etc.
 21. Si el negocio tiene servicios y/o recursos configurados (ver SERVICIOS DISPONIBLES y RECURSOS más abajo), usá consultar_servicios para conocer el service_id real y los "availableResourceIds" que devuelve consultar_disponibilidad para conocer el resource_id real; confirmá con el cliente cuál desea ANTES de llamar a crear_reserva. Nunca inventes ni adivines un service_id o resource_id.
-22. Antes de llamar a crear_reserva, en el mismo mensaje en que repasás los datos para que el cliente confirme, preguntá si quiere recibir la confirmación por correo y, si acepta, pedile su email y pasalo en email_cliente. Si CLIENTE ACTUAL ya muestra un correo registrado, preguntale si se la mandás a ese en vez de pedírselo de nuevo. Es un dato opcional: si no lo da o prefiere no darlo, continuá igual y creá la reserva sin ese dato. Si el cliente da o corrige su correo DESPUÉS de crear la reserva, o crear_reserva devolvió email_no_guardado y el cliente lo vuelve a escribir, usá guardar_email_cliente: nunca le digas que lo guardaste sin haber llamado a esa herramienta.
+22. Antes de llamar a crear_reserva, en el mismo mensaje en que repasás los datos para que el cliente confirme, preguntá si quiere recibir la confirmación por correo y, si acepta, pedile su email y pasalo en email_cliente. Si CLIENTE ACTUAL ya muestra un correo registrado, preguntale si se la mandás a ese en vez de pedírselo de nuevo. Es un dato opcional: si no lo da o prefiere no darlo, continuá igual y creá la reserva sin ese dato. Mientras la reserva no esté creada, el correo va SOLO en email_cliente de crear_reserva: no llames a guardar_email_cliente antes de crear_reserva ni en la misma ronda. Usá guardar_email_cliente únicamente si el cliente da o corrige su correo DESPUÉS de que la reserva ya se creó, o si crear_reserva devolvió email_no_guardado y el cliente lo vuelve a escribir; nunca le digas que lo guardaste sin haber llamado a esa herramienta.
 23. Si el correo quedó guardado (en crear_reserva o con guardar_email_cliente), avisale que le va a llegar un correo con los datos de la reserva, y que si no lo ve revise la carpeta de spam o Promociones. Si crear_reserva devolvió email_no_guardado, decile que el correo no parece válido y pedile que lo escriba de nuevo.
 24. Cada ronda de herramientas es una llamada de red completa: si necesitás varias herramientas de SOLO LECTURA (obtener_info_negocio, consultar_servicios, consultar_disponibilidad, consultar_reservas_cliente) y ya tenés los datos para pedirlas todas, solicitalas juntas en la misma respuesta en vez de una por una. No juntes una herramienta de lectura con crear_reserva/cancelar_reserva/reprogramar_reserva en la misma ronda.
 25. Si la sección PAGOS indica que el anticipo está habilitado, antes de confirmar la reserva tenés que resolver el método de pago: si es obligatorio, avisale al cliente que el negocio pide un anticipo y que va a ser por Nequi (no le des la opción de pagar solo en el sitio); si es opcional, preguntale si prefiere pagar el anticipo por Nequi ahora o pagar todo en el sitio, y pasá lo que responda en el campo metodo_pago de crear_reserva.
@@ -41,9 +41,12 @@ export const CORE_AGENT_RULES = `REGLAS DE RESERVAS (OBLIGATORIAS, NO NEGOCIABLE
 30. Para decir qué días y horas atiende el negocio, si está abierto hoy o mañana, o cuándo vuelve a abrir, usá únicamente HORARIOS DE ATENCIÓN y el CALENDARIO DE LOS PRÓXIMOS DÍAS, copiando las horas tal cual (por ejemplo "de 9:00 a. m. a 6:00 p. m."). Nunca calcules vos el día de la semana de una fecha ni deduzcas horarios: si la fecha que pregunta el cliente no está en el calendario o el dato no figura, consultá consultar_disponibilidad o decile que el negocio se lo confirma. Si un recurso tiene horario propio, para ese recurso valen sus franjas.`;
 
 // Un flujo de reserva real (info/servicios -> disponibilidad -> crear_reserva
-// -> respuesta final) necesita 3-4 rondas. 5 deja margen sin permitir que un
-// loop del modelo se coma minutos de latencia en rondas contra OpenRouter.
-export const MAX_TOOL_ROUNDS = 5;
+// -> respuesta final) necesita 3-4 rondas, más una si el cliente da el correo
+// después de reservar (guardar_email_cliente) y otra si el revisor de
+// respuestas pide corregir. 7 deja ese margen sin permitir que un loop del
+// modelo se coma minutos de latencia. Con 5, la confirmación final a veces se
+// quedaba sin rondas y el cliente recibía el mensaje de "inconveniente".
+export const MAX_TOOL_ROUNDS = 7;
 
 // "Creatividad" del modelo: baja a propósito. Un agente de reservas tiene que
 // repetir datos del negocio tal cual (horarios, precios, dirección), no

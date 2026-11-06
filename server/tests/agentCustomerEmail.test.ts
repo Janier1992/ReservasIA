@@ -93,6 +93,16 @@ describe("crear_reserva con el correo del cliente", () => {
     expect((result.data as { email_no_guardado?: string }).email_no_guardado).toMatch(/guardar_email_cliente/);
   });
 
+  it("los opcionales que el modelo manda en null no tumban la reserva", async () => {
+    const result = await executeTool(
+      "crear_reserva",
+      { ...reservationArgs, email_cliente: null, cantidad_personas: null, notas: null, metodo_pago: null, service_id: null },
+      ctx
+    );
+    expect(result.success).toBe(true);
+    expect(createReservationMock).toHaveBeenCalledTimes(1);
+  });
+
   it("un correo vacío no genera aviso", async () => {
     const result = await executeTool("crear_reserva", { ...reservationArgs, email_cliente: "" }, ctx);
     expect(result.success).toBe(true);
