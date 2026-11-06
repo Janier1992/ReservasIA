@@ -34,6 +34,9 @@ export const consultarDisponibilidadSchema = z.object({
 // conversación, nunca las de un teléfono que alguien escriba en el chat.
 export const consultarReservasClienteSchema = z.object({});
 
+/** Algunos modelos mandan null en los campos opcionales que no usan: se toman como ausentes. */
+const optional = <T extends z.ZodTypeAny>(schema: T) => z.preprocess((v) => (v === null ? undefined : v), schema.optional());
+
 export const crearReservaSchema = z.object({
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "fecha debe tener formato YYYY-MM-DD"),
   hora: z.string().regex(/^\d{2}:\d{2}$/, "hora debe tener formato HH:mm"),
@@ -43,13 +46,13 @@ export const crearReservaSchema = z.object({
   // espacio) no puede tumbar la reserva entera. Se normaliza y valida en el
   // ejecutor con normalizeEmail; si no sirve, la reserva se crea igual y el
   // agente recibe el aviso para pedirlo de nuevo.
-  email_cliente: z.string().max(200).optional(),
-  cantidad_personas: z.number().int().positive().max(100).optional(),
-  service_id: z.string().uuid().optional(),
-  resource_id: z.string().uuid().optional(),
-  notas: z.string().max(1000).optional(),
-  metodo_pago: z.enum(["anticipado", "en_sitio"]).optional(),
-  repetir_semanas: z.number().int().min(2).max(12).optional()
+  email_cliente: optional(z.string().max(200)),
+  cantidad_personas: optional(z.number().int().positive().max(100)),
+  service_id: optional(z.string().uuid()),
+  resource_id: optional(z.string().uuid()),
+  notas: optional(z.string().max(1000)),
+  metodo_pago: optional(z.enum(["anticipado", "en_sitio"])),
+  repetir_semanas: optional(z.number().int().min(2).max(12))
 });
 
 export const guardarEmailClienteSchema = z.object({
@@ -188,7 +191,7 @@ const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCom
     function: {
       name: ToolName.GuardarEmailCliente,
       description:
-        "Guarda el correo del cliente de esta conversación y le manda la confirmación de sus próximas reservas a ese correo. Usala cuando el cliente da o corrige su email DESPUÉS de que la reserva ya se creó, o cuando crear_reserva avisó que el email no era válido y el cliente lo escribió de nuevo.",
+        "Guarda el correo del cliente de esta conversación y le manda la confirmación de sus próximas reservas a ese correo. SOLO cuando la reserva YA EXISTE: si el cliente da o corrige su email después de reservar, o crear_reserva devolvió email_no_guardado y lo escribió de nuevo. Si todavía no reservó, NO la uses: pasá el correo en email_cliente de crear_reserva.",
       parameters: {
         type: "object",
         properties: { email: { type: "string", description: "Email del cliente tal como lo escribió." } },
