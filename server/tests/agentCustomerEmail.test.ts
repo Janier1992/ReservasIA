@@ -149,3 +149,13 @@ describe("guardar_email_cliente", () => {
     expect(names(getToolDefinitionsForAgent(config, { previewMode: true }) as never)).not.toContain("guardar_email_cliente");
   });
 });
+
+describe("errores de validación", () => {
+  it("le dicen al modelo qué campo corregir", async () => {
+    const result = await executeTool("crear_reserva", { fecha: "mañana", hora: "10:00", nombre_cliente: "Javier" }, ctx);
+    expect(result.success).toBe(false);
+    expect(result.error_code).toBe("VALIDATION_ERROR");
+    expect(result.message).toMatch(/fecha: fecha debe tener formato YYYY-MM-DD/);
+    expect(result.message).toMatch(/no le digas al cliente/);
+  });
+});
