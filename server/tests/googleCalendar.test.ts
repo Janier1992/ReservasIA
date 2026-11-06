@@ -48,7 +48,7 @@ vi.mock("../src/lib/insforge.js", () => ({
   }
 }));
 
-const { createCalendarEvent, deleteCalendarEvent, handleGoogleOAuthCallback, updateCalendarEvent } = await import(
+const { createCalendarEvent, deleteCalendarEvent, GOOGLE_MISSING_SCOPE, handleGoogleOAuthCallback, updateCalendarEvent } = await import(
   "../src/services/google/googleService.js"
 );
 const { env } = await import("../src/config/env.js");
@@ -201,6 +201,16 @@ describe("conexión con Google vencida", () => {
     });
   });
 
+  it("si al negocio le falta el permiso del calendario (403 de scopes), también pide reconectar", async () => {
+    connectedBusiness();
+    google.insert.mockRejectedValueOnce({
+      message: "Request had insufficient authentication scopes.",
+      response: { status: 403, data: { error: { code: 403, status: "PERMISSION_DENIED" } } }
+    });
+    await expect(createCalendarEvent(reservation())).rejects.toBeTruthy();
+    expect(integrationUpdate()).toMatchObject({ status: "error", metadata: { last_error: "missing_calendar_scope" } });
+  });
+
   it("un error común de Google (por ejemplo, un corte) no marca la integración", async () => {
     connectedBusiness();
     google.insert.mockRejectedValueOnce({ message: "socket hang up", response: { status: 503 } });
@@ -225,7 +235,7 @@ describe("conexión con Google (callback de OAuth)", () => {
     const encoded = Buffer.from(JSON.stringify({ organizationId: "org-1", ts: Date.now() })).toString("base64url");
     const state = `${encoded}.${crypto.createHmac("sha256", env.OAUTH_STATE_SECRET).update(encoded).digest("base64url")}`;
     google.getToken.mockResolvedValue({
-      tokens: { access_token: "a", refresh_token: "r", scope: "calendar", token_type: "Bearer", expiry_date: 1 }
+      tokens: { access_token: "a", refresh_token: "r", scope: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email", token_type: "Bearer", expiry_date: 1 }
     });
     google.userinfo.mockResolvedValue({ data: { email: "negocio@test.local" } });
 
@@ -239,6 +249,16 @@ describe("conexión con Google (callback de OAuth)", () => {
       metadata: { email: "negocio@test.local", calendarId: "primary" }
     });
     expect(decryptCredentials(saved?.credentials as Record<string, unknown>)).toMatchObject({ access_token: "a", refresh_token: "r" });
+  });
+
+  it("no da por conectado un Google sin permiso sobre el calendario", async () => {
+    const encoded = Buffer.from(JSON.stringify({ organizationId: "org-1", ts: Date.now() })).toString("base64url");
+    const state = `${encoded}.${crypto.createHmac("sha256", env.OAUTH_STATE_SECRET).update(encoded).digest("base64url")}`;
+    google.getToken.mockResolvedValue({
+      tokens: { access_token: "a", refresh_token: "r", scope: "https://www.googleapis.com/auth/userinfo.email openid", token_type: "Bearer", expiry_date: 1 }
+    });
+    await expect(handleGoogleOAuthCallback("code-1", state)).rejects.toThrow(GOOGLE_MISSING_SCOPE);
+    expect(savedIntegration()).toBeUndefined();
   });
 
   it("no conecta nada si el state no viene firmado por el servidor", async () => {

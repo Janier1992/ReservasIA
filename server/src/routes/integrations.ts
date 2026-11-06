@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { env } from "../config/env.js";
 import { logger } from "../lib/logger.js";
-import { handleGoogleOAuthCallback } from "../services/google/googleService.js";
+import { GOOGLE_MISSING_SCOPE, handleGoogleOAuthCallback } from "../services/google/googleService.js";
 
 export const integrationsRouter = Router();
 
@@ -29,7 +29,9 @@ integrationsRouter.get("/google/callback", async (req, res) => {
     res.redirect(`${env.APP_URL}/dashboard/integrations?google=connected`);
   } catch (err) {
     // Solo el mensaje: el error de googleapis puede traer la petición con tokens.
-    logger.warn({ reason: err instanceof Error ? err.message : String(err) }, "google_oauth_callback_failed");
-    res.redirect(`${env.APP_URL}/dashboard/integrations?google=error`);
+    const reason = err instanceof Error ? err.message : String(err);
+    logger.warn({ reason }, "google_oauth_callback_failed");
+    const result = reason === GOOGLE_MISSING_SCOPE ? "missing_scope" : "error";
+    res.redirect(`${env.APP_URL}/dashboard/integrations?google=${result}`);
   }
 });
