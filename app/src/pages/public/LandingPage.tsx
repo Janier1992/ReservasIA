@@ -264,8 +264,8 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
-      {/* Portada oscura: siempre igual, en tema claro u oscuro */}
-      <section className="relative isolate overflow-hidden bg-[#120c0a] text-white">
+      {/* Portada: café cálido (no negro) que se funde con el fondo al bajar, en tema claro u oscuro */}
+      <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#4a2a1f] via-[#3a2119] to-[#2e1a14] text-white">
         {HERO_VIDEO_SRC && (
           <video
             aria-hidden
@@ -279,11 +279,14 @@ export function LandingPage() {
           />
         )}
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute -left-40 -top-40 h-[32rem] w-[32rem] animate-blob rounded-full bg-primary/40 blur-[120px] motion-reduce:animate-none" />
+          <div className="absolute -left-40 -top-40 h-[32rem] w-[32rem] animate-blob rounded-full bg-primary/50 blur-[120px] motion-reduce:animate-none" />
           <div
-            className="absolute -right-40 top-40 h-[28rem] w-[28rem] animate-blob rounded-full bg-orange-500/25 blur-[120px] motion-reduce:animate-none"
+            className="absolute -right-40 top-40 h-[28rem] w-[28rem] animate-blob rounded-full bg-orange-400/30 blur-[120px] motion-reduce:animate-none"
             style={{ animationDelay: "-7s" }}
           />
+          <div className="absolute left-1/2 top-1/3 h-[24rem] w-[40rem] -translate-x-1/2 rounded-full bg-amber-300/10 blur-[120px]" />
+          {/* Fundido al color de la página: el paso de la portada al resto no es un corte seco */}
+          <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-b from-transparent to-background" />
         </div>
 
         <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-5">
@@ -392,13 +395,13 @@ export function LandingPage() {
         </section>
 
         {/* El agente */}
-        <section className="relative isolate overflow-hidden bg-[#120c0a] text-white">
-          <div aria-hidden className="absolute -right-32 top-10 -z-10 h-96 w-96 animate-blob rounded-full bg-primary/30 blur-[110px] motion-reduce:animate-none" />
+        <section className="relative isolate overflow-hidden bg-gradient-to-br from-primary/10 via-background to-orange-200/30 dark:to-orange-950/30">
+          <div aria-hidden className="absolute -right-32 top-10 -z-10 h-96 w-96 animate-blob rounded-full bg-primary/20 blur-[110px] motion-reduce:animate-none" />
           <div className="mx-auto grid w-full max-w-6xl items-center gap-14 px-4 py-24 lg:grid-cols-2">
             <Reveal>
               <p className="text-sm font-medium text-primary">Agente con inteligencia artificial</p>
               <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-5xl">Tu mejor recepcionista no duerme</h2>
-              <p className="mt-5 text-lg text-white/70">
+              <p className="mt-5 text-lg text-muted-foreground">
                 Un cliente te escribe a las 11:47 p. m. Sin ReservasIA, mañana ya reservó en otro lado. Con ReservasIA, ya tiene su
                 cita agendada, confirmada y con recordatorio. Y vos, durmiendo.
               </p>
@@ -408,28 +411,28 @@ export function LandingPage() {
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
                       <Check className="h-3 w-3 text-primary-foreground" />
                     </span>
-                    <span className="text-white/85">{point}</span>
+                    <span className="text-foreground/85">{point}</span>
                   </li>
                 ))}
               </ul>
-              <div className="mt-8 flex flex-wrap gap-3 text-xs text-white/60">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1">
+              <div className="mt-8 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/70 px-3 py-1">
                   <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/70 px-3 py-1">
                   <MessageCircle className="h-3.5 w-3.5" /> Telegram
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/70 px-3 py-1">
                   <CalendarDays className="h-3.5 w-3.5" /> Google Calendar
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/70 px-3 py-1">
                   <Mail className="h-3.5 w-3.5" /> Correo
                 </span>
               </div>
             </Reveal>
             <Reveal delayMs={150}>
               <div className="relative">
-                <div aria-hidden className="absolute inset-6 -z-10 rounded-[2rem] bg-primary/40 blur-3xl" />
+                <div aria-hidden className="absolute inset-6 -z-10 rounded-[2rem] bg-primary/25 blur-3xl" />
                 <div className="animate-float motion-reduce:animate-none">
                   <AgentChatDemo />
                 </div>
@@ -653,18 +656,18 @@ export function LandingPage() {
 
         {/* Llamado final */}
         <section className="px-4 pb-24">
-          <Reveal className="relative isolate mx-auto w-full max-w-5xl overflow-hidden rounded-[2rem] bg-[#120c0a] px-6 py-16 text-center text-white sm:px-12">
-            <div aria-hidden className="absolute -left-20 -top-24 -z-10 h-80 w-80 animate-blob rounded-full bg-primary/50 blur-[100px] motion-reduce:animate-none" />
+          <Reveal className="relative isolate mx-auto w-full max-w-5xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#a8402a] via-[#c4553a] to-[#e07a3c] px-6 py-16 text-center text-white shadow-2xl shadow-[#c4553a]/25 sm:px-12">
+            <div aria-hidden className="absolute -left-20 -top-24 -z-10 h-80 w-80 animate-blob rounded-full bg-amber-200/30 blur-[100px] motion-reduce:animate-none" />
             <div
               aria-hidden
-              className="absolute -bottom-24 -right-20 -z-10 h-80 w-80 animate-blob rounded-full bg-orange-500/30 blur-[100px] motion-reduce:animate-none"
+              className="absolute -bottom-24 -right-20 -z-10 h-80 w-80 animate-blob rounded-full bg-[#7a2a17]/40 blur-[100px] motion-reduce:animate-none"
               style={{ animationDelay: "-8s" }}
             />
             <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-5xl">Tu próxima reserva no debería esperar</h2>
-            <p className="mx-auto mt-4 max-w-xl text-white/70">
+            <p className="mx-auto mt-4 max-w-xl text-white/85">
               Creá tu cuenta en minutos y probá ReservasIA completo durante {TRIAL_DAYS} días, gratis.
             </p>
-            <Link to="/register" className={cn(buttonVariants({ size: "lg" }), "mt-8 shadow-[0_0_40px_-8px] shadow-primary")}>
+            <Link to="/register" className={cn(buttonVariants({ size: "lg" }), "mt-8 bg-white text-[#a8402a] shadow-lg hover:bg-white/90")}>
               Crear mi cuenta gratis <ArrowRight className="h-4 w-4" />
             </Link>
           </Reveal>
