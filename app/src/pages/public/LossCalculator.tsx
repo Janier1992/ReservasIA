@@ -99,7 +99,7 @@ export function LossCalculator() {
         </p>
       </div>
 
-      <div className="flex flex-col justify-center rounded-2xl bg-[#120c0a] p-6 text-white" aria-live="polite">
+      <div className="flex flex-col justify-center rounded-2xl bg-gradient-to-br from-[#4a2a1f] to-[#2e1a14] p-6 text-white" aria-live="polite">
         <p className="text-sm text-white/70">Lo que se te puede estar yendo cada mes</p>
         <p className="mt-2 font-display text-4xl font-semibold tabular-nums sm:text-5xl">{formatCop(loss)}</p>
         <p className="mt-1 text-sm text-white/60">
