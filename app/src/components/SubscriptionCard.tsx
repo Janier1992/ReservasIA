@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { daysLeftLabel, subscriptionState } from "@/lib/subscription";
-import { PAYMENT_OPTIONS, VAT_PERCENT_LABEL, formatCop, paymentOptionNote, withVat, type PaymentOption } from "@/lib/pricing";
+import { PAYMENT_OPTIONS, PLAN_NAMES, VAT_PERCENT_LABEL, formatCop, paymentOptionNote, withVat, type PaymentOption, type PlanId } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { env } from "@/lib/env";
 import type { SubscriptionPayment } from "@/types/domain";
@@ -39,7 +39,9 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
   const { memberships, currentRole } = useOrganization();
   const queryClient = useQueryClient();
   const readOnly = currentRole === "staff";
+  const [plan, setPlan] = useState<PlanId>("complete");
   const [optionId, setOptionId] = useState<PaymentOption["id"]>(PAYMENT_OPTIONS[0].id);
+  const planOptions = PAYMENT_OPTIONS.filter((o) => o.plan === plan);
   const selectedOption = PAYMENT_OPTIONS.find((o) => o.id === optionId) ?? PAYMENT_OPTIONS[0];
   const [amount, setAmount] = useState(String(withVat(PAYMENT_OPTIONS[0].amount)));
   const [note, setNote] = useState("");
@@ -54,6 +56,11 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
   useEffect(() => {
     if (location.hash === "#suscripcion") cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [location.hash]);
+
+  function choosePlan(next: PlanId) {
+    setPlan(next);
+    chooseOption(PAYMENT_OPTIONS.find((o) => o.plan === next) ?? PAYMENT_OPTIONS[0]);
+  }
 
   function chooseOption(option: PaymentOption) {
     setOptionId(option.id);
@@ -159,8 +166,25 @@ export function SubscriptionCard({ organizationId }: { organizationId: string })
           {!readOnly && (
             <div className="space-y-3 rounded-md border border-border p-3">
               <fieldset className="space-y-2" disabled={submitting}>
-                <legend className="mb-2 text-sm font-medium">1. Elegí qué vas a pagar</legend>
-                {PAYMENT_OPTIONS.map((option) => (
+                <legend className="mb-2 text-sm font-medium">1. Elegí tu plan y qué vas a pagar</legend>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Plan">
+                  {(Object.keys(PLAN_NAMES) as PlanId[]).map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="radio"
+                      aria-checked={plan === id}
+                      onClick={() => choosePlan(id)}
+                      className={cn(
+                        "rounded-md border p-2 text-left text-xs font-medium transition-colors sm:text-sm",
+                        plan === id ? "border-primary bg-primary/5 text-foreground" : "border-border text-muted-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      {PLAN_NAMES[id]}
+                    </button>
+                  ))}
+                </div>
+                {planOptions.map((option) => (
                   <label
                     key={option.id}
                     className={cn(
