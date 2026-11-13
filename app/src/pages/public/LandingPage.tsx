@@ -37,8 +37,13 @@ import {
   ANNUAL_FREE_MONTHS,
   ANNUAL_MONTHLY_EQUIVALENT_COP,
   ANNUAL_PRICE_COP,
+  MANAGEMENT_ACTIVATION_PRICE_COP,
+  MANAGEMENT_ANNUAL_MONTHLY_EQUIVALENT_COP,
+  MANAGEMENT_ANNUAL_PRICE_COP,
+  MANAGEMENT_MONTHLY_PRICE_COP,
   MONTHLY_PRICE_COP,
   TRIAL_DAYS,
+  UPGRADE_ACTIVATION_DIFFERENCE_COP,
   VAT_PERCENT_LABEL,
   formatCop
 } from "@/lib/pricing";
@@ -123,7 +128,7 @@ const START_STEPS = [
   }
 ];
 
-/** Lo que incluyen los dos planes (todo tiene que existir en el producto). */
+/** Lo que incluye el plan Completo, mensual o anual (todo tiene que existir en el producto). */
 const PLAN_INCLUDES = [
   "Agente con IA en WhatsApp y Telegram, las 24 horas",
   "Panel completo con los módulos de tu rubro",
@@ -132,6 +137,18 @@ const PLAN_INCLUDES = [
   "Usuarios para todo tu equipo",
   "Actualizaciones y arreglo de fallas"
 ];
+
+/** Plan Gestión: el panel sin el agente, para negocios que cargan todo a mano. */
+const MANAGEMENT_INCLUDES = [
+  "Agenda y reservas que cargás vos o tu equipo",
+  "Atención en sitio, ventas del día y medios de pago",
+  "Clientes, servicios, recursos y fichas de tu rubro",
+  "Reportes por período con exportación",
+  "Usuarios para todo tu equipo",
+  "Actualizaciones y arreglo de fallas"
+];
+
+const MANAGEMENT_EXCLUDES = ["Agente de IA en WhatsApp y Telegram", "Recordatorios automáticos por chat"];
 
 /** Lo que suele dar miedo de un software por suscripción, dicho de frente. */
 const NO_SURPRISES = [
@@ -153,11 +170,15 @@ const FAQS = [
   },
   {
     q: "¿Qué pasa cuando termina la prueba?",
-    a: "Elegís el plan mensual o el anual. Si no elegís ninguno, tu cuenta queda en pausa con tus datos guardados: nunca se cobra nada automáticamente."
+    a: "Elegís el plan Completo o el plan Gestión, mensual o anual. Si no elegís ninguno, tu cuenta queda en pausa con tus datos guardados: nunca se cobra nada automáticamente."
   },
   {
     q: "¿Para qué es la activación y puedo pagarla en cuotas?",
     a: `Es un pago único del plan mensual para la puesta en marcha: cargar tus servicios o tu carta y tus horarios, conectar WhatsApp o Telegram y dejar el agente respondiendo como tu negocio. Podés pagarla de una vez (${formatCop(ACTIVATION_PRICE_COP)}) o en ${ACTIVATION_INSTALLMENTS} cuotas de ${formatCop(ACTIVATION_INSTALLMENT_COP)} junto con las primeras mensualidades. En el plan anual no se cobra. Todos los valores son más IVA (${VAT_PERCENT_LABEL}).`
+  },
+  {
+    q: "¿Puedo usar ReservasIA sin el agente de IA?",
+    a: `Sí, con el plan Gestión: ${formatCop(MANAGEMENT_MONTHLY_PRICE_COP)} + IVA al mes, más una activación de ${formatCop(MANAGEMENT_ACTIVATION_PRICE_COP)} + IVA en un solo pago (o ${formatCop(MANAGEMENT_ANNUAL_PRICE_COP)} + IVA al año, sin activación). Usás el panel completo para llevar tu negocio, pero las reservas, atenciones y ventas las cargás vos o tu equipo. Si después querés que el agente atienda por vos, pasás al plan Completo pagando la diferencia de activación (${formatCop(UPGRADE_ACTIVATION_DIFFERENCE_COP)} + IVA).`
   },
   {
     q: "¿Tengo que firmar permanencia?",
@@ -461,7 +482,7 @@ export function LandingPage() {
         <section id="precios" className="mx-auto w-full max-w-6xl scroll-mt-8 px-4 py-24">
           <Reveal className="mx-auto max-w-2xl text-center">
             <p className="text-sm font-medium text-primary">Precios claros</p>
-            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-5xl">Un precio simple, sin letra pequeña.</h2>
+            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-5xl">Precios simples, sin letra pequeña.</h2>
             <p className="mt-4 text-muted-foreground">
               Probás gratis {TRIAL_DAYS} días y después elegís cómo pagar. Precios en pesos colombianos, más IVA ({VAT_PERCENT_LABEL}).
             </p>
@@ -487,7 +508,7 @@ export function LandingPage() {
           <div className="mx-auto mt-6 grid max-w-4xl gap-4 md:grid-cols-2">
             <Reveal className="h-full">
               <div className="flex h-full flex-col rounded-3xl border border-border bg-card p-7">
-                <p className="text-sm font-medium text-muted-foreground">Plan mensual</p>
+                <p className="text-sm font-medium text-muted-foreground">Plan Completo · mensual</p>
                 <p className="mt-3 font-display text-4xl font-semibold">
                   {formatCop(MONTHLY_PRICE_COP)}
                   <span className="text-base font-normal text-muted-foreground"> + IVA /mes</span>
@@ -517,7 +538,7 @@ export function LandingPage() {
                 <span className="absolute -top-3 left-7 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
                   Más conveniente · {ANNUAL_FREE_MONTHS} meses gratis
                 </span>
-                <p className="text-sm font-medium text-primary">Plan anual</p>
+                <p className="text-sm font-medium text-primary">Plan Completo · anual</p>
                 <p className="mt-3 font-display text-4xl font-semibold">
                   {formatCop(ANNUAL_PRICE_COP)}
                   <span className="text-base font-normal text-muted-foreground"> + IVA /año</span>
@@ -546,7 +567,7 @@ export function LandingPage() {
           </div>
 
           <Reveal className="mx-auto mt-6 max-w-4xl rounded-3xl border border-border bg-card p-7">
-            <p className="font-display text-lg font-semibold">Los dos planes incluyen todo</p>
+            <p className="font-display text-lg font-semibold">El plan Completo, mensual o anual, incluye todo</p>
             <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
               {PLAN_INCLUDES.map((item) => (
                 <li key={item} className="flex items-start gap-2">
@@ -554,6 +575,50 @@ export function LandingPage() {
                 </li>
               ))}
             </ul>
+          </Reveal>
+
+          <Reveal className="mx-auto mt-6 max-w-4xl">
+            <div className="rounded-3xl border border-border bg-card p-7">
+              <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+                <div className="md:max-w-sm">
+                  <p className="text-sm font-medium text-muted-foreground">¿No necesitás el agente?</p>
+                  <p className="mt-1 font-display text-2xl font-semibold">Plan Gestión</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    El panel de ReservasIA para llevar el control de tu negocio. Las reservas, atenciones y ventas las cargás vos o tu equipo.
+                  </p>
+                  <p className="mt-4 font-display text-3xl font-semibold">
+                    {formatCop(MANAGEMENT_MONTHLY_PRICE_COP)}
+                    <span className="text-base font-normal text-muted-foreground"> + IVA /mes</span>
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Más una activación de {formatCop(MANAGEMENT_ACTIVATION_PRICE_COP)} + IVA, una sola vez. O{" "}
+                    <strong className="text-foreground">{formatCop(MANAGEMENT_ANNUAL_PRICE_COP)} + IVA al año</strong>, sin activación (equivale a{" "}
+                    {formatCop(MANAGEMENT_ANNUAL_MONTHLY_EQUIVALENT_COP)} al mes).
+                  </p>
+                </div>
+                <div className="flex-1 md:max-w-sm">
+                  <ul className="space-y-2 text-sm">
+                    {MANAGEMENT_INCLUDES.map((item) => (
+                      <li key={item} className="flex items-start gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {item}
+                      </li>
+                    ))}
+                    {MANAGEMENT_EXCLUDES.map((item) => (
+                      <li key={item} className="flex items-start gap-2 text-muted-foreground line-through decoration-muted-foreground/50">
+                        <span className="mt-0.5 inline-block h-4 w-4 shrink-0 text-center leading-4">–</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    Cuando quieras que el agente atienda por vos, pasás al plan Completo pagando solo la diferencia de activación (
+                    {formatCop(UPGRADE_ACTIVATION_DIFFERENCE_COP)} + IVA).
+                  </p>
+                  <Link to="/register" className={cn(buttonVariants({ variant: "outline" }), "mt-5 w-full")}>
+                    Probar gratis
+                  </Link>
+                </div>
+              </div>
+            </div>
           </Reveal>
 
           <Reveal className="mx-auto mt-6 grid max-w-4xl gap-3 text-sm sm:grid-cols-3">
