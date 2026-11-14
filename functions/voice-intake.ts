@@ -152,7 +152,8 @@ export default async function handler(req: Request): Promise<Response> {
   try {
     raw = text ? JSON.parse(text) : {};
   } catch {
-    console.error("voice_intake_bad_json", text);
+    // Solo el largo: el texto es lo que dictó el negocio y puede traer datos de clientes.
+    console.error("voice_intake_bad_json", { length: text?.length ?? 0 });
     return errorResponse("VOICE_UNAVAILABLE", "No se entendió la respuesta de Gemini. Intentá de nuevo.", 502);
   }
 

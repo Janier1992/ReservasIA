@@ -134,7 +134,7 @@ async function getAuthorizedClient(organizationId: string) {
   client.on("tokens", (tokens) => {
     const merged = { ...integration.credentials, ...tokens };
     persistCredentials(organizationId, merged, integration.metadata, "connected").catch((err) =>
-      logger.warn({ organizationId, err }, "google_token_refresh_persist_failed")
+      logger.warn({ organizationId, err: err instanceof Error ? err.message : String(err) }, "google_token_refresh_persist_failed")
     );
   });
 
