@@ -4,6 +4,7 @@ import { reportFailure } from "../../lib/alerts.js";
 import { AppError, ErrorCodes, mapPostgresErrorMessage } from "../../utils/AppError.js";
 import type { Reservation } from "../../types/domain.js";
 import { createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from "../google/googleService.js";
+import { googleErrorSummary } from "../google/googleErrors.js";
 import { notifyNewReservation } from "../notifications/pushService.js";
 import { sendReservationEmail } from "../notifications/reservationEmailService.js";
 
@@ -57,7 +58,7 @@ export async function announceCreatedReservation(reservation: Reservation): Prom
     }
   } catch (googleError) {
     logger.warn(
-      { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },
+      { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleErrorSummary(googleError) },
       "google_calendar_sync_failed_on_create"
     );
     reportFailure("google_calendar", googleError);
@@ -79,7 +80,7 @@ export async function announceReservationToNewEmail(reservation: Reservation): P
     return true;
   } catch (googleError) {
     logger.warn(
-      { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },
+      { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleErrorSummary(googleError) },
       "google_calendar_sync_failed_on_new_email"
     );
     reportFailure("google_calendar", googleError);
@@ -95,7 +96,7 @@ export async function announceCancelledReservation(reservation: Reservation): Pr
     await deleteCalendarEvent(reservation.organization_id, reservation.google_event_id, { notifyCustomer: !emailed });
   } catch (googleError) {
     logger.warn(
-      { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },
+      { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleErrorSummary(googleError) },
       "google_calendar_sync_failed_on_cancel"
     );
     reportFailure("google_calendar", googleError);
@@ -182,7 +183,7 @@ export async function rescheduleReservation(
       await updateCalendarEvent(reservation, { notifyCustomer: !emailed });
     } catch (googleError) {
       logger.warn(
-        { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleError },
+        { organizationId: reservation.organization_id, reservationId: reservation.id, err: googleErrorSummary(googleError) },
         "google_calendar_sync_failed_on_reschedule"
       );
       reportFailure("google_calendar", googleError);

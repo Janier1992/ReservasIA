@@ -48,6 +48,7 @@ vi.mock("../src/lib/insforge.js", () => ({
   }
 }));
 
+const { googleErrorSummary } = await import("../src/services/google/googleErrors.js");
 const { createCalendarEvent, deleteCalendarEvent, GOOGLE_MISSING_SCOPE, handleGoogleOAuthCallback, updateCalendarEvent } = await import(
   "../src/services/google/googleService.js"
 );
@@ -264,5 +265,18 @@ describe("conexión con Google (callback de OAuth)", () => {
   it("no conecta nada si el state no viene firmado por el servidor", async () => {
     await expect(handleGoogleOAuthCallback("code-1", "falso.firma")).rejects.toThrow("Estado de OAuth inválido");
     expect(google.getToken).not.toHaveBeenCalled();
+  });
+});
+
+describe("lo que se registra de un error de Google", () => {
+  it("no incluye la petición: ni el correo del cliente ni el token", () => {
+    const err = {
+      message: "Request had insufficient authentication scopes.",
+      config: { headers: { Authorization: "Bearer ya29.secreto" }, data: { attendees: [{ email: "cliente@test.local" }] } },
+      response: { status: 403, data: { error: { status: "PERMISSION_DENIED", errors: [{ reason: "insufficientPermissions" }] } } }
+    };
+    const summary = googleErrorSummary(err);
+    expect(summary).toEqual({ message: "Request had insufficient authentication scopes.", status: 403, reason: "insufficientPermissions" });
+    expect(JSON.stringify(summary)).not.toMatch(/cliente@test|ya29/);
   });
 });

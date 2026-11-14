@@ -75,7 +75,8 @@ export async function checkIntegrationCredentials(): Promise<CredentialsCheckSum
     if (readable) {
       summary.readable++;
       if (row.status === "error" && markedUnreadable) {
-        const { last_error: _cleared, ...rest } = metadata;
+        const rest = { ...metadata };
+        delete rest.last_error;
         await insforgeAdmin.database.from("integrations").update({ status: "connected", metadata: rest }).eq("id", row.id);
         summary.restored++;
       }
