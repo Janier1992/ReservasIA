@@ -56,7 +56,7 @@ const dateField = (name: string) => z.preprocess(normalizeDate, z.string().regex
 const timeField = (name: string) => z.preprocess(normalizeTime, z.string().regex(/^\d{2}:\d{2}$/, `${name} debe tener formato HH:mm (24 horas)`));
 const countField = (max: number, min = 1) => optional(z.preprocess(toNumber, z.number().int().min(min).max(max)));
 const uuidField = (name: string) =>
-  optional(z.string().uuid(`${name} debe ser el id exacto que devolvió consultar_servicios (no el nombre)`));
+  optional(z.guid(`${name} debe ser el id exacto que devolvió consultar_servicios (no el nombre)`));
 
 export const consultarDisponibilidadSchema = z.object({
   fecha: dateField("fecha"),
@@ -115,16 +115,16 @@ export function normalizeEmail(raw: string | null | undefined): string | null {
 }
 
 export const cancelarReservaSchema = z.object({
-  reservation_id: z.string().uuid("reservation_id debe ser el id que devolvió consultar_reservas_cliente")
+  reservation_id: z.guid("reservation_id debe ser el id que devolvió consultar_reservas_cliente")
 });
 
 export const reprogramarReservaSchema = z.object({
-  reservation_id: z.string().uuid("reservation_id debe ser el id que devolvió consultar_reservas_cliente"),
+  reservation_id: z.guid("reservation_id debe ser el id que devolvió consultar_reservas_cliente"),
   nueva_fecha: dateField("nueva_fecha"),
   nueva_hora: timeField("nueva_hora")
 });
 
-const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCompletionTool> = {
+const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCompletionFunctionTool> = {
   [ToolName.ConsultarDisponibilidad]: {
     type: "function",
     function: {
@@ -264,7 +264,7 @@ const ALL_TOOL_DEFINITIONS: Record<ToolNameType, OpenAI.Chat.Completions.ChatCom
  * obligatorios en el esquema que ve el modelo. Si el negocio no configuró
  * servicios/recursos, se dejan opcionales como antes.
  */
-function buildCrearReservaTool(hasServices: boolean, hasResources: boolean): OpenAI.Chat.Completions.ChatCompletionTool {
+function buildCrearReservaTool(hasServices: boolean, hasResources: boolean): OpenAI.Chat.Completions.ChatCompletionFunctionTool {
   const base = ALL_TOOL_DEFINITIONS[ToolName.CrearReserva];
   const required = [...(base.function.parameters!.required as string[])];
   if (hasServices) required.push("service_id");
@@ -287,7 +287,7 @@ function buildCrearReservaTool(hasServices: boolean, hasResources: boolean): Ope
 export function getToolDefinitionsForAgent(
   agentConfig: AgentConfig,
   options?: { previewMode?: boolean; hasServices?: boolean; hasResources?: boolean }
-): OpenAI.Chat.Completions.ChatCompletionTool[] {
+): OpenAI.Chat.Completions.ChatCompletionFunctionTool[] {
   const names: ToolNameType[] = [
     ToolName.ObtenerInfoNegocio,
     ToolName.ConsultarServicios,

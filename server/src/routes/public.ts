@@ -52,7 +52,7 @@ const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 // Sin serviceId: "otro servicio" que el cliente describe (duración por defecto del negocio).
 const availabilityQuerySchema = z.object({
-  serviceId: z.string().uuid().optional(),
+  serviceId: z.guid().optional(),
   date: dateSchema
 });
 
@@ -60,7 +60,7 @@ const MAX_CUSTOM_SERVICE_LENGTH = 120;
 
 const bookingBodySchema = z
   .object({
-    serviceId: z.string().uuid().optional(),
+    serviceId: z.guid().optional(),
     // Lo que el cliente necesita cuando no está en la lista de servicios.
     customService: z.string().trim().min(3).max(MAX_CUSTOM_SERVICE_LENGTH).optional(),
     date: dateSchema,
@@ -82,7 +82,7 @@ const bookingBodySchema = z
   .refine((b) => !!b.serviceId !== !!b.customService, { message: "Elegí un servicio o describí lo que necesitás.", path: ["serviceId"] });
 
 const orderItemSchema = z.object({
-  serviceId: z.string().uuid(),
+  serviceId: z.guid(),
   quantity: z.number().int().min(1).max(MAX_ITEM_QUANTITY),
   // Para quién es cada unidad (opcional).
   forNames: z.array(z.string().max(MAX_FOR_NAME_LENGTH)).max(MAX_ITEM_QUANTITY).optional()
@@ -106,7 +106,7 @@ const orderBodySchema = z
     customItems: z.array(customItemSchema).max(MAX_CUSTOM_ITEMS).optional(),
     // Formato anterior (un solo producto): lo sigue mandando una pestaña
     // abierta antes de desplegar el carrito.
-    serviceId: z.string().uuid().optional(),
+    serviceId: z.guid().optional(),
     name: z.string().trim().min(2).max(80),
     phone: z
       .string()

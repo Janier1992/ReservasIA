@@ -12,7 +12,9 @@ import type { RawBodyRequest } from "../app.js";
 
 export const webhooksRouter = Router();
 
-const telegramParamsSchema = z.object({ organizationId: z.string().uuid() });
+// z.guid() y no z.uuid(): zod 4 exige la variante RFC y los negocios de
+// demostración tienen ids que no la cumplen (22222222-2222-2222-…).
+const telegramParamsSchema = z.object({ organizationId: z.guid() });
 
 /**
  * Webhook de Telegram (modo TELEGRAM_MODE=webhook): una URL por negocio y un
@@ -52,7 +54,7 @@ webhooksRouter.post("/telegram/:organizationId", async (req, res, next) => {
   }
 });
 
-const ycloudParamsSchema = z.object({ organizationId: z.string().uuid() });
+const ycloudParamsSchema = z.object({ organizationId: z.guid() });
 
 /**
  * Webhook de YCloud (WhatsApp en coexistencia con la app del negocio): una

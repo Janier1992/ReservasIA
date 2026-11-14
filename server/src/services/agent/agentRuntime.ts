@@ -165,7 +165,7 @@ export function mapHistoryToOpenAiMessages(rows: Message[]): OpenAI.Chat.Complet
     }
 
     if (row.role === "assistant" || row.role === "staff") {
-      const toolCalls = row.metadata?.tool_calls as OpenAI.Chat.Completions.ChatCompletionMessageToolCall[] | undefined;
+      const toolCalls = row.metadata?.tool_calls as OpenAI.Chat.Completions.ChatCompletionMessageFunctionToolCall[] | undefined;
 
       if (toolCalls && toolCalls.length > 0) {
         let j = i + 1;
@@ -364,8 +364,13 @@ async function runAgentTurnInternal(params: RunAgentTurnParams): Promise<RunAgen
       // modelo ya decidió pedirlas juntas), así que se ejecutan en paralelo
       // en vez de una por una — evita que varias llamadas a la BD/Google
       // Calendar se sumen secuencialmente a la latencia del turno.
+      // Solo se le ofrecen herramientas de tipo función: cualquier otra
+      // (las "custom" que agregó la API) no se ejecuta.
+      const functionToolCalls = responseMessage.tool_calls.filter(
+        (call): call is OpenAI.Chat.Completions.ChatCompletionMessageFunctionToolCall => call.type === "function"
+      );
       const toolRunResults = await Promise.all(
-        responseMessage.tool_calls.map(async (toolCall) => {
+        functionToolCalls.map(async (toolCall) => {
           const toolStart = Date.now();
           let parsedArgs: unknown = {};
           try {
