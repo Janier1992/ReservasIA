@@ -121,6 +121,7 @@ export async function runScenario(client: ChatClient, model: string, scenario: E
       if (message?.tool_calls?.length) {
         messages.push({ role: "assistant", content: message.content, tool_calls: message.tool_calls });
         for (const call of message.tool_calls) {
+          if (call.type !== "function") continue;
           usedTools.push(call.function.name);
           const output = JSON.stringify(runStubTool(call.function.name, call.function.arguments, data, now));
           toolOutputs.push(output);

@@ -57,7 +57,7 @@ export function ReservationFormDialog({
     control,
     watch,
     formState: { errors, isSubmitting }
-  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { weeks: 4 } });
+  } = useForm<z.input<typeof schema>, unknown, FormValues>({ resolver: zodResolver(schema), defaultValues: { weeks: 4 } });
   const repeatWeekly = watch("repeatWeekly");
   const needsHealthConsent = requiresHealthDataConsent(businessType);
 
