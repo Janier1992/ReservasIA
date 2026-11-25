@@ -9,6 +9,7 @@
 // la intención pero esta función es la que realmente escribe). Después
 // registra el reporte de pago y avisa a soporte por correo.
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
+import { sendEmail } from "./_shared/mailer.ts";
 
 const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME_EXTENSIONS: Record<string, string> = {
@@ -122,14 +123,14 @@ export default async function handler(req: Request): Promise<Response> {
     .maybeSingle();
 
   try {
-    await admin.emails.send({
+    await sendEmail(admin, {
       to: SUPPORT_EMAIL,
       subject: `Nuevo pago reportado: ${profile?.name ?? organizationId}`,
       html: `<p>El negocio <strong>${profile?.name ?? organizationId}</strong> reportó un pago de suscripción.</p>
         <p>Monto informado: ${amount ?? "no especificado"}</p>
         <p>Nota: ${note ?? "—"}</p>
         <p>Revisalo y confirmalo desde el panel de soporte.</p>`
-    });
+    }, "submit_subscription_payment_email_failed");
   } catch (err) {
     // Best-effort: el pago ya quedó registrado y visible en /soporte aunque
     // el correo falle — no bloquea el flujo principal.

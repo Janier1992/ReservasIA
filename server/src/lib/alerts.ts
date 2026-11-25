@@ -1,6 +1,6 @@
 import { env } from "../config/env.js";
-import { insforgeAdmin } from "./insforge.js";
 import { logger } from "./logger.js";
+import { sendEmail } from "./mailer.js";
 
 /**
  * Aviso por correo cuando algo empieza a fallar seguido, para enterarse
@@ -58,8 +58,8 @@ async function sendAlertEmail(kind: string, count: number, lastError: string): P
 <p>${count === 1 ? "Pasó recién." : `Pasó ${count} veces en los últimos ${ALERT_WINDOW_MS / 60_000} minutos.`}</p>
 <p>Último error: <code>${escapeHtml(lastError)}</code></p>
 <p>Revisá los logs del compute service en Railway (buscá el tipo <code>${escapeHtml(kind)}</code>). Si sigue fallando, no vas a recibir otro aviso de este tipo durante la próxima hora.</p>`;
-  const { error } = await insforgeAdmin.emails.send({ to: recipients, subject: `[ReservasIA] Alerta: ${label}`, html });
-  if (error) logger.warn({ kind, err: error }, "alert_email_failed");
+  const result = await sendEmail({ to: recipients, subject: `[ReservasIA] Alerta: ${label}`, html });
+  if (!result.ok) logger.warn({ kind, provider: result.provider, reason: result.error }, "alert_email_failed");
 }
 
 /**

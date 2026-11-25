@@ -1,5 +1,6 @@
 import { env } from "../../config/env.js";
 import { insforgeAdmin } from "../../lib/insforge.js";
+import { sendEmail } from "../../lib/mailer.js";
 import { logger } from "../../lib/logger.js";
 import { reportFailure } from "../../lib/alerts.js";
 import type { Reservation } from "../../types/domain.js";
@@ -70,12 +71,13 @@ export async function sendReservationEmail(reservation: Reservation, kind: Reser
 
     // Si el cliente responde el correo, le llega al negocio (no a la plataforma).
     const replyTo = p?.email?.trim() || undefined;
-    const { error } = await insforgeAdmin.emails.send({ to: c.email, subject, html, replyTo });
-    if (error) {
-      logger.warn({ reservationId: reservation.id, kind, err: error }, "reservation_email_failed");
-      reportFailure("reservation_email", new Error((error as { message?: string }).message ?? "InsForge no envió el correo"));
+    const result = await sendEmail({ to: c.email, subject, html, replyTo });
+    if (!result.ok) {
+      logger.warn({ reservationId: reservation.id, kind, provider: result.provider, reason: result.error }, "reservation_email_failed");
+      reportFailure("reservation_email", new Error(`${result.provider}: ${result.error}`));
       return false;
     }
+    logger.info({ reservationId: reservation.id, kind, provider: result.provider }, "reservation_email_sent");
     return true;
   } catch (err) {
     logger.warn({ reservationId: reservation.id, kind, err }, "reservation_email_failed");

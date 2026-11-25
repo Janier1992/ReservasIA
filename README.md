@@ -24,6 +24,7 @@ interfaz es responsiva.
 - [Configurar Telegram (canal recomendado, gratis)](#configurar-telegram-canal-recomendado-gratis)
 - [Configurar WhatsApp Business (YCloud)](#configurar-whatsapp-business-ycloud)
 - [Configurar Google Calendar](#configurar-google-calendar)
+- [Configurar el envío de correos (Brevo)](#configurar-el-envío-de-correos-brevo)
 - [Moneda y localización](#moneda-y-localización)
 - [PWA — instalación en celular/escritorio](#pwa--instalación-en-celularescritorio)
 - [Notificaciones push](#notificaciones-push)
@@ -544,6 +545,25 @@ invitación por correo — si acepta, le queda guardado en su propio calendario.
    `organization_id`, nunca en una fila global).
 
 ---
+
+## Configurar el envío de correos (Brevo)
+
+Las confirmaciones de reserva (crear, reprogramar, cancelar), las alertas a `ALERT_EMAIL` y los avisos de pago de
+suscripción salen por **Brevo** cuando está configurado (`server/src/lib/mailer.ts` y
+`functions/_shared/mailer.ts`). Sin Brevo se intenta con `insforge.emails.send`, que en el plan gratis de InsForge
+no envía correos propios. Se usa la API web (HTTPS) y no SMTP porque Railway bloquea SMTP en sus planes básicos.
+
+1. Crear la cuenta gratis en [brevo.com](https://www.brevo.com) (300 correos por día).
+2. **Senders, Domains & Dedicated IPs → Senders → Add a sender**: el correo que verá el cliente como remitente
+   (por ejemplo, un Gmail del proyecto). Brevo manda un código a ese correo para verificarlo.
+3. **SMTP & API → API Keys → Generate a new API key**.
+4. En **Railway** (server): `BREVO_API_KEY`, `MAIL_FROM_EMAIL` (el remitente verificado) y, opcional,
+   `MAIL_FROM_NAME`.
+5. En **InsForge → Secrets**, las mismas tres, para las Edge Functions de pagos de suscripción.
+
+Cada envío deja en el log `reservation_email_sent` o `reservation_email_failed` con el proveedor y el motivo
+(sin el correo del cliente). Con un Gmail como remitente, algunos correos pueden caer en spam; con dominio propio
+(SPF y DKIM configurados en Brevo) llegan mejor.
 
 ## Moneda y localización
 
