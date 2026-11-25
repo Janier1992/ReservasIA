@@ -4,6 +4,7 @@
 // vencimiento — todo en un solo paso ("sin pausas", como pidió el
 // usuario), y avisa al negocio por correo.
 import { createAdminClient, createClient } from "npm:@insforge/sdk";
+import { sendEmail } from "./_shared/mailer.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -115,11 +116,11 @@ export default async function handler(req: Request): Promise<Response> {
              <p>Gracias por confiar en nosotros.</p>`
           : `<p>Hola, revisamos el comprobante de pago que enviaste para <strong>${profile?.name ?? "tu negocio"}</strong> y no pudimos confirmarlo.</p>
              <p>Por favor contactanos respondiendo este correo para resolverlo.</p>`;
-      await admin.emails.send({
+      await sendEmail(admin, {
         to: ownerEmail,
         subject: action === "confirm" ? "Pago confirmado — ReservasIA" : "No pudimos confirmar tu pago — ReservasIA",
         html
-      });
+      }, "confirm_subscription_payment_email_failed");
     } catch (err) {
       console.error("confirm_subscription_payment_email_failed", err);
     }

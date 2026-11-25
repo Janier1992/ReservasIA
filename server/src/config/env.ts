@@ -43,6 +43,14 @@ const envSchema = z.object({
   // empieza a fallar seguido (ver lib/alerts.ts). Vacío = solo quedan en el log.
   ALERT_EMAIL: z.string().optional().default(""),
 
+  // Envío de correos por Brevo (API web). Con la clave y el remitente, las
+  // confirmaciones de reserva y las alertas salen por Brevo; sin ellos se
+  // intenta con InsForge (que no envía correos propios en el plan gratis).
+  // MAIL_FROM_EMAIL tiene que estar verificado como remitente en Brevo.
+  BREVO_API_KEY: z.string().optional().default(""),
+  MAIL_FROM_EMAIL: z.string().optional().default(""),
+  MAIL_FROM_NAME: z.string().optional().default("ReservasIA"),
+
   // "true" en el .env LOCAL: no arranca el poller de Telegram ni los
   // schedulers. Si no, un server local con las credenciales de producción
   // lee los mismos bots que Railway (Telegram entrega cada mensaje a ambos) —
