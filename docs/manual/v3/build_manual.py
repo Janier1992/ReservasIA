@@ -7,9 +7,11 @@ Conserva las páginas originales (diseño y textos) y:
     (secciones-12-21-novedades.html), con lo que se sumó al panel;
   - reemplaza la sección de WhatsApp con Twilio por la 23, WhatsApp Business con
     YCloud (seccion-23-whatsapp-ycloud.html);
-  - inserta después de la 23 la sección 24, página de presentación, precios y
-    suscripción (seccion-24-presentacion-y-precios.html), que termina con el
-    comienzo de la 25 (seguridad);
+  - inserta después del índice la sección 0, la página de presentación (landing),
+    los planes y los precios (seccion-00-presentacion.html): el manual arranca por
+    donde llega cada negocio;
+  - inserta después de la 23 la sección 24, suscripción y pagos
+    (seccion-24-suscripcion.html), que termina con el comienzo de la 25 (seguridad);
   - renumera las secciones originales 12 y 15 a 17 como 22 y 26 a 28 y corrige
     las menciones a Twilio y la versión;
   - la 26 deja de llamarse "Planes y precios sugeridos" (son comparables de
@@ -18,10 +20,10 @@ Conserva las páginas originales (diseño y textos) y:
 Uso (necesita PyMuPDF y la fuente Inter instalada), desde docs/manual/v3:
     1. Imprimir cada HTML a PDF con Chrome sin encabezados, por ejemplo:
        chrome --headless --no-pdf-header-footer --print-to-pdf=indice.pdf indice.html
-       (igual con secciones-12-21-novedades.html, seccion-23-whatsapp-ycloud.html y
-       seccion-24-presentacion-y-precios.html)
-    2. python build_manual.py manual-base-v2.pdf indice.pdf secciones-12-21-novedades.pdf \
-           seccion-23-whatsapp-ycloud.pdf seccion-24-presentacion-y-precios.pdf ../Manual-de-usuario-ReservasIA-v4.pdf
+       (igual con seccion-00-presentacion.html, secciones-12-21-novedades.html,
+       seccion-23-whatsapp-ycloud.html y seccion-24-suscripcion.html)
+    2. python build_manual.py manual-base-v2.pdf indice.pdf seccion-00-presentacion.pdf secciones-12-21-novedades.pdf \
+           seccion-23-whatsapp-ycloud.pdf seccion-24-suscripcion.pdf ../Manual-de-usuario-ReservasIA-v4.pdf
 """
 
 import sys
@@ -148,7 +150,7 @@ def patch_original(base: pymupdf.Document) -> None:
         security,
         pymupdf.Rect(42, intro.y0 - 1, 570.7, intro_end.y1 + 6),
         f'<p style="font-size:12.5pt;line-height:18.7pt;color:{muted};text-align:justify">Referencia de mercado que se usó al fijar los '
-        "precios. Los planes sugeridos de abajo quedan como antecedente: los precios vigentes de ReservasIA están en la sección 24.</p>",
+        "precios. Los planes sugeridos de abajo quedan como antecedente: los precios vigentes de ReservasIA están en la sección 0.</p>",
     )
 
     plans = base[24]
@@ -206,10 +208,14 @@ def with_background(path: str) -> pymupdf.Document:
     return doc
 
 
-def main(base_path: str, index_path: str, news_path: str, whatsapp_path: str, landing_path: str, out_path: str) -> None:
+def main(
+    base_path: str, index_path: str, landing_path: str, news_path: str, whatsapp_path: str, subscription_path: str, out_path: str
+) -> None:
     base = pymupdf.open(base_path)
     patch_original(base)
-    index, news, whatsapp, landing = (with_background(p) for p in (index_path, news_path, whatsapp_path, landing_path))
+    index, landing, news, whatsapp, subscription = (
+        with_background(p) for p in (index_path, landing_path, news_path, whatsapp_path, subscription_path)
+    )
 
     out = pymupdf.open()
     new_pages = set()
@@ -223,16 +229,17 @@ def main(base_path: str, index_path: str, news_path: str, whatsapp_path: str, la
 
     add(base, 0, 0)
     add(index, is_new=True)
+    add(landing, is_new=True)
     add(base, 2, LAST_PAGE_SECTION_11)
     add(news, is_new=True)
     add(base, TELEGRAM_PAGE, TELEGRAM_PAGE)
     add(whatsapp, is_new=True)
-    add(landing, is_new=True)
+    add(subscription, is_new=True)
     add(base, OLD_WHATSAPP_PAGE + 1)
 
     for i in range(1, out.page_count):
-        if i in new_pages or i >= LAST_PAGE_SECTION_11 + 1:
-            stamp_header(out[i], i + 1, with_title=i in new_pages)
+        # Todas: la sección 0 va antes de las páginas originales y corre su numeración.
+        stamp_header(out[i], i + 1, with_title=i in new_pages)
 
     out.set_metadata({**base.metadata, "title": "ReservasIA: manual de usuario (v4)"})
     out.subset_fonts()
@@ -241,4 +248,4 @@ def main(base_path: str, index_path: str, news_path: str, whatsapp_path: str, la
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:7])
+    main(*sys.argv[1:8])

@@ -24,16 +24,18 @@ rows = [
  ("Configuración avanzada y reportes", "Nequi, avisos, Google Calendar y CSV", 1),
  ("Cómo se conecta Telegram", "Paso a paso, canal activo hoy", 0),
  ("WhatsApp Business con YCloud", "Paso a paso, recordatorios y “Avisame”", 1),
- ("Presentación, precios y suscripción", "Página pública, planes y pago", 1),
+ ("Suscripción y pagos", "Pagar el plan desde el panel", 1),
  ("Seguridad y privacidad", "Aislamiento de datos por negocio", 0),
  ("Comparables de mercado", "Referencia usada al fijar precios", 0),
  ("Preguntas frecuentes", "Dudas típicas de un dueño de negocio", 0),
  ("Referencias", "Fuentes citadas en normas APA", 0),
 ]
 NEW = ' <span class="new">Nuevo</span>'
+# La sección 0 va primero: el manual arranca por la página de presentación (landing).
+START = ("Empezá por acá: la página de presentación", "Landing, planes y precios", 1)
 items = "\n".join(
     f'<div class="row"><b>{i:02d}</b><span class="t">{t}{NEW if n else ""}</span><span class="d">{d}</span></div>'
-    for i, (t, d, n) in enumerate(rows, 1))
+    for i, (t, d, n) in enumerate([START, *rows], 0))
 head = """<!doctype html>
 <html lang="es">
 <head>
